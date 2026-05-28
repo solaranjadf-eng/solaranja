@@ -1562,14 +1562,24 @@ function fotoSelecionada(){
 function confirmarEntrega(){
   if(fotoEntregaIdx===null)return;
   const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  const idx=fotoEntregaIdx;
-  const pedidoId=pedidos[idx].id;
+
+  // Determinar se é pedido de ontem ou hoje
+  let pedido=null;
+  if(typeof fotoEntregaIdx==='string'&&fotoEntregaIdx.startsWith('ontem_')){
+    const idx=parseInt(fotoEntregaIdx.replace('ontem_',''));
+    pedido=pedidosOntem[idx];
+  }else{
+    pedido=pedidos[fotoEntregaIdx];
+  }
+  if(!pedido)return;
+
+  const pedidoId=pedido.id;
   const foto=fotoBase64||null;
 
-  // Atualizar objeto direto no array
-  pedidos[idx].entregue=true;
-  pedidos[idx].horaEntrega=hora;
-  if(foto) pedidos[idx].foto=foto;
+  // Atualizar objeto direto
+  pedido.entregue=true;
+  pedido.horaEntrega=hora;
+  if(foto) pedido.foto=foto;
 
   // Limpar e fechar modal
   fotoEntregaIdx=null;
@@ -1578,8 +1588,8 @@ function confirmarEntrega(){
   try{document.getElementById('foto-input').value='';}catch(e){}
   try{document.getElementById('foto-preview').style.display='none';}catch(e){}
 
-  // Salvar backup local com estado atualizado
-  lsave('slj_ped_bk', pedidos);
+  // Salvar backup local
+  lsave('slj_ped_bk',pedidos);
 
   // Atualizar UI imediatamente
   atualizarBadges();
@@ -1747,10 +1757,38 @@ function dragDrop(e){
   arr.splice(arr.indexOf(parseInt(targetId)),0,moved);
   rotaOrdem=arr;renderRota();
 }
-async function toggleRotaCheck(id){
-  const i=pedidos.findIndex(p=>p.id===id);if(i===-1)return;
-  if(!pedidos[i].entregue)abrirFoto(i);
-  else{pedidos[i].entregue=false;pedidos[i].horaEntrega=null;try{await sbPatch('pedidos',`?id=eq.${id}`,{entregue:false,hora_entrega:null});}catch(e){}renderRota();}
+function toggleRotaCheck(id){
+  // Buscar em pedidosOntem primeiro (rota usa ontem), depois em pedidos
+  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
+  const i=listaRota.findIndex(p=>p.id===id);
+  if(i===-1)return;
+  if(!listaRota[i].entregue){
+    // Abrir modal de foto — precisa do índice no array correto
+    abrirFotoRota(id);
+  }else{
+    listaRota[i].entregue=false;
+    listaRota[i].horaEntrega=null;
+    lsave('slj_ped_bk',pedidos);
+    renderRota();
+    sbPatch('pedidos',`?id=eq.${id}`,{entregue:false,hora_entrega:null}).catch(()=>{});
+  }
+}
+
+function abrirFotoRota(pedidoId){
+  // Encontrar índice real no array correto
+  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
+  const pedido=listaRota.find(p=>p.id===pedidoId);
+  if(!pedido)return;
+  // Usar idx especial para rota
+  fotoEntregaIdx=pedidos.indexOf(pedido);
+  if(fotoEntregaIdx===-1){
+    // Pedido está em pedidosOntem, não em pedidos — guardar referência diferente
+    fotoEntregaIdx='ontem_'+pedidosOntem.indexOf(pedido);
+  }
+  fotoBase64=null;
+  document.getElementById('foto-preview').style.display='none';
+  document.getElementById('btn-confirmar-entrega').disabled=false;
+  document.getElementById('modal-foto').classList.add('open');
 }
 function imprimirRota(){
   if(!pedidos.length){toast('Nenhum pedido hoje.');return;}
