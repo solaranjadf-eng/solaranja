@@ -2336,9 +2336,12 @@ function entrarEntregador(){
   perfilAtual='entregador';
   localStorage.setItem('slj_perfil_sessao','entregador');
   document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('perfil-badge').textContent='Entregador';
+  document.getElementById('perfil-badge').textContent='Entregador 🚚';
   document.getElementById('perfil-badge').style.background='rgba(255,255,255,.15)';
-  document.querySelectorAll('.tabs').forEach(t=>t.style.display='none');
+  // Mostrar apenas aba Rota
+  document.querySelectorAll('.tabs .tab').forEach((t,i)=>{
+    t.style.display = i===3 ? '' : 'none';
+  });
   iniciarSistemaEntregador();
 }
 
@@ -2346,6 +2349,7 @@ function fazerLogout(){
   perfilAtual=null;
   localStorage.setItem('slj_perfil_sessao','');
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='';});
+  document.querySelectorAll('.tabs .tab').forEach(t=>t.style.display='');
   document.querySelectorAll('.tabs').forEach(t=>t.style.display='');
   document.getElementById('login-screen').classList.remove('hidden');
   chartFatCustos=destroyChart(chartFatCustos);
@@ -2366,19 +2370,17 @@ function iniciarSistema(){
 }
 
 function iniciarSistemaEntregador(){
-  // Carregar dados e mostrar apenas rota
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
   pedidos=load('slj_ped_bk',[]);
   document.getElementById('loading').classList.add('hidden');
-  // Mostrar página entregador
+  // Ir direto para aba Rota
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  const ep=document.getElementById('page-entregador');
-  ep.style.display='block';ep.classList.add('active');
-  document.getElementById('ent-data-label').textContent=
-    hoje.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
-  renderEntregador();
-  // Sincronizar em background
-  sincronizar().then(()=>renderEntregador());
+  document.getElementById('page-rota').classList.add('active');
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active', i===3);
+  });
+  renderRota();
+  sincronizar().then(()=>renderRota());
 }
 
 function renderEntregador(){
@@ -2437,9 +2439,11 @@ async function entregadorConfirmarEntrega(i){
   } else if(sessao==='entregador'){
     perfilAtual='entregador';
     document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('perfil-badge').textContent='Entregador';
+    document.getElementById('perfil-badge').textContent='Entregador 🚚';
     document.getElementById('perfil-badge').style.background='rgba(255,255,255,.15)';
-    document.querySelectorAll('.tabs').forEach(t=>t.style.display='none');
+    document.querySelectorAll('.tabs .tab').forEach((t,i)=>{
+      t.style.display = i===3 ? '' : 'none';
+    });
     iniciarSistemaEntregador();
   }
   // else: mostrar tela de login (padrão)
