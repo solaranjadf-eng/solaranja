@@ -1731,12 +1731,14 @@ function renderRota(){
     return;
   }
 
-  // Separar pendentes e entregues
-  const pendentes=listaRota.filter(p=>!p.entregue);
+  // Separar pendentes, entregues e não entregues
+  const pendentes=listaRota.filter(p=>!p.entregue&&!p.naoEntregue);
   const entreguesList=listaRota.filter(p=>p.entregue);
+  const naoEntreguesList=listaRota.filter(p=>p.naoEntregue&&!p.entregue);
   const total=listaRota.length;
   const nEnt=entreguesList.length;
   const nPend=pendentes.length;
+  const nNaoEnt=naoEntreguesList.length;
 
   function cardRota(p, num){
     const c=clientes.find(x=>x.id===p.clienteId)||{};
@@ -1780,7 +1782,6 @@ function renderRota(){
     </div>`;
   }
 
-  // Barra de progresso
   const pct=total?Math.round(nEnt/total*100):0;
   let html=`<div style="background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;box-shadow:var(--shadow)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -1790,9 +1791,10 @@ function renderRota(){
     <div style="background:var(--border);border-radius:4px;height:10px;overflow:hidden">
       <div style="height:100%;background:var(--green);border-radius:4px;width:${pct}%;transition:width .4s"></div>
     </div>
-    <div style="display:flex;gap:12px;margin-top:8px">
+    <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
       <span style="font-size:11px;color:var(--green);font-weight:700">✓ ${nEnt} entregues</span>
       <span style="font-size:11px;color:var(--orange-dark);font-weight:700">⏳ ${nPend} pendentes</span>
+      ${nNaoEnt?`<span style="font-size:11px;color:var(--red);font-weight:700">✗ ${nNaoEnt} não entregues</span>`:''}
     </div>
   </div>`;
 
@@ -1806,6 +1808,12 @@ function renderRota(){
   if(entreguesList.length){
     html+=`<div class="sec-label" style="margin-top:14px;margin-bottom:8px;color:var(--green)">✅ Entregues (${nEnt})</div>`;
     html+=entreguesList.map(p=>cardRota(p,'✓')).join('');
+  }
+
+  // Seção não entregues
+  if(naoEntreguesList.length){
+    html+=`<div class="sec-label" style="margin-top:14px;margin-bottom:8px;color:var(--red)">✗ Não Entregues (${nNaoEnt})</div>`;
+    html+=naoEntreguesList.map(p=>cardRota(p,'✗')).join('');
   }
 
   el.innerHTML=html;
