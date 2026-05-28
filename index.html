@@ -988,6 +988,27 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);
   </div>
 </div>
 
+<!-- MODAL NÃO ENTREGUE -->
+<div class="modal-bg" id="modal-nao-entregue">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✗ Não Entregue</div>
+    <div id="nao-entregue-nome" style="font-size:13px;color:var(--text3);margin-bottom:12px"></div>
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">Motivo (opcional):</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+      <button class="btn btn-outline btn-full" onclick="selecionarMotivo('Estabelecimento fechado')" style="height:44px;text-align:left;padding:0 14px">🔒 Estabelecimento fechado</button>
+      <button class="btn btn-outline btn-full" onclick="selecionarMotivo('Cliente ausente')" style="height:44px;text-align:left;padding:0 14px">🚶 Cliente ausente</button>
+      <button class="btn btn-outline btn-full" onclick="selecionarMotivo('Endereço não encontrado')" style="height:44px;text-align:left;padding:0 14px">📍 Endereço não encontrado</button>
+      <button class="btn btn-outline btn-full" onclick="selecionarMotivo('Pedido cancelado pelo cliente')" style="height:44px;text-align:left;padding:0 14px">❌ Pedido cancelado pelo cliente</button>
+    </div>
+    <input type="text" id="nao-entregue-motivo" placeholder="Ou escreva outro motivo..." style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;margin-bottom:12px">
+    <div class="action-row" style="gap:8px">
+      <button class="btn btn-outline" onclick="fecharModal('nao-entregue')" style="flex:1">Cancelar</button>
+      <button class="btn" onclick="confirmarNaoEntregue()" style="flex:2;background:var(--red);color:white">✗ Confirmar Não Entregue</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL ENTREGUES DO DIA -->
 <div class="modal-bg" id="modal-entregues">
   <div class="modal-box">
@@ -1129,7 +1150,7 @@ let larFiltro='mes';
 let rotaOrdem=[];
 let filtroAtual='todos', filtroFin='todos';
 let sel=null, qtds={}, editPedIdx=null, editPedQtds={}, editClienteId=null, editClienteIdModal=null;
-let fotoEntregaIdx=null, fotoBase64=null;
+let fotoEntregaIdx=null, fotoBase64=null, fotoEntregaPedido=null;
 TAMS.forEach(t=>qtds[t]=0);
 
 // ── SYNC ───────────────────────────────────────────────────────────────────
@@ -1509,6 +1530,45 @@ function renderDia(){
     </div>`;}).join('');
 }
 
+// ── NÃO ENTREGUE ───────────────────────────────────────────────────────────
+let naoEntregePedido=null;
+
+function abrirNaoEntregue(id){
+  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
+  const p=listaRota.find(x=>x.id===id);
+  if(!p)return;
+  naoEntregePedido=p;
+  document.getElementById('nao-entregue-nome').textContent=p.clienteNome;
+  document.getElementById('nao-entregue-motivo').value=p.motivoNaoEntregue||'';
+  document.getElementById('modal-nao-entregue').classList.add('open');
+}
+
+function selecionarMotivo(motivo){
+  document.getElementById('nao-entregue-motivo').value=motivo;
+}
+
+function confirmarNaoEntregue(){
+  if(!naoEntregePedido)return;
+  const motivo=document.getElementById('nao-entregue-motivo').value.trim();
+  const p=naoEntregePedido;
+  // Se já estava marcado como não entregue, desfaz
+  if(p.naoEntregue&&!motivo){
+    p.naoEntregue=false;p.motivoNaoEntregue='';
+  }else{
+    p.naoEntregue=true;
+    p.motivoNaoEntregue=motivo||'Não informado';
+  }
+  naoEntregePedido=null;
+  fecharModal('nao-entregue');
+  renderRota();
+  toast(p.naoEntregue?'✗ Registrado como não entregue.':'Marcação removida.');
+  // Salvar obs no banco
+  const obs=(p.obs?p.obs+' | ':'')+'NÃO ENTREGUE'+(p.motivoNaoEntregue?' — '+p.motivoNaoEntregue:'');
+  setTimeout(()=>{
+    sbPatch('pedidos',`?id=eq.${p.id}`,{obs}).catch(()=>{});
+  },100);
+}
+
 function abrirEntregues(){
   const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
   const entregues=listaRota.filter(p=>p.entregue);
@@ -1541,11 +1601,11 @@ function verFotoEntrega(pedidoId){
 }
 function abrirFoto(i){
   fotoEntregaIdx=i;
+  fotoEntregaPedido=null;
   fotoBase64=null;
   document.getElementById('foto-preview').style.display='none';
   document.getElementById('btn-confirmar-entrega').disabled=false;
   document.getElementById('modal-foto').classList.add('open');
-  // Não abre câmera automaticamente — usuário clica no botão
 }
 function fotoSelecionada(){
   const file=document.getElementById('foto-input').files[0];
@@ -1560,19 +1620,21 @@ function fotoSelecionada(){
   reader.readAsDataURL(file);
 }
 function confirmarEntrega(){
-  if(fotoEntregaIdx===null)return;
-  const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-
-  // Determinar se é pedido de ontem ou hoje
+  // Suporta tanto idx (aba Do Dia) quanto referência direta (aba Rota)
   let pedido=null;
-  if(typeof fotoEntregaIdx==='string'&&fotoEntregaIdx.startsWith('ontem_')){
-    const idx=parseInt(fotoEntregaIdx.replace('ontem_',''));
-    pedido=pedidosOntem[idx];
-  }else{
-    pedido=pedidos[fotoEntregaIdx];
+  if(fotoEntregaPedido){
+    pedido=fotoEntregaPedido;
+  }else if(fotoEntregaIdx!==null){
+    if(typeof fotoEntregaIdx==='string'&&fotoEntregaIdx.startsWith('ontem_')){
+      const idx=parseInt(fotoEntregaIdx.replace('ontem_',''));
+      pedido=pedidosOntem[idx];
+    }else{
+      pedido=pedidos[fotoEntregaIdx];
+    }
   }
   if(!pedido)return;
 
+  const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const pedidoId=pedido.id;
   const foto=fotoBase64||null;
 
@@ -1581,17 +1643,15 @@ function confirmarEntrega(){
   pedido.horaEntrega=hora;
   if(foto) pedido.foto=foto;
 
-  // Limpar e fechar modal
+  // Limpar estado e fechar modal
   fotoEntregaIdx=null;
+  fotoEntregaPedido=null;
   fotoBase64=null;
   document.getElementById('modal-foto').classList.remove('open');
   try{document.getElementById('foto-input').value='';}catch(e){}
   try{document.getElementById('foto-preview').style.display='none';}catch(e){}
 
-  // Salvar backup local
-  lsave('slj_ped_bk',pedidos);
-
-  // Atualizar UI imediatamente
+  // Atualizar UI
   atualizarBadges();
   renderDia();
   renderRota();
@@ -1686,8 +1746,10 @@ function renderRota(){
     const mapsUrl=c.maps||'';
     const bgCard=p.entregue
       ?'background:linear-gradient(135deg,#E3F7EB,#F0FBF4);border:1.5px solid #9FE0B4'
+      :p.naoEntregue
+      ?'background:#FFF0F0;border:1.5px solid #FFAAAA'
       :'background:var(--white);border:1.5px solid var(--border)';
-    const numBg=p.entregue?'var(--green)':'var(--orange)';
+    const numBg=p.entregue?'var(--green)':p.naoEntregue?'var(--red)':'var(--orange)';
     return `<div style="${bgCard};border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px"
       draggable="true" data-id="${p.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)">
       <div style="width:32px;height:32px;border-radius:50%;background:${numBg};color:white;display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:14px;font-weight:700;flex-shrink:0;cursor:grab">
@@ -1701,10 +1763,19 @@ function renderRota(){
           ${mapsUrl?`<a href="${mapsUrl}" target="_blank" style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:2px 7px;border-radius:4px;font-weight:700;text-decoration:none;white-space:nowrap">Maps ↗</a>`:''}
         </div>
         ${p.horaEntrega?`<div style="font-size:11px;color:var(--green);margin-top:3px;font-weight:600">✓ Entregue às ${p.horaEntrega}</div>`:''}
+        ${p.naoEntregue?`<div style="font-size:11px;color:var(--red);margin-top:3px;font-weight:600">✗ Não entregue${p.motivoNaoEntregue?' — '+p.motivoNaoEntregue:''}</div>`:''}
       </div>
-      <div onclick="toggleRotaCheck(${p.id})"
-        style="width:36px;height:36px;border-radius:50%;border:2px solid ${p.entregue?'var(--green)':'var(--border2)'};background:${p.entregue?'var(--green)':'var(--white)'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:16px;font-weight:700;color:${p.entregue?'white':'var(--text3)'}">
-        ${p.entregue?'✓':''}
+      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+        <!-- Botão entregue -->
+        <div onclick="toggleRotaCheck(${p.id})"
+          style="width:36px;height:36px;border-radius:50%;border:2px solid ${p.entregue?'var(--green)':'var(--border2)'};background:${p.entregue?'var(--green)':'var(--white)'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;font-weight:700;color:${p.entregue?'white':'var(--text3)'}">
+          ${p.entregue?'✓':''}
+        </div>
+        <!-- Botão não entregue — só aparece se não entregue -->
+        ${!p.entregue?`<div onclick="abrirNaoEntregue(${p.id})"
+          style="width:36px;height:36px;border-radius:50%;border:2px solid ${p.naoEntregue?'var(--red)':'var(--border2)'};background:${p.naoEntregue?'var(--red)':'var(--white)'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;font-weight:700;color:${p.naoEntregue?'white':'var(--text3)'}">
+          ✗
+        </div>`:''}
       </div>
     </div>`;
   }
@@ -1758,37 +1829,22 @@ function dragDrop(e){
   rotaOrdem=arr;renderRota();
 }
 function toggleRotaCheck(id){
-  // Buscar em pedidosOntem primeiro (rota usa ontem), depois em pedidos
   const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
-  const i=listaRota.findIndex(p=>p.id===id);
-  if(i===-1)return;
-  if(!listaRota[i].entregue){
-    // Abrir modal de foto — precisa do índice no array correto
-    abrirFotoRota(id);
+  const p=listaRota.find(x=>x.id===id);
+  if(!p)return;
+  if(!p.entregue){
+    // Guardar referência direta ao objeto
+    fotoEntregaIdx=null;
+    fotoEntregaPedido=p;
+    fotoBase64=null;
+    document.getElementById('foto-preview').style.display='none';
+    document.getElementById('btn-confirmar-entrega').disabled=false;
+    document.getElementById('modal-foto').classList.add('open');
   }else{
-    listaRota[i].entregue=false;
-    listaRota[i].horaEntrega=null;
-    lsave('slj_ped_bk',pedidos);
+    p.entregue=false;p.horaEntrega=null;
     renderRota();
     sbPatch('pedidos',`?id=eq.${id}`,{entregue:false,hora_entrega:null}).catch(()=>{});
   }
-}
-
-function abrirFotoRota(pedidoId){
-  // Encontrar índice real no array correto
-  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
-  const pedido=listaRota.find(p=>p.id===pedidoId);
-  if(!pedido)return;
-  // Usar idx especial para rota
-  fotoEntregaIdx=pedidos.indexOf(pedido);
-  if(fotoEntregaIdx===-1){
-    // Pedido está em pedidosOntem, não em pedidos — guardar referência diferente
-    fotoEntregaIdx='ontem_'+pedidosOntem.indexOf(pedido);
-  }
-  fotoBase64=null;
-  document.getElementById('foto-preview').style.display='none';
-  document.getElementById('btn-confirmar-entrega').disabled=false;
-  document.getElementById('modal-foto').classList.add('open');
 }
 function imprimirRota(){
   if(!pedidos.length){toast('Nenhum pedido hoje.');return;}
