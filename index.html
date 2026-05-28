@@ -1100,11 +1100,15 @@ const LITROS={'200ml':0.2,'300ml':0.3,'500ml':0.5,'1L':1.0,'5L':5.0};
 const moeda=v=>'R$ '+Number(v).toFixed(2).replace('.',',');
 const hoje=new Date();
 const hojeKey=hoje.toISOString().slice(0,10);
+const ontem=new Date(hoje);ontem.setDate(ontem.getDate()-1);
+const ontemKey=ontem.toISOString().slice(0,10);
+// Pedidos da rota = lançados ontem (entregues hoje)
+// Pedidos do dia admin = lançados hoje
 const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}};
 const lsave=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
 
 // ── STATE ──────────────────────────────────────────────────────────────────
-let clientes=[], pedidos=[], historico={};
+let clientes=[], pedidos=[], pedidosOntem=[], historico={};
 let estoque={'200ml':0,'300ml':0,'500ml':0,'1L':0,'5L':0};
 let estMinimos={'200ml':0,'300ml':0,'500ml':0,'1L':0,'5L':0};
 let movimentos=[];
@@ -1194,14 +1198,25 @@ async function sincronizar(){
       lsave('slj_cli_bk',clientes);
     }
     const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id`);
+    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id`);
     // Mesclar com estado local — preservar entregue/pago marcados localmente
     const localState={};
     pedidos.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto};});
+    pedidosOntem=(dbPOntem||[]).map(p=>{
+      const mapped=mapPedido(p);
+      const local=localState[mapped.id];
+      if(local){
+        if(local.entregue) mapped.entregue=true;
+        if(local.horaEntrega) mapped.horaEntrega=local.horaEntrega;
+        if(local.pago) mapped.pago=true;
+        if(local.foto) mapped.foto=local.foto;
+      }
+      return mapped;
+    });
     pedidos=(dbP||[]).map(p=>{
       const mapped=mapPedido(p);
       const local=localState[mapped.id];
       if(local){
-        // Preservar estado local se mais atualizado
         if(local.entregue) mapped.entregue=true;
         if(local.horaEntrega) mapped.horaEntrega=local.horaEntrega;
         if(local.pago) mapped.pago=true;
@@ -1495,7 +1510,8 @@ function renderDia(){
 }
 
 function abrirEntregues(){
-  const entregues=pedidos.filter(p=>p.entregue);
+  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
+  const entregues=listaRota.filter(p=>p.entregue);
   const el=document.getElementById('modal-entregues-list');
   if(!entregues.length){
     el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhuma entrega confirmada ainda hoje.</p></div>';
@@ -1638,15 +1654,17 @@ function ordenarRota(){
 
 function renderRota(){
   const el=document.getElementById('rota-list');
-  if(!pedidos.length){
-    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido hoje.</p></div>';
+  // Rota mostra pedidos de ONTEM (lançados ontem, entregues hoje)
+  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
+  if(!listaRota.length){
+    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido para entregar hoje.</p></div>';
     return;
   }
 
   // Separar pendentes e entregues
-  const pendentes=pedidos.filter(p=>!p.entregue);
-  const entreguesList=pedidos.filter(p=>p.entregue);
-  const total=pedidos.length;
+  const pendentes=listaRota.filter(p=>!p.entregue);
+  const entreguesList=listaRota.filter(p=>p.entregue);
+  const total=listaRota.length;
   const nEnt=entreguesList.length;
   const nPend=pendentes.length;
 
