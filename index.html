@@ -1551,22 +1551,27 @@ function confirmarNaoEntregue(){
   if(!naoEntregePedido)return;
   const motivo=document.getElementById('nao-entregue-motivo').value.trim();
   const p=naoEntregePedido;
-  // Se já estava marcado como não entregue, desfaz
-  if(p.naoEntregue&&!motivo){
-    p.naoEntregue=false;p.motivoNaoEntregue='';
-  }else{
-    p.naoEntregue=true;
-    p.motivoNaoEntregue=motivo||'Não informado';
-  }
+  p.naoEntregue=true;
+  p.motivoNaoEntregue=motivo||'Não informado';
   naoEntregePedido=null;
   fecharModal('nao-entregue');
   renderRota();
-  toast(p.naoEntregue?'✗ Registrado como não entregue.':'Marcação removida.');
-  // Salvar obs no banco
-  const obs=(p.obs?p.obs+' | ':'')+'NÃO ENTREGUE'+(p.motivoNaoEntregue?' — '+p.motivoNaoEntregue:'');
+  toast('✗ Registrado como não entregue.');
+  const obsNova='NÃO ENTREGUE'+(p.motivoNaoEntregue?' — '+p.motivoNaoEntregue:'');
   setTimeout(()=>{
-    sbPatch('pedidos',`?id=eq.${p.id}`,{obs}).catch(()=>{});
+    sbPatch('pedidos',`?id=eq.${p.id}`,{obs:obsNova}).catch(()=>{});
   },100);
+}
+
+function desfazerNaoEntregue(id){
+  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
+  const p=listaRota.find(x=>x.id===id);
+  if(!p)return;
+  if(!confirm('Desfazer "não entregue" de '+p.clienteNome+'?'))return;
+  p.naoEntregue=false;p.motivoNaoEntregue='';
+  renderRota();
+  sbPatch('pedidos',`?id=eq.${p.id}`,{obs:''}).catch(()=>{});
+  toast('Marcação removida.');
 }
 
 function abrirEntregues(){
@@ -1768,13 +1773,15 @@ function renderRota(){
         ${p.naoEntregue?`<div style="font-size:11px;color:var(--red);margin-top:3px;font-weight:600">✗ Não entregue${p.motivoNaoEntregue?' — '+p.motivoNaoEntregue:''}</div>`:''}
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-        <!-- Botão entregue -->
+        <!-- Botão entregue / desfazer entregue -->
         <div onclick="toggleRotaCheck(${p.id})"
+          title="${p.entregue?'Desfazer entrega':'Confirmar entrega'}"
           style="width:36px;height:36px;border-radius:50%;border:2px solid ${p.entregue?'var(--green)':'var(--border2)'};background:${p.entregue?'var(--green)':'var(--white)'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;font-weight:700;color:${p.entregue?'white':'var(--text3)'}">
           ${p.entregue?'✓':''}
         </div>
-        <!-- Botão não entregue — só aparece se não entregue -->
-        ${!p.entregue?`<div onclick="abrirNaoEntregue(${p.id})"
+        <!-- Botão não entregue / desfazer não entregue -->
+        ${!p.entregue?`<div onclick="${p.naoEntregue?'desfazerNaoEntregue':'abrirNaoEntregue'}(${p.id})"
+          title="${p.naoEntregue?'Desfazer não entregue':'Marcar como não entregue'}"
           style="width:36px;height:36px;border-radius:50%;border:2px solid ${p.naoEntregue?'var(--red)':'var(--border2)'};background:${p.naoEntregue?'var(--red)':'var(--white)'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;font-weight:700;color:${p.naoEntregue?'white':'var(--text3)'}">
           ✗
         </div>`:''}
@@ -1840,18 +1847,21 @@ function toggleRotaCheck(id){
   const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
-  if(!p.entregue){
-    // Guardar referência direta ao objeto
+  if(p.entregue){
+    // Desfazer entrega
+    if(!confirm('Desfazer entrega de '+p.clienteNome+'?'))return;
+    p.entregue=false;p.horaEntrega=null;p.foto=null;
+    renderRota();
+    sbPatch('pedidos',`?id=eq.${id}`,{entregue:false,hora_entrega:null,foto:null}).catch(()=>{});
+    toast('Entrega desfeita.');
+  }else{
+    // Marcar como entregue — abrir modal de foto
     fotoEntregaIdx=null;
     fotoEntregaPedido=p;
     fotoBase64=null;
     document.getElementById('foto-preview').style.display='none';
     document.getElementById('btn-confirmar-entrega').disabled=false;
     document.getElementById('modal-foto').classList.add('open');
-  }else{
-    p.entregue=false;p.horaEntrega=null;
-    renderRota();
-    sbPatch('pedidos',`?id=eq.${id}`,{entregue:false,hora_entrega:null}).catch(()=>{});
   }
 }
 function imprimirRota(){
