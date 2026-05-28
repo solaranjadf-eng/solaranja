@@ -538,7 +538,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);
   </div>
   <div class="action-row" style="margin-bottom:12px">
     <button class="btn btn-primary" onclick="ordenarRota()" style="flex:1">Ordenar por Distância</button>
-    <button class="btn btn-outline" onclick="imprimirRota()" style="flex:1">Imprimir Rota</button>
+    <button class="btn btn-green" onclick="abrirEntregues()" style="flex:1">✅ Entregues</button>
+    <button class="btn btn-outline" onclick="imprimirRota()" style="flex:1">Imprimir</button>
   </div>
   <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Arraste os cartões para reordenar manualmente.</p>
   <div id="rota-list"></div>
@@ -987,6 +988,27 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);
   </div>
 </div>
 
+<!-- MODAL ENTREGUES DO DIA -->
+<div class="modal-bg" id="modal-entregues">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✅ Entregues hoje</div>
+    <div id="modal-entregues-list"></div>
+    <button class="btn btn-outline btn-full" onclick="fecharModal('entregues')" style="margin-top:12px">Fechar</button>
+  </div>
+</div>
+
+<!-- MODAL VER FOTO ENTREGA -->
+<div class="modal-bg" id="modal-ver-foto">
+  <div class="modal-box" style="text-align:center">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📷 Comprovante de Entrega</div>
+    <div id="ver-foto-nome" style="font-size:13px;color:var(--text3);margin-bottom:12px"></div>
+    <img id="ver-foto-img" style="width:100%;max-height:60vh;object-fit:contain;border-radius:var(--radius);border:1px solid var(--border)">
+    <button class="btn btn-outline btn-full" onclick="fecharModal('ver-foto')" style="margin-top:14px">Fechar</button>
+  </div>
+</div>
+
 <!-- MODAL FOTO ENTREGA -->
 <div class="modal-bg" id="modal-foto">
   <div class="modal-box">
@@ -1172,7 +1194,21 @@ async function sincronizar(){
       lsave('slj_cli_bk',clientes);
     }
     const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id`);
-    pedidos=(dbP||[]).map(mapPedido);
+    // Mesclar com estado local — preservar entregue/pago marcados localmente
+    const localState={};
+    pedidos.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto};});
+    pedidos=(dbP||[]).map(p=>{
+      const mapped=mapPedido(p);
+      const local=localState[mapped.id];
+      if(local){
+        // Preservar estado local se mais atualizado
+        if(local.entregue) mapped.entregue=true;
+        if(local.horaEntrega) mapped.horaEntrega=local.horaEntrega;
+        if(local.pago) mapped.pago=true;
+        if(local.foto) mapped.foto=local.foto;
+      }
+      return mapped;
+    });
     lsave('slj_ped_bk',pedidos);
     const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&order=data.desc,id.desc&limit=1000`);
     historico={};
@@ -1189,6 +1225,8 @@ async function sincronizar(){
     renderDash();
     renderClienteList();atualizarBadges();verificarAlertasEstoque();verificarAniversarios();
     TAMS.forEach(t=>{const el=document.getElementById('min-'+t);if(el&&estMinimos[t]>0)el.value=estMinimos[t];});
+    // Se entregador, atualizar rota
+    if(perfilAtual==='entregador') renderRota();
   }catch(e){
     setSyncStatus('err','Sem conexão — dados locais');
     console.error('Erro sincronizar:',e);
@@ -1442,6 +1480,7 @@ function renderDia(){
           ${!p.entregue?`<button class="psm psm-entrega" onclick="abrirFoto(${i})">Entregue</button>`:`<button class="psm psm-entregue">✓</button>`}
           ${p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPago(${i})">Pago</button>`:''}
           ${p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:''}
+          ${p.foto?`<button class="psm" style="background:var(--blue-light);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:''}
           <button class="psm psm-edit" onclick="abrirModalEdit(${i})">Editar</button>
           <button class="psm psm-wpp" onclick="enviarWhats(${i})">WPP</button>
           <button class="psm" style="background:var(--blue-light);color:var(--blue)" onclick="emitirNFe(${i})">NF-e</button>
@@ -1455,13 +1494,42 @@ function renderDia(){
     </div>`;}).join('');
 }
 
-// FOTO ENTREGA
+function abrirEntregues(){
+  const entregues=pedidos.filter(p=>p.entregue);
+  const el=document.getElementById('modal-entregues-list');
+  if(!entregues.length){
+    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhuma entrega confirmada ainda hoje.</p></div>';
+  }else{
+    el.innerHTML=entregues.map(p=>`
+      <div style="background:var(--green-light);border:1.5px solid #9FE0B4;border-radius:var(--radius);padding:12px 14px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:var(--green)">✓ ${p.clienteNome}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.hora} · Entregue às ${p.horaEntrega||'—'}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:4px">${p.itens.map(it=>TL[it.tam]+' × '+it.qtd).join(' · ')} · ${moeda(p.total)}</div>
+          </div>
+          ${p.foto?`<button class="psm" style="background:var(--blue-light);color:var(--blue);margin-left:8px;flex-shrink:0" onclick="verFotoEntrega(${p.id})">📷 Foto</button>`:'<span style="font-size:11px;color:var(--text3);margin-left:8px;flex-shrink:0">Sem foto</span>'}
+        </div>
+      </div>`).join('');
+  }
+  document.getElementById('modal-entregues').classList.add('open');
+}
+
+function verFotoEntrega(pedidoId){
+  let ped=pedidos.find(p=>p.id===pedidoId);
+  if(!ped) Object.values(historico).forEach(d=>d.forEach(p=>{if(p.id===pedidoId)ped=p;}));
+  if(!ped||!ped.foto){toast('Nenhuma foto registrada para este pedido.');return;}
+  document.getElementById('ver-foto-nome').textContent=ped.clienteNome+' — '+ped.hora+(ped.horaEntrega?' · Entregue '+ped.horaEntrega:'');
+  document.getElementById('ver-foto-img').src=ped.foto;
+  document.getElementById('modal-ver-foto').classList.add('open');
+}
 function abrirFoto(i){
-  fotoEntregaIdx=i;fotoBase64=null;
+  fotoEntregaIdx=i;
+  fotoBase64=null;
   document.getElementById('foto-preview').style.display='none';
+  document.getElementById('btn-confirmar-entrega').disabled=false;
   document.getElementById('modal-foto').classList.add('open');
-  // Abre câmera automaticamente após modal abrir
-  setTimeout(()=>document.getElementById('foto-input').click(),300);
+  // Não abre câmera automaticamente — usuário clica no botão
 }
 function fotoSelecionada(){
   const file=document.getElementById('foto-input').files[0];
@@ -1475,18 +1543,41 @@ function fotoSelecionada(){
   };
   reader.readAsDataURL(file);
 }
-async function confirmarEntrega(){
+function confirmarEntrega(){
   if(fotoEntregaIdx===null)return;
   const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  pedidos[fotoEntregaIdx].entregue=true;pedidos[fotoEntregaIdx].horaEntrega=hora;
-  if(fotoBase64)pedidos[fotoEntregaIdx].foto=fotoBase64;
-  try{
-    await sbPatch('pedidos',`?id=eq.${pedidos[fotoEntregaIdx].id}`,{entregue:true,hora_entrega:hora,foto:fotoBase64||null});
-    setSyncStatus('ok','Sincronizado — nuvem ativa');
-  }catch(e){setSyncStatus('err','Erro ao sincronizar');}
-  fecharModal('foto');atualizarBadges();renderDia();
-  if(perfilAtual==='entregador')renderEntregador();
-  toast('Entrega confirmada às '+hora+'.');
+  const idx=fotoEntregaIdx;
+  const pedidoId=pedidos[idx].id;
+  const foto=fotoBase64||null;
+
+  // Atualizar objeto direto no array
+  pedidos[idx].entregue=true;
+  pedidos[idx].horaEntrega=hora;
+  if(foto) pedidos[idx].foto=foto;
+
+  // Limpar e fechar modal
+  fotoEntregaIdx=null;
+  fotoBase64=null;
+  document.getElementById('modal-foto').classList.remove('open');
+  try{document.getElementById('foto-input').value='';}catch(e){}
+  try{document.getElementById('foto-preview').style.display='none';}catch(e){}
+
+  // Salvar backup local com estado atualizado
+  lsave('slj_ped_bk', pedidos);
+
+  // Atualizar UI imediatamente
+  atualizarBadges();
+  renderDia();
+  renderRota();
+  window.scrollTo({top:0,behavior:'smooth'});
+  toast('✅ Entrega confirmada às '+hora+'.');
+
+  // Salvar no banco em segundo plano
+  setTimeout(()=>{
+    sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:true,hora_entrega:hora,foto:foto})
+      .then(()=>setSyncStatus('ok','Sincronizado — nuvem ativa'))
+      .catch(()=>setSyncStatus('err','Erro ao sincronizar'));
+  },100);
 }
 
 async function marcarPago(i){
@@ -1547,29 +1638,78 @@ function ordenarRota(){
 
 function renderRota(){
   const el=document.getElementById('rota-list');
-  if(!pedidos.length){el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido hoje.</p></div>';return;}
-  const ordered=rotaOrdem.map(id=>pedidos.find(p=>p.id===id)).filter(Boolean);
-  const unordered=pedidos.filter(p=>!rotaOrdem.includes(p.id));
-  const lista=[...ordered,...unordered];
-  el.innerHTML=lista.map((p,i)=>{
+  if(!pedidos.length){
+    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido hoje.</p></div>';
+    return;
+  }
+
+  // Separar pendentes e entregues
+  const pendentes=pedidos.filter(p=>!p.entregue);
+  const entreguesList=pedidos.filter(p=>p.entregue);
+  const total=pedidos.length;
+  const nEnt=entreguesList.length;
+  const nPend=pendentes.length;
+
+  function cardRota(p, num){
     const c=clientes.find(x=>x.id===p.clienteId)||{};
     const coord=extrairCoordenadas(c.maps||'');
     const dist=coord?distKm(FABRICA_LAT,FABRICA_LNG,coord.lat,coord.lng):null;
     const end=[c.bairro,c.regiao].filter(Boolean).join(' — ')||c.endereco||'Endereço não cadastrado';
     const mapsUrl=c.maps||'';
-    return`<div class="rota-card" draggable="true" data-id="${p.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)">
-      <div class="rota-num">≡</div>
-      <div class="rota-num" style="font-size:14px;color:var(--text3);min-width:20px">${i+1}</div>
-      <div class="rota-info">
-        <div class="rota-nome">${p.clienteNome}</div>
-        <div class="rota-end">📍 ${end}${dist!==null?` <span style="font-size:10px;color:var(--text3)">(${dist.toFixed(1)} km)</span>`:' <span style="font-size:10px;color:var(--red)">sem link Maps</span>'}</div>
-        <div style="display:flex;gap:8px;margin-top:3px;align-items:center">
-          <div class="rota-itens">${p.itens.map(it=>`${TL[it.tam]}×${it.qtd}`).join(' · ')} · ${moeda(p.total)}</div>
-          ${mapsUrl?`<a href="${mapsUrl}" target="_blank" style="font-size:10px;color:var(--blue);font-weight:700;text-decoration:none;white-space:nowrap">Maps ↗</a>`:''}
-        </div>
+    const bgCard=p.entregue
+      ?'background:linear-gradient(135deg,#E3F7EB,#F0FBF4);border:1.5px solid #9FE0B4'
+      :'background:var(--white);border:1.5px solid var(--border)';
+    const numBg=p.entregue?'var(--green)':'var(--orange)';
+    return `<div style="${bgCard};border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px"
+      draggable="true" data-id="${p.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)">
+      <div style="width:32px;height:32px;border-radius:50%;background:${numBg};color:white;display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:14px;font-weight:700;flex-shrink:0;cursor:grab">
+        ${p.entregue?'✓':num}
       </div>
-      <div class="rota-check ${p.entregue?'done':''}" onclick="toggleRotaCheck(${p.id})">${p.entregue?'✓':''}</div>
-    </div>`;}).join('');
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:${p.entregue?'var(--green)':'var(--text)'};text-decoration:${p.entregue?'line-through':'none'}">${p.clienteNome}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">📍 ${end}${dist!==null?` · ${dist.toFixed(1)} km`:''}</div>
+        <div style="display:flex;gap:8px;margin-top:4px;align-items:center;flex-wrap:wrap">
+          <div style="font-size:11px;font-weight:600;color:${p.entregue?'var(--green)':'var(--orange-dark)'}">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')} · ${moeda(p.total)}</div>
+          ${mapsUrl?`<a href="${mapsUrl}" target="_blank" style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:2px 7px;border-radius:4px;font-weight:700;text-decoration:none;white-space:nowrap">Maps ↗</a>`:''}
+        </div>
+        ${p.horaEntrega?`<div style="font-size:11px;color:var(--green);margin-top:3px;font-weight:600">✓ Entregue às ${p.horaEntrega}</div>`:''}
+      </div>
+      <div onclick="toggleRotaCheck(${p.id})"
+        style="width:36px;height:36px;border-radius:50%;border:2px solid ${p.entregue?'var(--green)':'var(--border2)'};background:${p.entregue?'var(--green)':'var(--white)'};display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:16px;font-weight:700;color:${p.entregue?'white':'var(--text3)'}">
+        ${p.entregue?'✓':''}
+      </div>
+    </div>`;
+  }
+
+  // Barra de progresso
+  const pct=total?Math.round(nEnt/total*100):0;
+  let html=`<div style="background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;box-shadow:var(--shadow)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">Progresso de entregas</div>
+      <div style="font-size:13px;font-weight:700;color:var(--green)">${nEnt}/${total}</div>
+    </div>
+    <div style="background:var(--border);border-radius:4px;height:10px;overflow:hidden">
+      <div style="height:100%;background:var(--green);border-radius:4px;width:${pct}%;transition:width .4s"></div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:8px">
+      <span style="font-size:11px;color:var(--green);font-weight:700">✓ ${nEnt} entregues</span>
+      <span style="font-size:11px;color:var(--orange-dark);font-weight:700">⏳ ${nPend} pendentes</span>
+    </div>
+  </div>`;
+
+  // Seção pendentes
+  if(pendentes.length){
+    html+=`<div class="sec-label" style="margin-bottom:8px">⏳ Pendentes (${nPend})</div>`;
+    html+=pendentes.map((p,i)=>cardRota(p,i+1)).join('');
+  }
+
+  // Seção entregues
+  if(entreguesList.length){
+    html+=`<div class="sec-label" style="margin-top:14px;margin-bottom:8px;color:var(--green)">✅ Entregues (${nEnt})</div>`;
+    html+=entreguesList.map(p=>cardRota(p,'✓')).join('');
+  }
+
+  el.innerHTML=html;
 }
 let dragId=null;
 function dragStart(e){dragId=e.currentTarget.dataset.id;}
@@ -2380,7 +2520,12 @@ function iniciarSistemaEntregador(){
     t.classList.toggle('active', i===3);
   });
   renderRota();
-  sincronizar().then(()=>renderRota());
+  // Sincronizar e re-renderizar rota após sync
+  sincronizar().then(()=>{
+    renderRota();
+  }).catch(()=>{
+    renderRota();
+  });
 }
 
 function renderEntregador(){
@@ -2427,7 +2572,11 @@ async function entregadorConfirmarEntrega(i){
   const orig=window._origConfirmar;
 }
 
-// INIT — verificar sessão anterior
+// INIT — abre imediatamente, sincroniza em segundo plano
+// Auto-sync a cada 30 segundos
+setInterval(()=>{
+  if(perfilAtual) sincronizar();
+}, 15000);
 (function(){
   const sessao=localStorage.getItem('slj_perfil_sessao');
   if(sessao==='admin'){
