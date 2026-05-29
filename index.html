@@ -1616,6 +1616,31 @@ function desfazerNaoEntregue(id){
   toast('Marcação removida.');
 }
 
+async function delPedidoRota(id){
+  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
+  const p=listaRota.find(x=>x.id===id)||pedidos.find(x=>x.id===id);
+  if(!p)return;
+  if(!confirm('Remover pedido de '+p.clienteNome+' da rota?\nEsta ação não pode ser desfeita.'))return;
+  try{
+    await sbDel('pedidos',`?id=eq.${id}`);
+    // Remover dos arrays locais
+    const io=pedidosOntem.findIndex(x=>x.id===id);
+    if(io!==-1) pedidosOntem.splice(io,1);
+    const ip=pedidos.findIndex(x=>x.id===id);
+    if(ip!==-1){pedidos.splice(ip,1);rotaOrdem=rotaOrdem.filter(rid=>rid!==id);}
+    lsave('slj_ped_bk',pedidos);
+    lsave('slj_ped_ontem_bk',pedidosOntem);
+    setSyncStatus('ok','Sincronizado — nuvem ativa');
+    toast('✓ Pedido removido.');
+    atualizarBadges();
+    renderRota();
+    renderDia();
+  }catch(e){
+    setSyncStatus('err','Erro ao remover');
+    toast('Erro ao remover pedido.');
+  }
+}
+
 function abrirEntregues(){
   const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
   const entregues=listaRota.filter(p=>p.entregue);
@@ -1861,6 +1886,12 @@ function renderRota(){
           title="${p.naoEntregue?'Desfazer não entregue':'Marcar como não entregue'}"
           style="width:36px;height:36px;border-radius:50%;border:2px solid ${p.naoEntregue?'var(--red)':'var(--border2)'};background:${p.naoEntregue?'var(--red)':'var(--white)'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;font-weight:700;color:${p.naoEntregue?'white':'var(--text3)'}">
           ✗
+        </div>`:''}
+        <!-- Botão remover — só admin -->
+        ${perfilAtual==='admin'?`<div onclick="delPedidoRota(${p.id})"
+          title="Remover pedido"
+          style="width:36px;height:36px;border-radius:50%;border:2px solid var(--border2);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--text3)">
+          🗑
         </div>`:''}
       </div>
     </div>`;
