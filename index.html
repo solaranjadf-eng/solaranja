@@ -1297,6 +1297,50 @@ function setTab(t){
   if(t==='clientes') renderClientes();
 }
 
+function renderHistorico(){
+  const el=document.getElementById('hist-list');
+  if(!el)return;
+  const q=(document.getElementById('hist-busca')?.value||'').toLowerCase();
+  const todos=[...pedidos];
+  Object.values(historico).forEach(d=>d.forEach(p=>todos.push(p)));
+  // Pedidos que não são de hoje
+  const hist=todos.filter(p=>p.data&&p.data!==hojeKey);
+  const filtrado=q?hist.filter(p=>p.clienteNome.toLowerCase().includes(q)):hist;
+  if(!filtrado.length){
+    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido no histórico.</p></div>';
+    return;
+  }
+  // Agrupar por data
+  const porData={};
+  filtrado.forEach(p=>{if(!porData[p.data])porData[p.data]=[];porData[p.data].push(p);});
+  const datas=Object.keys(porData).sort((a,b)=>b.localeCompare(a));
+  el.innerHTML=datas.map(dk=>{
+    const dFmt=new Date(dk+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    const total=porData[dk].reduce((s,p)=>s+p.total,0);
+    return`<div style="margin-bottom:18px">
+      <div class="sec-label" style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+        <span>${dFmt}</span>
+        <span style="color:var(--orange-dark);font-size:11px">${porData[dk].length} pedidos · ${moeda(total)}</span>
+      </div>
+      ${porData[dk].map(p=>`
+        <div class="pedido-card" style="margin-bottom:8px">
+          <div class="pedido-header">
+            <div class="pedido-nome">${p.clienteNome}
+              <span class="status-badge ${p.entregue?'entregue':'pendente'}">${p.entregue?'Entregue':'Pendente'}</span>
+              ${p.pago?'<span class="status-badge pago">Pago</span>':''}
+            </div>
+            <div class="pedido-hora">${p.hora||''}</div>
+          </div>
+          <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${TL[it.tam]} × ${it.qtd}</span>`).join('')}</div>
+          ${p.obs?`<div class="pedido-obs-txt">${p.obs}</div>`:''}
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <div class="pedido-valor">${moeda(p.total)}</div>
+            <button class="psm psm-del" onclick="if(confirm('Excluir pedido de ${p.clienteNome.replace(/'/g,"\\'")}? Não pode ser desfeito.'))delPedidoUniversal(${p.id},'${dk}')">✕ Excluir</button>
+          </div>
+        </div>`).join('')}
+    </div>`;}).join('');
+}
+
 function setFiltro(f,btn){filtroAtual=f;document.querySelectorAll('.filter-bar .fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderDia();}
 function setFiltroFin(f,btn){filtroFin=f;document.querySelectorAll('#page-financeiro .filter-bar .fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderFinanceiro();}
 
@@ -1679,9 +1723,46 @@ async function marcarPago(i){
 }
 
 async function delPedido(i){
-  try{await sbDel('pedidos',`?id=eq.${pedidos[i].id}`);pedidos.splice(i,1);rotaOrdem=rotaOrdem.filter(id=>id!==pedidos[i]?.id);setSyncStatus('ok','Sincronizado — nuvem ativa');}
-  catch(e){setSyncStatus('err','Erro ao remover');}
+  if(!confirm('Excluir pedido de '+pedidos[i].clienteNome+'? Esta ação não pode ser desfeita.'))return;
+  const id=pedidos[i].id;
+  try{
+    await sbDel('pedidos',`?id=eq.${id}`);
+    pedidos.splice(i,1);
+    rotaOrdem=rotaOrdem.filter(rid=>rid!==id);
+    lsave('slj_ped_bk',pedidos);
+    setSyncStatus('ok','Sincronizado — nuvem ativa');
+    toast('Pedido excluído.');
+  }catch(e){setSyncStatus('err','Erro ao remover');}
   atualizarBadges();renderDia();
+}
+
+async function delPedidoUniversal(pedidoId, dataKey){
+  const p = dataKey===hojeKey
+    ? pedidos.find(x=>x.id===pedidoId)
+    : (historico[dataKey]||[]).find(x=>x.id===pedidoId);
+  const nome = p?.clienteNome||'este pedido';
+  if(!confirm('Excluir pedido de '+nome+' ('+dataKey+')?\n\nEsta ação remove o pedido de todo o sistema e não pode ser desfeita.'))return;
+  try{
+    await sbDel('pedidos',`?id=eq.${pedidoId}`);
+    // Remover do array local correto
+    if(dataKey===hojeKey){
+      const i=pedidos.findIndex(x=>x.id===pedidoId);
+      if(i!==-1){pedidos.splice(i,1);rotaOrdem=rotaOrdem.filter(id=>id!==pedidoId);}
+      lsave('slj_ped_bk',pedidos);
+      renderDia();
+    }else{
+      if(historico[dataKey]){
+        historico[dataKey]=historico[dataKey].filter(x=>x.id!==pedidoId);
+      }
+      renderHistorico();
+    }
+    setSyncStatus('ok','Sincronizado — nuvem ativa');
+    toast('✓ Pedido excluído de todo o sistema.');
+    atualizarBadges();
+  }catch(e){
+    setSyncStatus('err','Erro ao excluir');
+    toast('Erro ao excluir pedido.');
+  }
 }
 
 async function limparDia(){
