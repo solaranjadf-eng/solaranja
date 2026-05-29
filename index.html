@@ -1120,9 +1120,10 @@ const TL={'200ml':'200 ml','300ml':'300 ml','500ml':'500 ml','1L':'1 L','5L':'5 
 const LITROS={'200ml':0.2,'300ml':0.3,'500ml':0.5,'1L':1.0,'5L':5.0};
 const moeda=v=>'R$ '+Number(v).toFixed(2).replace('.',',');
 const hoje=new Date();
-const hojeKey=hoje.toISOString().slice(0,10);
+// Usar data local (fuso de Brasília UTC-3) — evita virar o dia às 21h no UTC
+const hojeKey=hoje.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
 const ontem=new Date(hoje);ontem.setDate(ontem.getDate()-1);
-const ontemKey=ontem.toISOString().slice(0,10);
+const ontemKey=ontem.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
 // Pedidos da rota = lançados ontem (entregues hoje)
 // Pedidos do dia admin = lançados hoje
 const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}};
@@ -1807,7 +1808,7 @@ function ordenarRota(){
 
 function renderRota(){
   const el=document.getElementById('rota-list');
-  // Rota mostra SOMENTE pedidos de ontem (data===ontemKey)
+  // Rota mostra pedidos de ONTEM (lançados ontem, entregues hoje)
   const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
   if(!listaRota.length){
     el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido para entregar hoje.<br><small style="color:var(--text3)">Sincronizando...</small></p></div>';
@@ -2144,11 +2145,11 @@ function getPedidosPeriodo(){
   const mesAtual=hojeKey.slice(0,7);
   const anoAtual=hojeKey.slice(0,4);
   const d=new Date(hoje);d.setMonth(d.getMonth()-1);
-  const mesAnt=d.toISOString().slice(0,7);
+  const mesAnt=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
   const ontem=new Date(hoje);ontem.setDate(ontem.getDate()-1);
-  const ontemKey=ontem.toISOString().slice(0,10);
+  const ontemKeyFin=ontem.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
   if(finPeriodo==='hoje')   return todos.filter(p=>p.data===hojeKey);
-  if(finPeriodo==='ontem')  return todos.filter(p=>p.data===ontemKey);
+  if(finPeriodo==='ontem')  return todos.filter(p=>p.data===ontemKeyFin);
   if(finPeriodo==='mes')    return todos.filter(p=>p.data&&p.data.startsWith(mesAtual));
   if(finPeriodo==='mesant') return todos.filter(p=>p.data&&p.data.startsWith(mesAnt));
   if(finPeriodo==='ano')    return todos.filter(p=>p.data&&p.data.startsWith(anoAtual));
