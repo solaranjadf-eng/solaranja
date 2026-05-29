@@ -1222,8 +1222,10 @@ async function sincronizar(){
     const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id`);
     // Mesclar com estado local — preservar entregue/pago marcados localmente
     const localState={};
-    pedidos.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto};});
-    pedidosOntem=(dbPOntem||[]).map(p=>{
+    pedidos.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto,naoEntregue:p.naoEntregue,motivoNaoEntregue:p.motivoNaoEntregue};});
+    pedidosOntem.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto,naoEntregue:p.naoEntregue,motivoNaoEntregue:p.motivoNaoEntregue};});
+
+    function mesclar(p){
       const mapped=mapPedido(p);
       const local=localState[mapped.id];
       if(local){
@@ -1231,21 +1233,17 @@ async function sincronizar(){
         if(local.horaEntrega) mapped.horaEntrega=local.horaEntrega;
         if(local.pago) mapped.pago=true;
         if(local.foto) mapped.foto=local.foto;
+        if(local.naoEntregue) mapped.naoEntregue=true;
+        if(local.motivoNaoEntregue) mapped.motivoNaoEntregue=local.motivoNaoEntregue;
       }
       return mapped;
-    });
-    pedidos=(dbP||[]).map(p=>{
-      const mapped=mapPedido(p);
-      const local=localState[mapped.id];
-      if(local){
-        if(local.entregue) mapped.entregue=true;
-        if(local.horaEntrega) mapped.horaEntrega=local.horaEntrega;
-        if(local.pago) mapped.pago=true;
-        if(local.foto) mapped.foto=local.foto;
-      }
-      return mapped;
-    });
+    }
+
+    pedidosOntem=(dbPOntem||[]).map(mesclar);
+    pedidos=(dbP||[]).map(mesclar);
+    // Salvar ambos no localStorage
     lsave('slj_ped_bk',pedidos);
+    lsave('slj_ped_ontem_bk',pedidosOntem);
     const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&order=data.desc,id.desc&limit=1000`);
     historico={};
     (dbH||[]).forEach(p=>{const dk=p.data||'sem-data';if(!historico[dk])historico[dk]=[];historico[dk].push(mapPedido(p));});
@@ -2710,9 +2708,9 @@ function fazerLogout(){
 }
 
 function iniciarSistema(){
-  // Fluxo normal admin
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
   pedidos=load('slj_ped_bk',[]);
+  pedidosOntem=load('slj_ped_ontem_bk',[]);
   document.getElementById('loading').classList.add('hidden');
   renderDash();
   renderClienteList();
@@ -2723,15 +2721,14 @@ function iniciarSistema(){
 function iniciarSistemaEntregador(){
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
   pedidos=load('slj_ped_bk',[]);
+  pedidosOntem=load('slj_ped_ontem_bk',[]);
   document.getElementById('loading').classList.add('hidden');
-  // Ir direto para aba Rota
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-rota').classList.add('active');
   document.querySelectorAll('.tab').forEach((t,i)=>{
     t.classList.toggle('active', i===3);
   });
   renderRota();
-  // Sincronizar e re-renderizar rota após sync
   sincronizar().then(()=>{
     renderRota();
   }).catch(()=>{
