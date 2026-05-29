@@ -2709,8 +2709,9 @@ function fazerLogout(){
 
 function iniciarSistema(){
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
-  pedidos=load('slj_ped_bk',[]);
-  pedidosOntem=load('slj_ped_ontem_bk',[]);
+  pedidos=load('slj_ped_bk',[]).filter(p=>p.data===hojeKey);
+  const cacheOntem=load('slj_ped_ontem_bk',[]);
+  pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
   document.getElementById('loading').classList.add('hidden');
   renderDash();
   renderClienteList();
@@ -2721,7 +2722,9 @@ function iniciarSistema(){
 function iniciarSistemaEntregador(){
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
   pedidos=load('slj_ped_bk',[]);
-  pedidosOntem=load('slj_ped_ontem_bk',[]);
+  // Só usar cache de ontem se os pedidos realmente são de ontem
+  const cacheOntem=load('slj_ped_ontem_bk',[]);
+  pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
   document.getElementById('loading').classList.add('hidden');
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-rota').classList.add('active');
