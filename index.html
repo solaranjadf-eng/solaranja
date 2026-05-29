@@ -1239,9 +1239,8 @@ async function sincronizar(){
       return mapped;
     }
 
-    pedidosOntem=(dbPOntem||[]).map(mesclar);
-    pedidos=(dbP||[]).map(mesclar);
-    // Salvar ambos no localStorage
+    pedidosOntem=(dbPOntem||[]).map(mesclar).filter(p=>p.data===ontemKey);
+    pedidos=(dbP||[]).map(mesclar).filter(p=>p.data===hojeKey);
     lsave('slj_ped_bk',pedidos);
     lsave('slj_ped_ontem_bk',pedidosOntem);
     const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&order=data.desc,id.desc&limit=1000`);
@@ -1576,7 +1575,7 @@ function renderDia(){
 let naoEntregePedido=null;
 
 function abrirNaoEntregue(id){
-  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
+  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   naoEntregePedido=p;
@@ -1606,7 +1605,7 @@ function confirmarNaoEntregue(){
 }
 
 function desfazerNaoEntregue(id){
-  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
+  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   if(!confirm('Desfazer "não entregue" de '+p.clienteNome+'?'))return;
@@ -1617,7 +1616,7 @@ function desfazerNaoEntregue(id){
 }
 
 function abrirEntregues(){
-  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
+  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
   const entregues=listaRota.filter(p=>p.entregue);
   const el=document.getElementById('modal-entregues-list');
   if(!entregues.length){
@@ -1808,14 +1807,12 @@ function ordenarRota(){
 
 function renderRota(){
   const el=document.getElementById('rota-list');
-  // Rota mostra pedidos de ONTEM (lançados ontem, entregues hoje)
-  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
+  // Rota mostra SOMENTE pedidos de ontem (data===ontemKey)
+  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
   if(!listaRota.length){
-    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido para entregar hoje.</p></div>';
+    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido para entregar hoje.<br><small style="color:var(--text3)">Sincronizando...</small></p></div>';
     return;
   }
-
-  // Separar pendentes, entregues e não entregues
   const pendentes=listaRota.filter(p=>!p.entregue&&!p.naoEntregue);
   const entreguesList=listaRota.filter(p=>p.entregue);
   const naoEntreguesList=listaRota.filter(p=>p.naoEntregue&&!p.entregue);
@@ -1923,7 +1920,7 @@ function dragDrop(e){
   rotaOrdem=arr;renderRota();
 }
 function toggleRotaCheck(id){
-  const listaRota=pedidosOntem.length>0?pedidosOntem:pedidos;
+  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   if(p.entregue){
