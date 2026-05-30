@@ -669,40 +669,103 @@ a{color:var(--orange);text-decoration:none}
 
 <!-- FINANCEIRO -->
 <main class="page" id="page-financeiro">
-  <div class="stats-row">
-    <div class="stat-card green"><div class="stat-label">Recebido (dia sel.)</div><div class="stat-val" id="fin-recebido">R$ 0</div></div>
-    <div class="stat-card red"><div class="stat-label">A receber (dia sel.)</div><div class="stat-val" id="fin-pendente">R$ 0</div></div>
-  </div>
-  <div class="stat-card sand" style="margin-bottom:12px">
-    <div class="stat-label">Total em débito — todos os dias</div>
-    <div class="stat-val" id="fin-debito-total">R$ 0</div>
-    <div class="stat-sub" id="fin-debito-clientes">0 clientes</div>
+
+  <!-- KPIs -->
+  <div class="stats-grid" style="margin-bottom:12px">
+    <div class="stat-card"><div class="stat-label">Recebido</div><div class="stat-val green" id="fin-recebido">R$ 0</div></div>
+    <div class="stat-card"><div class="stat-label">A Receber</div><div class="stat-val orange" id="fin-pendente">R$ 0</div></div>
+    <div class="stat-card full"><div class="stat-label">Total em débito — todos os períodos</div><div class="stat-val" id="fin-debito-total">R$ 0</div><div class="stat-sub" id="fin-debito-clientes"></div></div>
   </div>
 
-  <!-- SELETOR DE DATA -->
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-title">Selecionar período</div>
-    <div class="action-row" style="gap:7px;flex-wrap:wrap;margin-bottom:8px">
+  <!-- ABAS INTERNAS -->
+  <div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:14px;gap:0">
+    <button class="fbtn active" id="fin-aba-lista" onclick="setFinAba('lista',this)" style="border-radius:0;border:none;border-bottom:2px solid var(--orange);margin-bottom:-2px;height:38px;padding:0 16px">Pedidos</button>
+    <button class="fbtn" id="fin-aba-cliente" onclick="setFinAba('cliente',this)" style="border-radius:0;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;height:38px;padding:0 16px">Por Cliente</button>
+    <button class="fbtn" id="fin-aba-novo" onclick="setFinAba('novo',this)" style="border-radius:0;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;height:38px;padding:0 16px">+ Novo Pedido</button>
+  </div>
+
+  <!-- ABA PEDIDOS -->
+  <div id="fin-view-lista">
+    <!-- Filtros de período -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
       <button class="fbtn active" id="fin-btn-hoje" onclick="setFinPeriodo('hoje',this)">Hoje</button>
-      <button class="fbtn" id="fin-btn-ontem" onclick="setFinPeriodo('ontem',this)">Ontem</button>
-      <button class="fbtn" id="fin-btn-mes" onclick="setFinPeriodo('mes',this)">Este mês</button>
-      <button class="fbtn" id="fin-btn-mesant" onclick="setFinPeriodo('mesant',this)">Mês anterior</button>
-      <button class="fbtn" id="fin-btn-ano" onclick="setFinPeriodo('ano',this)">Este ano</button>
-      <button class="fbtn" id="fin-btn-data" onclick="setFinPeriodo('data',this)">Data específica</button>
+      <button class="fbtn" onclick="setFinPeriodo('ontem',this)">Ontem</button>
+      <button class="fbtn" onclick="setFinPeriodo('mes',this)">Este mês</button>
+      <button class="fbtn" onclick="setFinPeriodo('mesant',this)">Mês anterior</button>
+      <button class="fbtn" onclick="setFinPeriodo('ano',this)">Este ano</button>
+      <button class="fbtn" onclick="setFinPeriodo('data',this)">Data específica</button>
     </div>
-    <div id="fin-data-wrap" style="display:none">
-      <input type="date" id="fin-data" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--white)" onchange="renderFinanceiro()">
+    <div id="fin-data-wrap" style="display:none;margin-bottom:10px">
+      <input type="date" id="fin-data" onchange="renderFinanceiro()">
     </div>
-    <button class="btn btn-red btn-full" style="margin-top:8px;height:36px;font-size:12px" onclick="setFiltroFin('debito-total',null)">Ver todos em débito do período selecionado</button>
+    <!-- Filtros de situação -->
+    <div class="filter-bar" id="fin-filtros" style="margin-bottom:10px">
+      <button class="fbtn active" onclick="setFiltroFin('todos',this)">Todos</button>
+      <button class="fbtn" onclick="setFiltroFin('pendente',this)">A Receber</button>
+      <button class="fbtn" onclick="setFiltroFin('pago',this)">Pagos</button>
+      <button class="fbtn" onclick="setFiltroFin('debito-total',this)" style="color:var(--red)">Todos em débito</button>
+    </div>
+    <p class="sec-label" id="fin-sec-label"></p>
+    <div id="fin-list"></div>
   </div>
 
-  <div class="filter-bar" id="fin-filtros">
-    <button class="fbtn active" onclick="setFiltroFin('todos',this)">Todos</button>
-    <button class="fbtn" onclick="setFiltroFin('pendente',this)">A Receber</button>
-    <button class="fbtn" onclick="setFiltroFin('pago',this)">Pagos</button>
+  <!-- ABA POR CLIENTE -->
+  <div id="fin-view-cliente" style="display:none">
+    <div class="search-wrap">
+      <span class="si">⊙</span>
+      <input type="search" id="fin-busca-cli" placeholder="Buscar cliente..." oninput="buscarClienteFin()" autocomplete="off">
+    </div>
+    <div id="fin-cli-results" style="margin-bottom:12px"></div>
+    <div id="fin-cli-extrato" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text)" id="fin-cli-nome"></div>
+          <div style="font-size:12px;color:var(--text3)" id="fin-cli-cnpj"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="gerarPDFCliente()">📄 PDF</button>
+          <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="limparClienteFin()">✕ Fechar</button>
+        </div>
+      </div>
+      <!-- KPIs do cliente -->
+      <div class="stats-grid" style="margin-bottom:12px">
+        <div class="stat-card"><div class="stat-label">Total</div><div class="stat-val" id="fin-cli-total">R$ 0</div></div>
+        <div class="stat-card"><div class="stat-label">A receber</div><div class="stat-val orange" id="fin-cli-debito">R$ 0</div></div>
+      </div>
+      <div id="fin-cli-pedidos"></div>
+    </div>
   </div>
-  <p class="sec-label" id="fin-sec-label">Pedidos de hoje</p>
-  <div id="fin-list"></div>
+
+  <!-- ABA NOVO PEDIDO -->
+  <div id="fin-view-novo" style="display:none">
+    <div class="card">
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px">Lançar Pedido Retroativo</div>
+      <div class="form-group">
+        <label>Data do Pedido</label>
+        <input type="date" id="novo-fin-data">
+      </div>
+      <div class="form-group">
+        <label>Cliente</label>
+        <div class="search-wrap" style="margin-bottom:6px">
+          <span class="si">⊙</span>
+          <input type="search" id="novo-fin-busca-cli" placeholder="Buscar cliente..." oninput="buscarClienteNovoFin()" autocomplete="off">
+        </div>
+        <div id="novo-fin-cli-results"></div>
+        <div id="novo-fin-cli-selecionado" style="display:none;background:var(--orange-light);border:1px solid var(--orange);border-radius:var(--radius);padding:8px 12px;font-size:13px;font-weight:600;color:var(--orange-dark)"></div>
+      </div>
+      <div class="form-group">
+        <label>Quantidades</label>
+        <div class="garrafas-grid" id="novo-fin-garrafas"></div>
+      </div>
+      <div class="form-group">
+        <label>Observações</label>
+        <textarea id="novo-fin-obs" placeholder="Observações do pedido..."></textarea>
+      </div>
+      <div style="background:var(--bg);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;color:var(--text)" id="novo-fin-resumo"></div>
+      <button class="btn btn-primary btn-full" onclick="salvarPedidoRetroativo()">Salvar Pedido</button>
+    </div>
+  </div>
+
 </main>
 
 <!-- ESTOQUE -->
@@ -1315,11 +1378,15 @@ async function sincronizar(){
       const mapped=mapPedido(p);
       const local=localState[mapped.id];
       if(local){
-        if(local.entregue) mapped.entregue=true;
+        // Só sobrescreve se o estado local for MAIS recente (entregue=true ou naoEntregue=true)
+        // Se local tem entregue=false explicitamente, respeitar
+        if(local.entregue===true) mapped.entregue=true;
+        if(local.entregue===false) mapped.entregue=false;
         if(local.horaEntrega) mapped.horaEntrega=local.horaEntrega;
-        if(local.pago) mapped.pago=true;
+        if(local.pago===true) mapped.pago=true;
         if(local.foto) mapped.foto=local.foto;
-        if(local.naoEntregue) mapped.naoEntregue=true;
+        if(local.naoEntregue===true) mapped.naoEntregue=true;
+        if(local.naoEntregue===false) mapped.naoEntregue=false;
         if(local.motivoNaoEntregue) mapped.motivoNaoEntregue=local.motivoNaoEntregue;
       }
       return mapped;
@@ -1352,7 +1419,7 @@ async function sincronizar(){
   }
 }
 
-function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null};}
+function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null};}
 
 // ── TABS ───────────────────────────────────────────────────────────────────
 function setTab(t){
@@ -1623,7 +1690,8 @@ async function confirmar(){
   setSyncStatus('loading','Salvando...');
   let pedidoSalvo=false;
   try{
-    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null}]);
+    const numeroPedido = getNextNumeroPedido();
+    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido}]);
     const ped=Array.isArray(res)?res[0]:res;
     const obj=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
     pedidos.push(obj);rotaOrdem.push(obj.id);
@@ -1742,6 +1810,8 @@ function desfazerNaoEntregue(id){
   if(!p)return;
   if(!confirm('Desfazer "não entregue" de '+p.clienteNome+'?'))return;
   p.naoEntregue=false;p.motivoNaoEntregue='';
+  lsave('slj_ped_bk',pedidos);
+  lsave('slj_ped_ontem_bk',pedidosOntem);
   renderRota();
   sbPatch('pedidos',`?id=eq.${p.id}`,{obs:''}).catch(()=>{});
   toast('Marcação removida.');
@@ -2211,6 +2281,8 @@ function toggleRotaCheck(id){
     // Desfazer entrega
     if(!confirm('Desfazer entrega de '+p.clienteNome+'?'))return;
     p.entregue=false;p.horaEntrega=null;p.foto=null;
+    lsave('slj_ped_bk',pedidos);
+    lsave('slj_ped_ontem_bk',pedidosOntem);
     renderRota();
     sbPatch('pedidos',`?id=eq.${id}`,{entregue:false,hora_entrega:null,foto:null}).catch(()=>{});
     toast('Entrega desfeita.');
@@ -2565,7 +2637,322 @@ function renderFinItem(p,dataKey){
 }
 
 
-// ── RANKING ────────────────────────────────────────────────────────────────
+// ── NÚMERO DO PEDIDO ───────────────────────────────────────────────────────
+function getNextNumeroPedido(){
+  const atual = parseInt(localStorage.getItem('slj_num_pedido')||'5000');
+  const proximo = atual + 1;
+  localStorage.setItem('slj_num_pedido', proximo);
+  return proximo;
+}
+
+// ── FINANCEIRO — ABAS ──────────────────────────────────────────────────────
+let finAbaAtual = 'lista';
+let finCliSelecionado = null;
+let novoFinCliSelecionado = null;
+let novoFinQtds = {};
+
+function setFinAba(aba, btn){
+  finAbaAtual = aba;
+  document.querySelectorAll('#page-financeiro .fbtn[id^="fin-aba"]').forEach(b=>b.style.borderBottomColor='transparent');
+  if(btn) btn.style.borderBottomColor='var(--orange)';
+  document.getElementById('fin-view-lista').style.display = aba==='lista'?'':'none';
+  document.getElementById('fin-view-cliente').style.display = aba==='cliente'?'':'none';
+  document.getElementById('fin-view-novo').style.display = aba==='novo'?'':'none';
+  if(aba==='lista') renderFinanceiro();
+  if(aba==='novo') initNovoFinForm();
+}
+
+// ── BUSCA POR CLIENTE NO FINANCEIRO ───────────────────────────────────────
+function buscarClienteFin(){
+  const q = document.getElementById('fin-busca-cli').value.toLowerCase();
+  const el = document.getElementById('fin-cli-results');
+  if(!q){el.innerHTML='';return;}
+  const matches = clientes.filter(c=>c.nome.toLowerCase().includes(q)||c.cnpj.includes(q)).slice(0,8);
+  if(!matches.length){el.innerHTML='<div style="font-size:13px;color:var(--text3);padding:8px 0">Nenhum cliente encontrado.</div>';return;}
+  el.innerHTML = matches.map(c=>`
+    <div onclick="selecionarClienteFin(${c.id})" style="padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;background:var(--white)">
+      <div style="font-size:13px;font-weight:600;color:var(--text)">${c.nome}</div>
+      <div style="font-size:11px;color:var(--text3)">${c.cnpj}</div>
+    </div>`).join('');
+}
+
+function selecionarClienteFin(id){
+  finCliSelecionado = clientes.find(c=>c.id===id);
+  if(!finCliSelecionado) return;
+  document.getElementById('fin-busca-cli').value = finCliSelecionado.nome;
+  document.getElementById('fin-cli-results').innerHTML = '';
+  document.getElementById('fin-cli-nome').textContent = finCliSelecionado.nome;
+  document.getElementById('fin-cli-cnpj').textContent = 'CNPJ: ' + finCliSelecionado.cnpj;
+  document.getElementById('fin-cli-extrato').style.display = 'block';
+  renderExtratocliente();
+}
+
+function limparClienteFin(){
+  finCliSelecionado = null;
+  document.getElementById('fin-busca-cli').value = '';
+  document.getElementById('fin-cli-results').innerHTML = '';
+  document.getElementById('fin-cli-extrato').style.display = 'none';
+}
+
+function renderExtratocliente(){
+  if(!finCliSelecionado) return;
+  const todos=[...pedidos];
+  Object.values(historico).forEach(d=>d.forEach(p=>todos.push(p)));
+  const pedsCli = todos.filter(p=>p.clienteId===finCliSelecionado.id).sort((a,b)=>b.data.localeCompare(a.data));
+
+  const totalGeral = pedsCli.reduce((s,p)=>s+p.total,0);
+  const debito = pedsCli.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
+  document.getElementById('fin-cli-total').textContent = moeda(totalGeral);
+  document.getElementById('fin-cli-debito').textContent = moeda(debito);
+
+  const el = document.getElementById('fin-cli-pedidos');
+  if(!pedsCli.length){
+    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido encontrado.</p></div>';
+    return;
+  }
+
+  // Tabela estilo Bling
+  el.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:var(--bg);border-bottom:2px solid var(--border)">
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Nº</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Data</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Itens</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Total</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Situação</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${pedsCli.map(p=>{
+          const dataFmt = p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+          const num = p.numeroPedido||'—';
+          const situacao = p.pago
+            ? `<span style="background:#D1FAE5;color:#065F46;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pago</span>`
+            : p.entregue
+            ? `<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Em aberto</span>`
+            : `<span style="background:var(--bg2);color:var(--text3);font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pendente</span>`;
+          const btnPago = p.entregue
+            ? p.pago
+              ? `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:3px 8px;cursor:pointer">Desmarcar</button>`
+              : `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--green);background:var(--green-bg);border:1px solid #B8DFC8;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">✓ Marcar Pago</button>`
+            : '';
+          return `<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:10px 10px;color:var(--text3);font-weight:600">${num}</td>
+            <td style="padding:10px 10px">${dataFmt}</td>
+            <td style="padding:10px 10px;color:var(--text2)">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</td>
+            <td style="padding:10px 10px;text-align:right;font-weight:700;font-family:'DM Serif Display',serif">${moeda(p.total)}</td>
+            <td style="padding:10px 10px;text-align:center">${situacao}</td>
+            <td style="padding:10px 10px;text-align:center">${btnPago}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:var(--bg);border-top:2px solid var(--border)">
+          <td colspan="3" style="padding:10px;font-weight:700;font-size:12px;color:var(--text2)">TOTAL GERAL</td>
+          <td style="padding:10px;text-align:right;font-weight:700;font-family:'DM Serif Display',serif">${moeda(totalGeral)}</td>
+          <td colspan="2"></td>
+        </tr>
+        ${debito>0?`<tr style="background:#FEF3C7">
+          <td colspan="3" style="padding:8px 10px;font-weight:700;font-size:12px;color:#92400E">A RECEBER</td>
+          <td style="padding:8px 10px;text-align:right;font-weight:700;font-family:'DM Serif Display',serif;color:#92400E">${moeda(debito)}</td>
+          <td colspan="2"></td>
+        </tr>`:''}
+      </tfoot>
+    </table>`;
+}
+
+function togglePagoFin(pedidoId){
+  // Buscar em todos os arrays
+  let p = pedidos.find(x=>x.id===pedidoId);
+  if(!p) Object.values(historico).forEach(d=>d.forEach(x=>{if(x.id===pedidoId)p=x;}));
+  if(!p) return;
+  p.pago = !p.pago;
+  lsave('slj_ped_bk',pedidos);
+  sbPatch('pedidos',`?id=eq.${pedidoId}`,{pago:p.pago}).catch(()=>{});
+  renderExtratocliente();
+  renderFinanceiro();
+  atualizarBadges();
+  toast(p.pago?'✓ Marcado como pago.':'Pagamento desmarcado.');
+}
+
+// ── PDF DO EXTRATO DO CLIENTE ──────────────────────────────────────────────
+function gerarPDFCliente(){
+  if(!finCliSelecionado) return;
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF();
+  const cli = finCliSelecionado;
+  const todos=[...pedidos];
+  Object.values(historico).forEach(d=>d.forEach(p=>todos.push(p)));
+  const pedsCli = todos.filter(p=>p.clienteId===cli.id).sort((a,b)=>b.data.localeCompare(a.data));
+  const totalGeral = pedsCli.reduce((s,p)=>s+p.total,0);
+  const debito = pedsCli.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
+
+  // Cabeçalho empresa
+  doc.setFillColor(30,34,40);
+  doc.rect(0,0,210,32,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(14);
+  doc.setFont('helvetica','bold');
+  doc.text('SÓ LARANJA',14,12);
+  doc.setFontSize(8);
+  doc.setFont('helvetica','normal');
+  doc.text('AGRONEGÓCIOS SUSTENTÁVEIS LTDA',14,18);
+  doc.text('CNPJ: 40.776.530/0001-40',14,23);
+  doc.text('Jardins Mangueiral PA 04 LT 04 LJ 105 — Brasília, DF, 71690-000',14,28);
+  // Info direita
+  doc.text('(61) 98562-3008',145,18);
+  doc.text('Extrato gerado em: '+new Date().toLocaleDateString('pt-BR'),145,23);
+
+  // Dados do cliente
+  doc.setTextColor(30,34,40);
+  doc.setFillColor(245,244,242);
+  doc.rect(10,36,190,24,'F');
+  doc.setFontSize(9);
+  doc.setFont('helvetica','bold');
+  doc.text('CLIENTE',14,44);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  doc.text(cli.nome,14,50);
+  doc.setFontSize(8);
+  doc.text('CNPJ: '+cli.cnpj+(cli.tel?' | Tel: '+cli.tel:''),14,55);
+
+  // KPIs
+  doc.setFontSize(9);
+  doc.setFont('helvetica','bold');
+  doc.text('Total geral: '+moeda(totalGeral),130,44);
+  if(debito>0){
+    doc.setTextColor(180,50,50);
+    doc.text('A receber: '+moeda(debito),130,50);
+    doc.setTextColor(30,34,40);
+  }
+
+  // Tabela de pedidos
+  doc.autoTable({
+    startY:66,
+    head:[['Nº','Data','Itens','Total (R$)','Situação']],
+    body: pedsCli.map(p=>[
+      p.numeroPedido||'—',
+      p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR'):'—',
+      p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(', '),
+      p.total.toFixed(2).replace('.',','),
+      p.pago?'Pago':p.entregue?'Em aberto':'Pendente'
+    ]),
+    headStyles:{fillColor:[30,34,40],textColor:255,fontStyle:'bold',fontSize:8},
+    bodyStyles:{fontSize:8},
+    alternateRowStyles:{fillColor:[248,248,246]},
+    columnStyles:{0:{cellWidth:16},1:{cellWidth:22},2:{cellWidth:80},3:{cellWidth:22,halign:'right'},4:{cellWidth:28,halign:'center'}},
+    foot:[
+      ['','','TOTAL GERAL',totalGeral.toFixed(2).replace('.',','),''],
+      debito>0?['','','A RECEBER',debito.toFixed(2).replace('.',','),'']:null
+    ].filter(Boolean),
+    footStyles:{fillColor:[240,240,238],fontStyle:'bold',fontSize:8},
+  });
+
+  doc.save('extrato-'+cli.nome.substring(0,20).replace(/\s/g,'-')+'.pdf');
+}
+
+// ── NOVO PEDIDO RETROATIVO ─────────────────────────────────────────────────
+function initNovoFinForm(){
+  // Data padrão = hoje
+  document.getElementById('novo-fin-data').value = hojeKey;
+  novoFinCliSelecionado = null;
+  novoFinQtds = {};
+  TAMS.forEach(t=>novoFinQtds[t]=0);
+  document.getElementById('novo-fin-cli-selecionado').style.display='none';
+  document.getElementById('novo-fin-busca-cli').value='';
+  document.getElementById('novo-fin-cli-results').innerHTML='';
+  document.getElementById('novo-fin-resumo').textContent='';
+  document.getElementById('novo-fin-obs').value='';
+  renderNovoFinGarrafas();
+}
+
+function buscarClienteNovoFin(){
+  const q = document.getElementById('novo-fin-busca-cli').value.toLowerCase();
+  const el = document.getElementById('novo-fin-cli-results');
+  if(!q){el.innerHTML='';return;}
+  const matches = clientes.filter(c=>c.nome.toLowerCase().includes(q)||c.cnpj.includes(q)).slice(0,6);
+  el.innerHTML = matches.map(c=>`
+    <div onclick="selecionarClienteNovoFin(${c.id})" style="padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:5px;cursor:pointer;background:var(--white);font-size:13px">
+      <div style="font-weight:600">${c.nome}</div>
+      <div style="font-size:11px;color:var(--text3)">${c.cnpj}</div>
+    </div>`).join('');
+}
+
+function selecionarClienteNovoFin(id){
+  novoFinCliSelecionado = clientes.find(c=>c.id===id);
+  if(!novoFinCliSelecionado) return;
+  document.getElementById('novo-fin-busca-cli').value='';
+  document.getElementById('novo-fin-cli-results').innerHTML='';
+  document.getElementById('novo-fin-cli-selecionado').style.display='block';
+  document.getElementById('novo-fin-cli-selecionado').textContent='✓ '+novoFinCliSelecionado.nome;
+  renderNovoFinGarrafas();
+}
+
+function renderNovoFinGarrafas(){
+  const el = document.getElementById('novo-fin-garrafas');
+  if(!novoFinCliSelecionado){el.innerHTML='<div style="font-size:13px;color:var(--text3);grid-column:1/-1">Selecione um cliente primeiro.</div>';return;}
+  el.innerHTML = TAMS.map(t=>{
+    const pr = novoFinCliSelecionado.precos[t];
+    const ok = pr&&pr>0;
+    return`<div class="g-card ${ok?'has-price':'disabled'}">
+      <div class="g-size">${TL[t]}</div>
+      ${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}
+      <div class="qty-ctrl">
+        <button class="qty-btn" ontouchstart="" onclick="altNovoFin('${t}',-1)">−</button>
+        <span class="qty-val" id="nfq-${t}">${novoFinQtds[t]||0}</span>
+        <button class="qty-btn" ontouchstart="" onclick="altNovoFin('${t}',1)">+</button>
+      </div>
+    </div>`;}).join('');
+}
+
+function altNovoFin(t,d){
+  if(!novoFinCliSelecionado||!(novoFinCliSelecionado.precos[t]>0)) return;
+  novoFinQtds[t]=Math.max(0,(novoFinQtds[t]||0)+d);
+  document.getElementById('nfq-'+t).textContent=novoFinQtds[t];
+  const itens=TAMS.filter(x=>novoFinQtds[x]>0&&novoFinCliSelecionado.precos[x]>0);
+  const total=itens.reduce((s,x)=>s+(novoFinCliSelecionado.precos[x]||0)*novoFinQtds[x],0);
+  document.getElementById('novo-fin-resumo').textContent = itens.length
+    ? itens.map(x=>TL[x]+': '+novoFinQtds[x]+' un. = '+moeda((novoFinCliSelecionado.precos[x]||0)*novoFinQtds[x])).join(' | ')+' | Total: '+moeda(total)
+    : '';
+}
+
+async function salvarPedidoRetroativo(){
+  if(!novoFinCliSelecionado){toast('Selecione um cliente.');return;}
+  const data = document.getElementById('novo-fin-data').value;
+  if(!data){toast('Selecione a data do pedido.');return;}
+  const itens = TAMS.filter(t=>novoFinQtds[t]>0&&novoFinCliSelecionado.precos[t]>0)
+    .map(t=>({tam:t,qtd:novoFinQtds[t],preco:novoFinCliSelecionado.precos[t]}));
+  if(!itens.length){toast('Adicione ao menos um item.');return;}
+  const total = itens.reduce((s,i)=>s+i.preco*i.qtd,0);
+  const hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const numeroPedido = getNextNumeroPedido();
+  try{
+    const res = await sbPost('pedidos',[{
+      cliente_id:novoFinCliSelecionado.id,
+      cliente_nome:novoFinCliSelecionado.nome,
+      cnpj:novoFinCliSelecionado.cnpj,
+      tel:novoFinCliSelecionado.tel||'',
+      hora,
+      obs:document.getElementById('novo-fin-obs').value.trim(),
+      itens,total,
+      precos:novoFinCliSelecionado.precos,
+      entregue:true,
+      hora_entrega:hora,
+      data,
+      pago:false,
+      foto:null,
+      numero_pedido:numeroPedido
+    }]);
+    toast('✓ Pedido #'+numeroPedido+' salvo com sucesso!');
+    initNovoFinForm();
+    await sincronizar();
+    renderFinanceiro();
+  }catch(e){
+    toast('Erro ao salvar pedido.');
+  }
+}
 function renderRanking(){
   const todos=[...pedidos];Object.values(historico).forEach(d=>d.forEach(p=>todos.push(p)));
   const mapa={};
