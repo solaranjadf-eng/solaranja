@@ -272,6 +272,17 @@ a{color:var(--orange);text-decoration:none}
 .login-modal-sub{font-size:13px;color:var(--text3);margin-bottom:14px}
 .login-error{font-size:12px;color:var(--red);margin-top:5px;display:none}
 
+/* RANKING */
+.rank-item{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:7px;display:flex;align-items:center;gap:12px}
+.rank-num{width:28px;height:28px;border-radius:50%;background:var(--bg2);color:var(--text3);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rank-num.gold{background:#FFF0C0;color:#B8860B}
+.rank-num.silver{background:#F0F0F0;color:#707070}
+.rank-num.bronze{background:#FAEAE0;color:#A05020}
+.rank-info{flex:1;min-width:0}
+.rank-nome{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.rank-val{font-size:15px;font-weight:700;color:var(--text);font-family:'DM Serif Display',serif;flex-shrink:0}
+
 @supports(padding-bottom:env(safe-area-inset-bottom)){.page{padding-bottom:calc(80px + env(safe-area-inset-bottom))}}
 </style>
 </head>
@@ -1696,7 +1707,7 @@ function renderDia(){
 let naoEntregePedido=null;
 
 function abrirNaoEntregue(id){
-  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
+  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   naoEntregePedido=p;
@@ -1726,7 +1737,7 @@ function confirmarNaoEntregue(){
 }
 
 function desfazerNaoEntregue(id){
-  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
+  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   if(!confirm('Desfazer "não entregue" de '+p.clienteNome+'?'))return;
@@ -1737,7 +1748,7 @@ function desfazerNaoEntregue(id){
 }
 
 async function delPedidoRota(id){
-  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
+  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
   const p=listaRota.find(x=>x.id===id)||pedidos.find(x=>x.id===id);
   if(!p)return;
   if(!confirm('Remover pedido de '+p.clienteNome+' da rota?\nEsta ação não pode ser desfeita.'))return;
@@ -1762,7 +1773,7 @@ async function delPedidoRota(id){
 }
 
 function abrirEntregues(){
-  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
+  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
   const entregues=listaRota.filter(p=>p.entregue);
   const el=document.getElementById('modal-entregues-list');
   if(!entregues.length){
@@ -1922,7 +1933,7 @@ function gerarPDFDia(){
   const dataFmt=hoje.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
 
   // Cabeçalho
-  doc.setFillColor(232,119,34);
+  doc.setFillColor(30,34,40);
   doc.rect(0,0,210,28,'F');
   doc.setTextColor(255,255,255);
   doc.setFontSize(18);
@@ -1954,7 +1965,7 @@ function gerarPDFDia(){
         moeda(p.total),
         p.entregue?(p.pago?'Entregue/Pago':'Entregue'):'Pendente'
       ]),
-      headStyles:{fillColor:[232,119,34],textColor:255,fontStyle:'bold'},
+      headStyles:{fillColor:[30,34,40],textColor:255,fontStyle:'bold'},
       alternateRowStyles:{fillColor:[255,248,240]},
       styles:{fontSize:8,cellPadding:3},
       columnStyles:{0:{cellWidth:80},1:{cellWidth:60},2:{cellWidth:25},3:{cellWidth:25}}
@@ -1977,7 +1988,7 @@ function gerarPDFMensal(){
   const mesLabel=hoje.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
 
   // Cabeçalho
-  doc.setFillColor(232,119,34);
+  doc.setFillColor(30,34,40);
   doc.rect(0,0,210,28,'F');
   doc.setTextColor(255,255,255);
   doc.setFontSize(18);
@@ -2023,7 +2034,7 @@ function gerarPDFMensal(){
       startY:60,
       head:[['Data/Cliente','Hora','Itens','Total','Status']],
       body:rows,
-      headStyles:{fillColor:[232,119,34],textColor:255,fontStyle:'bold'},
+      headStyles:{fillColor:[30,34,40],textColor:255,fontStyle:'bold'},
       alternateRowStyles:{fillColor:[255,248,240]},
       styles:{fontSize:7,cellPadding:2},
       columnStyles:{0:{cellWidth:70},1:{cellWidth:18},2:{cellWidth:60},3:{cellWidth:22},4:{cellWidth:22}}
@@ -2075,7 +2086,7 @@ function ordenarRota(){
 function renderRota(){
   const el=document.getElementById('rota-list');
   // Rota mostra pedidos de ONTEM (lançados ontem, entregues hoje)
-  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
+  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
   if(!listaRota.length){
     el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido para entregar hoje.<br><small style="color:var(--text3)">Sincronizando...</small></p></div>';
     return;
@@ -2193,7 +2204,7 @@ function dragDrop(e){
   rotaOrdem=arr;renderRota();
 }
 function toggleRotaCheck(id){
-  const listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
+  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   if(p.entregue){
@@ -2579,8 +2590,8 @@ function renderRanking(){
     return`<div class="rank-item">
       <div class="rank-num ${cores[i]||''}">${i+1}</div>
       <div class="rank-info">
-        <div class="rank-name">${c.nome}${inativo?'<span class="status-badge debito" style="margin-left:6px">Inativo</span>':''}</div>
-        <div class="rank-meta">${c.pedidos} pedido(s) · ${c.qtd} un. · ${c.litros.toFixed(1)} L · Ticket médio ${moeda(c.total/c.pedidos)}${c.debito>0?` · <span style="color:var(--red)">Débito: ${moeda(c.debito)}</span>`:''}</div>
+        <div class="rank-nome">${c.nome}${inativo?'<span class="status-badge debito" style="margin-left:6px">Inativo</span>':''}</div>
+        <div class="rank-sub">${c.pedidos} pedido(s) · ${c.qtd} un. · ${c.litros.toFixed(1)} L · Ticket ${moeda(c.total/c.pedidos)}${c.debito>0?` · <span style="color:var(--red)">Débito: ${moeda(c.debito)}</span>`:''}</div>
       </div>
       <div class="rank-val">${moeda(c.total)}</div>
     </div>`;}).join('');
