@@ -10,15 +10,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:'DM Sans',sans-serif;background:#F0F0EE;color:#1C1C1C;min-height:100vh;font-size:14px;line-height:1.5}
+body{font-family:'DM Sans',sans-serif;background:#F4F4F6;color:#1C1C1C;min-height:100vh;font-size:14px;line-height:1.5}
 :root{
   --orange:#E07A2F;
   --orange-light:#FDF0E6;
   --orange-dark:#C4631A;
-  --header:#1E2228;
-  --header2:#2A2F38;
-  --bg:#F0F0EE;
-  --bg2:#E8E8E6;
+  --header:#2C3E50;
+  --header2:#34495E;
+  --bg:#F4F4F6;
+  --bg2:#EAEAEC;
   --white:#FFFFFF;
   --border:#D8D8D6;
   --border2:#C4C4C2;
@@ -2003,15 +2003,15 @@ function gerarPDFDia(){
   const dataFmt=hoje.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
 
   // Cabeçalho
-  doc.setFillColor(30,34,40);
-  doc.rect(0,0,210,28,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(18);
-  doc.setFont('helvetica','bold');
-  doc.text('SÓ LARANJA',14,12);
-  doc.setFontSize(10);
-  doc.setFont('helvetica','normal');
-  doc.text('Relatório do Dia — '+dataFmt,14,20);
+  doc.setFillColor(224,122,47);
+  doc.rect(0,0,210,4,'F');
+  doc.setTextColor(44,62,80);
+  doc.setFontSize(16);doc.setFont('helvetica','bold');
+  doc.text('SÓ LARANJA',14,14);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);
+  doc.text('Relatório do Dia — '+dataFmt,14,21);
+  doc.text('CNPJ: 40.776.530/0001-40 | (61) 98562-3008',120,14);
+  doc.setDrawColor(220,220,220);doc.line(14,26,196,26);
 
   // KPIs
   const total=pedidos.reduce((s,p)=>s+p.total,0);
@@ -2058,15 +2058,15 @@ function gerarPDFMensal(){
   const mesLabel=hoje.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
 
   // Cabeçalho
-  doc.setFillColor(30,34,40);
-  doc.rect(0,0,210,28,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(18);
-  doc.setFont('helvetica','bold');
-  doc.text('SÓ LARANJA',14,12);
-  doc.setFontSize(10);
-  doc.setFont('helvetica','normal');
-  doc.text('Relatório Mensal — '+mesLabel,14,20);
+  doc.setFillColor(224,122,47);
+  doc.rect(0,0,210,4,'F');
+  doc.setTextColor(44,62,80);
+  doc.setFontSize(16);doc.setFont('helvetica','bold');
+  doc.text('SÓ LARANJA',14,14);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(100,100,100);
+  doc.text('Relatório Mensal — '+mesLabel,14,21);
+  doc.text('CNPJ: 40.776.530/0001-40 | (61) 98562-3008',120,14);
+  doc.setDrawColor(220,220,220);doc.line(14,26,196,26);
 
   // Juntar todos os pedidos do mês
   const todos=[...pedidos];
@@ -2735,9 +2735,9 @@ function renderExtratocliente(){
             : `<span style="background:var(--bg2);color:var(--text3);font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pendente</span>`;
           const btnPago = p.entregue
             ? p.pago
-              ? `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:3px 8px;cursor:pointer">Desmarcar</button>`
-              : `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--green);background:var(--green-bg);border:1px solid #B8DFC8;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">✓ Marcar Pago</button>`
-            : '';
+              ? `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:3px 8px;cursor:pointer">Desmarcar pago</button>`
+              : `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--green);background:var(--green-bg);border:1px solid #B8DFC8;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">✓ Pago</button>`
+            : `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:var(--orange-dark);background:var(--orange-light);border:1px solid rgba(224,122,47,.3);border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">Marcar Entregue</button>`;
           return `<tr style="border-bottom:1px solid var(--border)">
             <td style="padding:10px 10px;color:var(--text3);font-weight:600">${num}</td>
             <td style="padding:10px 10px">${dataFmt}</td>
@@ -2761,6 +2761,21 @@ function renderExtratocliente(){
         </tr>`:''}
       </tfoot>
     </table>`;
+}
+
+function toggleEntregueFinItem(pedidoId){
+  let p = pedidos.find(x=>x.id===pedidoId);
+  if(!p) Object.values(historico).forEach(d=>d.forEach(x=>{if(x.id===pedidoId)p=x;}));
+  if(!p) return;
+  const hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  p.entregue = true;
+  p.horaEntrega = hora;
+  lsave('slj_ped_bk',pedidos);
+  sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:true,hora_entrega:hora}).catch(()=>{});
+  renderExtratocliente();
+  renderFinanceiro();
+  atualizarBadges();
+  toast('✓ Marcado como entregue.');
 }
 
 function togglePagoFin(pedidoId){
@@ -2789,48 +2804,58 @@ function gerarPDFCliente(){
   const totalGeral = pedsCli.reduce((s,p)=>s+p.total,0);
   const debito = pedsCli.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
 
-  // Cabeçalho empresa
-  doc.setFillColor(30,34,40);
-  doc.rect(0,0,210,32,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(14);
+  // Linha laranja no topo
+  doc.setFillColor(224,122,47);
+  doc.rect(0,0,210,4,'F');
+  // Cabeçalho branco
+  doc.setTextColor(44,62,80);
+  doc.setFontSize(16);
   doc.setFont('helvetica','bold');
-  doc.text('SÓ LARANJA',14,12);
+  doc.text('SÓ LARANJA',14,16);
   doc.setFontSize(8);
   doc.setFont('helvetica','normal');
-  doc.text('AGRONEGÓCIOS SUSTENTÁVEIS LTDA',14,18);
-  doc.text('CNPJ: 40.776.530/0001-40',14,23);
-  doc.text('Jardins Mangueiral PA 04 LT 04 LJ 105 — Brasília, DF, 71690-000',14,28);
-  // Info direita
-  doc.text('(61) 98562-3008',145,18);
-  doc.text('Extrato gerado em: '+new Date().toLocaleDateString('pt-BR'),145,23);
+  doc.setTextColor(100,100,100);
+  doc.text('AGRONEGÓCIOS SUSTENTÁVEIS LTDA',14,22);
+  doc.text('CNPJ: 40.776.530/0001-40  |  (61) 98562-3008',14,27);
+  doc.text('Jardins Mangueiral PA 04 LT 04 LJ 105 — Brasília, DF, 71690-000',14,32);
+  // Data
+  doc.text('Extrato gerado em: '+new Date().toLocaleDateString('pt-BR'),145,22);
+  // Linha divisória
+  doc.setDrawColor(220,220,220);
+  doc.line(14,36,196,36);
 
   // Dados do cliente
-  doc.setTextColor(30,34,40);
-  doc.setFillColor(245,244,242);
-  doc.rect(10,36,190,24,'F');
-  doc.setFontSize(9);
+  doc.setTextColor(44,62,80);
+  doc.setFillColor(248,248,250);
+  doc.rect(10,40,190,22,'F');
+  doc.setDrawColor(220,220,220);
+  doc.rect(10,40,190,22,'S');
+  doc.setFontSize(8);
   doc.setFont('helvetica','bold');
-  doc.text('CLIENTE',14,44);
+  doc.setTextColor(150,150,150);
+  doc.text('CLIENTE',14,47);
   doc.setFont('helvetica','normal');
   doc.setFontSize(10);
-  doc.text(cli.nome,14,50);
+  doc.setTextColor(44,62,80);
+  doc.text(cli.nome,14,53);
   doc.setFontSize(8);
-  doc.text('CNPJ: '+cli.cnpj+(cli.tel?' | Tel: '+cli.tel:''),14,55);
+  doc.setTextColor(100,100,100);
+  doc.text('CNPJ: '+cli.cnpj+(cli.tel?' | Tel: '+cli.tel:''),14,58);
 
   // KPIs
   doc.setFontSize(9);
   doc.setFont('helvetica','bold');
-  doc.text('Total geral: '+moeda(totalGeral),130,44);
+  doc.setTextColor(44,62,80);
+  doc.text('Total: '+moeda(totalGeral),140,48);
   if(debito>0){
-    doc.setTextColor(180,50,50);
-    doc.text('A receber: '+moeda(debito),130,50);
-    doc.setTextColor(30,34,40);
+    doc.setTextColor(180,80,30);
+    doc.text('A receber: '+moeda(debito),140,54);
+    doc.setTextColor(44,62,80);
   }
 
   // Tabela de pedidos
   doc.autoTable({
-    startY:66,
+    startY:68,
     head:[['Nº','Data','Itens','Total (R$)','Situação']],
     body: pedsCli.map(p=>[
       p.numeroPedido||'—',
@@ -2945,12 +2970,30 @@ async function salvarPedidoRetroativo(){
       foto:null,
       numero_pedido:numeroPedido
     }]);
-    toast('✓ Pedido #'+numeroPedido+' salvo com sucesso!');
+    // Adicionar ao array local correto
+    const novo = mapPedido({
+      ...(Array.isArray(res)?res[0]:res),
+      cliente_id:novoFinCliSelecionado.id,
+      cliente_nome:novoFinCliSelecionado.nome,
+      numero_pedido:numeroPedido
+    });
+    if(data===hojeKey){
+      pedidos.push(novo);
+      lsave('slj_ped_bk',pedidos);
+    } else {
+      if(!historico[data]) historico[data]=[];
+      historico[data].push(novo);
+    }
+    toast('✓ Pedido #'+numeroPedido+' salvo!');
     initNovoFinForm();
-    await sincronizar();
     renderFinanceiro();
+    atualizarBadges();
+    // Atualizar extrato se cliente selecionado
+    if(finCliSelecionado&&finCliSelecionado.id===novoFinCliSelecionado.id){
+      renderExtratocliente();
+    }
   }catch(e){
-    toast('Erro ao salvar pedido.');
+    toast('Erro ao salvar: '+e.message);
   }
 }
 function renderRanking(){
