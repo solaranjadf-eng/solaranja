@@ -31,7 +31,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#F0F2F
 /* APP SHELL */
 .app-shell{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 /* SIDEBAR */
-.sidebar{width:100%;background:var(--header);display:flex;flex-direction:row;align-items:center;flex-shrink:0;overflow:visible;position:sticky;top:0;z-index:60}
+.sidebar{width:100%;background:#2D3139;display:flex;flex-direction:row;align-items:center;flex-shrink:0;overflow:visible;position:sticky;top:0;z-index:60}
 .sidebar::-webkit-scrollbar{display:none}
 .sidebar-header{padding:0 16px;height:48px;display:flex;align-items:center;gap:12px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.07)}
 .sidebar-logo{display:flex;align-items:center;gap:8px}
@@ -41,10 +41,10 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#F0F2F
 .sidebar-sub-txt{display:none}
 .sidebar-date{font-size:11px;color:rgba(255,255,255,.55);margin-top:0;white-space:nowrap}
 .sidebar-perfil-txt{font-size:11px;color:rgba(255,255,255,.42);margin-top:0}
-.sidebar-nav{flex:1;display:flex;align-items:center;overflow-x:auto;overflow-y:visible;scrollbar-width:none;height:48px;padding:0}
+.sidebar-nav{flex:1;display:flex;align-items:center;overflow-x:auto;overflow-y:visible;scrollbar-width:none;height:48px;padding:0;background:#2D3139}
 .sidebar-nav::-webkit-scrollbar{display:none}.sidebar-section-lbl{display:none}
 .sidebar-section-lbl{font-size:10px;font-weight:600;color:rgba(255,255,255,.18);text-transform:uppercase;letter-spacing:.1em;padding:9px 14px 2px}
-.sidebar-item{display:flex;align-items:center;gap:6px;padding:0 13px;cursor:pointer;color:rgba(255,255,255,.75);font-size:12px;font-weight:500;border:none;background:none;width:auto;height:48px;text-align:left;font-family:inherit;border-bottom:2px solid transparent;border-left:none;transition:all .12s;white-space:nowrap;flex-shrink:0}
+.sidebar-item{display:flex;align-items:center;gap:6px;padding:0 13px;cursor:pointer;color:rgba(255,255,255,.9)!important;font-size:12px;font-weight:500;border:none;background:none;width:auto;height:48px;text-align:left;font-family:inherit;border-bottom:2px solid transparent;border-left:none;transition:all .12s;white-space:nowrap;flex-shrink:0}
 .sidebar-item:hover{background:rgba(255,255,255,.08);color:#fff}
 .sidebar-item.active{background:rgba(224,122,47,.15);color:#fff;border-bottom-color:var(--orange)}
 .sidebar-item svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;opacity:.75}
@@ -373,8 +373,8 @@ a{color:var(--orange);text-decoration:none}
 <!-- APP SHELL -->
 <div class="app-shell" id="app-shell">
 
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-header">
+<aside class="sidebar" id="sidebar" style="background:#2D3139!important">
+  <div class="sidebar-header" style="background:#2D3139">
     <div class="sidebar-logo">
       <div class="sidebar-logo-icon">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -383,7 +383,7 @@ a{color:var(--orange);text-decoration:none}
     </div>
     <div class="sidebar-date" id="header-date" style="margin-left:8px;display:none"></div>
   </div>
-  <nav class="sidebar-nav" id="sidebar-nav">
+  <nav class="sidebar-nav" id="sidebar-nav" style="background:#2D3139">
     <div class="sidebar-section-lbl">Operação</div>
     <button class="sidebar-item active" onclick="setTab('dash')">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -440,7 +440,7 @@ a{color:var(--orange);text-decoration:none}
       <span>Clientes</span>
     </button>
   </nav>
-  <<div class="sidebar-footer">
+  <<div class="sidebar-footer" style="background:#2D3139">
       <div class="sidebar-sync" id="sync-bar" style="margin-bottom:0">
         <span class="sync-dot-ok" id="sync-dot"></span>
         <button onclick="sincronizar()" class="btn-sync">↻</button>
