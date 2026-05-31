@@ -286,12 +286,15 @@ a{color:var(--orange);text-decoration:none}
 .login-error{font-size:12px;color:var(--red);margin-top:4px;display:none}
 /* RESPONSIVE */
 @media(max-width:768px){
-  .sidebar{display:none}
-  .mobile-header{display:flex}
-  .mobile-tabs{display:block}
+  .mobile-header{display:none}
+  .mobile-tabs{display:none}
   .main-content{padding:11px 11px 55px;height:auto;overflow-y:visible}
   .top-bar{display:none}
   .page{max-width:100%}
+  .sidebar-nav{overflow-x:auto}
+  .sidebar-item{padding:0 8px;font-size:11px}
+  .sidebar-header{padding:0 10px;gap:8px}
+  .sidebar-footer{padding:0 8px;gap:6px}
 }
 
 /* RESPONSIVE */
@@ -2887,10 +2890,13 @@ function renderExtratocliente(){
             : p.entregue
             ? `<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Em aberto</span>`
             : `<span style="background:var(--bg2);color:var(--text3);font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pendente</span>`;
-          const btnPago = p.entregue
-            ? p.pago
-              ? `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:3px 8px;cursor:pointer">Desmarcar</button>`
-              : `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--green);background:var(--green-bg);border:1px solid #B8DFC8;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">✓ Pago</button>`
+          const btnAcao = p.pago
+            ? `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:3px 8px;cursor:pointer">Desmarcar Pago</button>`
+            : p.entregue
+            ? `<div style="display:flex;flex-direction:column;gap:3px;align-items:center">
+                <button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--green);background:var(--green-bg);border:1px solid #B8DFC8;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">✓ Pago</button>
+                <button onclick="desmarcarEntregueFinItem(${p.id})" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:2px 6px;cursor:pointer">Desmarcar Entregue</button>
+               </div>`
             : `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:var(--od);background:var(--ol);border:1px solid rgba(224,122,47,.3);border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">Marcar Entregue</button>`;
           return `<tr style="border-bottom:1px solid var(--border)">
             <td style="padding:8px 10px;color:var(--text3);font-weight:600">${num}</td>
@@ -2898,7 +2904,7 @@ function renderExtratocliente(){
             <td style="padding:8px 10px;color:var(--text2)">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</td>
             <td style="padding:8px 10px;text-align:right;font-weight:700">${moeda(p.total)}</td>
             <td style="padding:8px 10px;text-align:center">${situacao}</td>
-            <td style="padding:8px 10px;text-align:center">${btnPago}</td>
+            <td style="padding:8px 10px;text-align:center">${btnAcao}</td>
             <td style="padding:8px 10px;text-align:center"><button onclick="delPedidoFin(${p.id},'${p.data||''}')" title="Excluir pedido" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 7px;font-size:11px;font-weight:600;cursor:pointer">✕</button></td>
           </tr>`;
         }).join('')}
@@ -2938,15 +2944,16 @@ function delPedidoFin(pedidoId, dataKey){
   }).catch(()=>toast('Erro ao excluir pedido.'));
 }
 
-function toggleEntregueFinItem(pedidoId){
-  let p = pedidos.find(x=>x.id===pedidoId);
-  p.horaEntrega = hora;
+function desmarcarEntregueFinItem(pedidoId){
+  let p=pedidos.find(x=>x.id===pedidoId);
+  if(!p) Object.values(historico).forEach(d=>d.forEach(x=>{if(x.id===pedidoId)p=x;}));
+  if(!p)return;
+  if(!confirm('Desmarcar entrega de '+p.clienteNome+'?'))return;
+  p.entregue=false;p.horaEntrega=null;p.pago=false;
   lsave('slj_ped_bk',pedidos);
-  sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:true,hora_entrega:hora}).catch(()=>{});
-  renderExtratocliente();
-  renderFinanceiro();
-  atualizarBadges();
-  toast('✓ Marcado como entregue.');
+  sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:false,hora_entrega:null,pago:false}).catch(()=>{});
+  renderExtratocliente();renderFinanceiro();atualizarBadges();
+  toast('Entrega desmarcada.');
 }
 
 function togglePagoFin(pedidoId){
