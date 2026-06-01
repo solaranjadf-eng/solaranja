@@ -612,23 +612,30 @@ a{color:var(--orange);text-decoration:none}
   <div class="card" style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div class="card-title" style="margin-bottom:0">💰 Resultado do mês</div>
-      <div id="dash-lucro-badge" style="font-family:'Inter',sans-serif;font-size:16px;color:var(--green)">R$ 0</div>
+      <div id="dash-lucro-badge" style="font-size:16px;font-weight:700;color:var(--green)">R$ 0</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-      <div style="text-align:center;background:var(--green-light);border-radius:var(--radius);padding:10px">
-        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Faturamento</div>
-        <div style="font-family:'Inter',sans-serif;font-size:16px;color:var(--green)" id="dash-fat-mes">R$ 0</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+      <div style="text-align:center;background:var(--green-bg);border-radius:var(--radius);padding:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Faturamento</div>
+        <div style="font-size:15px;font-weight:700;color:var(--green)" id="dash-fat-mes">R$ 0</div>
       </div>
-      <div style="text-align:center;background:var(--red-light);border-radius:var(--radius);padding:10px">
-        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Custos</div>
-        <div style="font-family:'Inter',sans-serif;font-size:16px;color:var(--red)" id="dash-custo-mes">R$ 0</div>
+      <div style="text-align:center;background:var(--red-bg);border-radius:var(--radius);padding:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Custo Produção</div>
+        <div style="font-size:15px;font-weight:700;color:var(--red)" id="dash-custo-prod">R$ 0</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">emb+laranja+ades</div>
       </div>
-      <div style="text-align:center;background:var(--orange-light);border-radius:var(--radius);padding:10px">
-        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Lucro</div>
-        <div style="font-family:'Inter',sans-serif;font-size:16px" id="dash-lucro-mes">R$ 0</div>
+      <div style="text-align:center;background:var(--red-bg);border-radius:var(--radius);padding:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Custos Op.</div>
+        <div style="font-size:15px;font-weight:700;color:var(--red)" id="dash-custo-mes">R$ 0</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">gas+colab+outros</div>
+      </div>
+      <div style="text-align:center;background:var(--orange-light);border-radius:var(--radius);padding:10px;border:1px solid rgba(224,122,47,.2)">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Lucro Líquido</div>
+        <div style="font-size:15px;font-weight:700" id="dash-lucro-mes">R$ 0</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px" id="dash-lucro-sub"></div>
       </div>
     </div>
-    <div style="position:relative;height:160px">
+    <div style="position:relative;height:150px">
       <canvas id="chart-resultado"></canvas>
     </div>
   </div>
@@ -1679,16 +1686,33 @@ function renderDash(){
 
   // Custos do mês
   const mesAtual=hojeKey.slice(0,7);
-  const custoTotal=custosOp.filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.valor||0),0);
+  // 1. Custo operacional (gasolina, colaboradores, etc.)
+  const custoOpMes=custosOp.filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.valor||0),0);
+  // 2. Custo de laranja (compras do mês)
   const gastoLar=(comprasLaranja||[]).filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.total||0),0);
-  const custoTotalMes=custoTotal+gastoLar;
+  // 3. Custo de produção (custo unitário × qtd vendida de cada tamanho no mês)
   const todosM=[...pedidos,...Object.values(historico).flat()];
-  const fatMes=todosM.filter(p=>p.data&&p.data.startsWith(mesAtual)).reduce((s,p)=>s+p.total,0);
-  const lucroMes=fatMes-custoTotalMes;
-  if(el('dash-fat-mes'))   el('dash-fat-mes').textContent=moeda(fatMes);
-  if(el('dash-custo-mes')) el('dash-custo-mes').textContent=moeda(custoTotalMes);
-  if(el('dash-lucro-mes')){el('dash-lucro-mes').textContent=moeda(lucroMes);el('dash-lucro-mes').style.color=lucroMes>=0?'var(--green)':'var(--red)';}
-  if(el('dash-lucro-badge')){el('dash-lucro-badge').textContent=moeda(lucroMes);el('dash-lucro-badge').style.color=lucroMes>=0?'var(--green)':'var(--red)';}
+  const pedidosMes=todosM.filter(p=>p.data&&p.data.startsWith(mesAtual));
+  const qtdMes={};TAMS.forEach(t=>qtdMes[t]=0);
+  pedidosMes.forEach(p=>p.itens.forEach(it=>{qtdMes[it.tam]=(qtdMes[it.tam]||0)+it.qtd;}));
+  const custoProdMes=TAMS.reduce((s,t)=>s+getCustoTotal(t)*qtdMes[t],0);
+  const custoTotalMes=custoOpMes+gastoLar; // custos operacionais (sem duplicar produção)
+  const fatMes=pedidosMes.reduce((s,p)=>s+p.total,0);
+  // Lucro líquido = Faturamento - Custo produção - Custos operacionais - Laranjas
+  const lucroLiquido=fatMes-custoProdMes-custoOpMes-gastoLar;
+
+  if(el('dash-fat-mes'))    el('dash-fat-mes').textContent=moeda(fatMes);
+  if(el('dash-custo-prod')) el('dash-custo-prod').textContent=moeda(custoProdMes);
+  if(el('dash-custo-mes'))  el('dash-custo-mes').textContent=moeda(custoOpMes+gastoLar);
+  if(el('dash-lucro-mes')){
+    el('dash-lucro-mes').textContent=moeda(lucroLiquido);
+    el('dash-lucro-mes').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
+  }
+  if(el('dash-lucro-sub'))  el('dash-lucro-sub').textContent=lucroLiquido>=0?'✓ Lucro':'⚠ Prejuízo';
+  if(el('dash-lucro-badge')){
+    el('dash-lucro-badge').textContent=moeda(lucroLiquido);
+    el('dash-lucro-badge').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
+  }
 
   // Mix embalagens
   const mixEmb={};TAMS.forEach(t=>mixEmb[t]=0);
@@ -1772,6 +1796,9 @@ function renderGraficoDash(lista){
 let larFiltro='mes';
 
 function renderLaranjas(){
+  // Garantir data padrão = hoje
+  const dataInp=document.getElementById('lar-data');
+  if(dataInp&&!dataInp.value) dataInp.value=hojeKey;
   const sel=document.getElementById('lar-forn');
   if(sel){
     const cur=sel.value;
@@ -1860,6 +1887,7 @@ function registrarCompraLaranja(){
   const qtd=parseFloat(document.getElementById('lar-qtd')?.value)||0;
   const preco=parseFloat(document.getElementById('lar-preco')?.value)||0;
   const data=document.getElementById('lar-data')?.value||hojeKey;
+  if(!data){toast('Informe a data da compra.');return;}
   const obs=document.getElementById('lar-obs')?.value.trim()||'';
   if(!fornId){toast('Selecione um fornecedor.');return;}
   if(qtd<=0){toast('Informe a quantidade de sacos.');return;}
@@ -2340,6 +2368,9 @@ function confirmarNaoEntregue(){
   p.naoEntregue=true;
   p.motivoNaoEntregue=motivo||'Não informado';
   naoEntregePedido=null;
+  // Salvar no localStorage imediatamente
+  lsave('slj_ped_bk',pedidos);
+  lsave('slj_ped_ontem_bk',pedidosOntem);
   fecharModal('nao-entregue');
   renderRota();
   toast('✗ Registrado como não entregue.');
@@ -2460,6 +2491,10 @@ function confirmarEntrega(){
   pedido.entregue=true;
   pedido.horaEntrega=hora;
   if(foto) pedido.foto=foto;
+
+  // Salvar no localStorage imediatamente
+  lsave('slj_ped_bk',pedidos);
+  lsave('slj_ped_ontem_bk',pedidosOntem);
 
   // Limpar estado e fechar modal
   fotoEntregaIdx=null;
