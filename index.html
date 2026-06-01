@@ -707,9 +707,15 @@ a{color:var(--orange);text-decoration:none}
 
 <!-- DO DIA -->
 <main class="page" id="page-dia">
-  <div class="action-row" style="margin-bottom:12px">
+  <div class="action-row" style="margin-bottom:10px">
     <button class="btn btn-outline" onclick="imprimirListagem()" style="flex:1">Imprimir</button>
-    <button class="btn btn-red" onclick="limparDia()" style="flex:1">Encerrar Dia</button>
+    <button class="btn btn-danger" onclick="limparDia()" style="flex:1">Encerrar Dia</button>
+  </div>
+  <!-- Seletor de data -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px">
+    <label style="font-size:12px;font-weight:600;color:var(--text3);white-space:nowrap;text-transform:uppercase;letter-spacing:.04em">Data:</label>
+    <input type="date" id="dia-data" onchange="renderDia()" style="flex:1;height:32px;font-size:13px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;background:var(--bg)">
+    <button class="fbtn" onclick="document.getElementById('dia-data').value=hojeKey;renderDia()" style="font-size:11px;white-space:nowrap">Hoje</button>
   </div>
   <div class="filter-bar">
     <button class="fbtn active" onclick="setFiltro('todos',this)">Todos</button>
@@ -718,7 +724,7 @@ a{color:var(--orange);text-decoration:none}
     <button class="fbtn" onclick="setFiltro('pago',this)">Pagos</button>
     <button class="fbtn" onclick="setFiltro('debito',this)">Em Débito</button>
   </div>
-  <p class="sec-label">Pedidos confirmados</p>
+  <p class="sec-label" id="dia-sec-label">Pedidos confirmados</p>
   <div id="pedidos-list"></div>
 </main>
 
@@ -1581,6 +1587,8 @@ function setTab(t){
   });
   const titleEl=document.getElementById('top-bar-title');
   if(titleEl)titleEl.textContent=TAB_LABELS[t]||t;
+  // Salvar aba ativa
+  localStorage.setItem('slj_aba_ativa', t);
   if(t==='dash')     renderDash();
   if(t==='dia')      renderDia();
   if(t==='rota')     renderRota();
@@ -2060,13 +2068,54 @@ async function confirmar(){
 // ── DO DIA ─────────────────────────────────────────────────────────────────
 function renderDia(){
   const el=document.getElementById('pedidos-list');
-  let lista=pedidos.slice();
-  if(filtroAtual==='pendente')lista=lista.filter(p=>!p.entregue);
-  if(filtroAtual==='entregue')lista=lista.filter(p=>p.entregue);
-  if(filtroAtual==='pago')lista=lista.filter(p=>p.pago);
-  if(filtroAtual==='debito')lista=lista.filter(p=>p.entregue&&!p.pago);
-  if(!lista.length){el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido'+(filtroAtual!=='todos'?' nesta categoria':' hoje')+'.</p></div>';return;}
-  el.innerHTML=lista.slice().reverse().map(p=>{
+  // Garantir data padrão = hoje
+  const dataEl=document.getElementById('dia-data');
+  if(dataEl&&!dataEl.value) dataEl.value=hojeKey;
+  const dataSel=dataEl?dataEl.value:hojeKey;
+
+  // Buscar pedidos da data selecionada
+  let lista=[];
+  if(dataSel===hojeKey){
+    lista=pedidos.slice();
+  } else {
+    // Buscar no historico ou pedidosOntem
+    const doPeriodo=historico[dataSel]||[];
+    lista=[...doPeriodo];
+    pedidosOntem.filter(p=>p.data===dataSel).forEach(p=>{
+      if(!lista.find(x=>x.id===p.id)) lista.push(p);
+    });
+    // Se não encontrou nada no cache, buscar do banco
+    if(!lista.length){
+      sbGet('pedidos',`?data=eq.${dataSel}&order=id`).then(dbP=>{
+        if(dbP&&dbP.length){
+          if(!historico[dataSel]) historico[dataSel]=[];
+          historico[dataSel]=(dbP||[]).map(mapPedido);
+          renderDia();
+        }
+      }).catch(()=>{});
+    }
+  }
+
+  // Atualizar label
+  const lbl=document.getElementById('dia-sec-label');
+  if(lbl){
+    const dFmt=new Date(dataSel+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+    lbl.textContent=`${lista.length} pedido(s) — ${dFmt}`;
+  }
+
+  // Aplicar filtros
+  if(filtroAtual==='pendente') lista=lista.filter(p=>!p.entregue);
+  if(filtroAtual==='entregue') lista=lista.filter(p=>p.entregue);
+  if(filtroAtual==='pago')     lista=lista.filter(p=>p.pago);
+  if(filtroAtual==='debito')   lista=lista.filter(p=>p.entregue&&!p.pago);
+
+  if(!lista.length){
+    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido'+(filtroAtual!=='todos'?' nesta categoria':' nesta data')+'.</p></div>';
+    return;
+  }
+
+  const isHoje=dataSel===hojeKey;
+  el.innerHTML=[...lista].reverse().map(p=>{
     const i=pedidos.findIndex(x=>x.id===p.id);
     const statusEnt=p.entregue?'entregue':'pendente';
     const statusPag=p.pago?'pago':(p.entregue?'debito':'pendente');
@@ -2080,21 +2129,30 @@ function renderDia(){
           <div class="pedido-meta">CNPJ ${p.cnpj||'—'} · ${p.hora}${p.horaEntrega?' · Entregue '+p.horaEntrega:''}</div>
         </div>
         <div class="pedido-btns">
-          ${!p.entregue?`<button class="psm psm-entrega" onclick="abrirFoto(${i})">Entregue</button>`:`<button class="psm psm-entregue">✓</button>`}
-          ${p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPago(${i})">Pago</button>`:''}
-          ${p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:''}
-          ${p.foto?`<button class="psm" style="background:var(--blue-light);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:''}
-          <button class="psm psm-edit" onclick="abrirModalEdit(${i})">Editar</button>
-          <button class="psm psm-wpp" onclick="enviarWhats(${i})">WPP</button>
-          <button class="psm" style="background:var(--blue-light);color:var(--blue)" onclick="emitirNFe(${i})">NF-e</button>
-          <button class="psm psm-del" onclick="delPedido(${i})">✕</button>
+          ${isHoje&&i!==-1?(
+            (!p.entregue?`<button class="psm psm-entrega" onclick="abrirFoto(${i})">Entregue</button>`:`<button class="psm psm-entregue">✓</button>`)
+            +(p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPago(${i})">Pago</button>`:'')
+            +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
+            +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:'')
+            +`<button class="psm psm-edit" onclick="abrirModalEdit(${i})">Editar</button>`
+            +`<button class="psm psm-wpp" onclick="enviarWhats(${i})">WPP</button>`
+            +`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="emitirNFe(${i})">NF-e</button>`
+            +`<button class="psm psm-del" onclick="delPedido(${i})">✕</button>`
+          ):(
+            // Data histórica - mostrar só ações de pagamento
+            (p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPagoHistorico(${p.id},'${dataSel}')">Pago</button>`:'')
+            +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
+            +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:'')
+            +`<button class="psm psm-wpp" onclick="enviarWhats(-1,'${dataSel}',${p.id})">WPP</button>`
+          )}
         </div>
       </div>
       <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${TL[it.tam]} × ${it.qtd}</span>`).join('')}</div>
       ${p.obs?`<div class="pedido-obs-txt">Obs: ${p.obs}</div>`:''}
       ${p.foto?`<img src="${p.foto}" style="width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-top:7px">`:''}
       <div class="pedido-valor">Total: ${moeda(p.total)}</div>
-    </div>`;}).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── NÃO ENTREGUE ───────────────────────────────────────────────────────────
@@ -2517,8 +2575,10 @@ function renderRota(){
       ?'background:#FFF0F0;border:1.5px solid #FFAAAA'
       :'background:var(--white);border:1.5px solid var(--border)';
     const numBg=p.entregue?'var(--green)':p.naoEntregue?'var(--red)':'var(--orange)';
-    return `<div style="${bgCard};border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px"
-      draggable="true" data-id="${p.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)">
+    return `<div style="${bgCard};border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;touch-action:none;user-select:none"
+      draggable="true" data-id="${p.id}"
+      ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)"
+      ontouchstart="touchStart(event)" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)">
       <div style="width:32px;height:32px;border-radius:50%;background:${numBg};color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;cursor:grab">
         ${p.entregue?'✓':num}
       </div>
@@ -2592,7 +2652,75 @@ function renderRota(){
   el.innerHTML=html;
 }
 let dragId=null;
+let touchDragEl=null, touchClone=null, touchStartY=0, touchOffsetY=0;
+
 function dragStart(e){dragId=e.currentTarget.dataset.id;}
+
+function touchStart(e){
+  const el=e.currentTarget;
+  dragId=el.dataset.id;
+  touchDragEl=el;
+  const touch=e.touches[0];
+  const rect=el.getBoundingClientRect();
+  touchOffsetY=touch.clientY-rect.top;
+  touchStartY=touch.clientY;
+  // Clone visual
+  touchClone=el.cloneNode(true);
+  touchClone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:.85;z-index:9999;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.2);transform:scale(1.02);transition:none;margin:0`;
+  document.body.appendChild(touchClone);
+  el.style.opacity='.3';
+}
+
+function touchMove(e){
+  if(!touchClone)return;
+  e.preventDefault();
+  const touch=e.touches[0];
+  const rect=touchDragEl.getBoundingClientRect();
+  touchClone.style.top=(touch.clientY-touchOffsetY)+'px';
+  // Encontrar elemento alvo
+  touchClone.style.display='none';
+  const target=document.elementFromPoint(touch.clientX,touch.clientY);
+  touchClone.style.display='';
+  const card=target?.closest('[data-id]');
+  if(card&&card.dataset.id&&card.dataset.id!==dragId){
+    card.style.borderTop='3px solid var(--orange)';
+    document.querySelectorAll('[data-id]').forEach(c=>{if(c.dataset.id!==card.dataset.id)c.style.borderTop='';});
+  }
+}
+
+function touchEnd(e){
+  if(!touchClone){dragId=null;return;}
+  const touch=e.changedTouches[0];
+  touchClone.style.display='none';
+  const target=document.elementFromPoint(touch.clientX,touch.clientY);
+  touchClone.style.display='';
+  document.body.removeChild(touchClone);
+  touchClone=null;
+  if(touchDragEl) touchDragEl.style.opacity='';
+  document.querySelectorAll('[data-id]').forEach(c=>c.style.borderTop='');
+  const card=target?.closest('[data-id]');
+  const targetId=card?.dataset.id;
+  if(targetId&&targetId!==dragId){
+    // Aplicar reordenação
+    const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
+    const allIds=listaRota.map(p=>p.id);
+    if(!rotaOrdem.length) rotaOrdem=[...allIds];
+    allIds.forEach(id=>{if(!rotaOrdem.includes(id))rotaOrdem.push(id);});
+    const arr=[...rotaOrdem];
+    const fi=arr.indexOf(parseInt(dragId));
+    const ti=arr.indexOf(parseInt(targetId));
+    if(fi!==-1&&ti!==-1){
+      const [moved]=arr.splice(fi,1);
+      arr.splice(ti,0,moved);
+      rotaOrdem=arr;
+      lsave('slj_rota_ordem',rotaOrdem);
+      renderRota();
+      toast('Ordem atualizada.');
+    }
+  }
+  dragId=null;
+  touchDragEl=null;
+}
 function dragOver(e){e.preventDefault();}
 function dragDrop(e){
   e.preventDefault();
@@ -3936,17 +4064,44 @@ function verificarSenhaGerente(){
   }
 }
 
+const ABAS_GERENTE_TABS=['pedido','dia','rota','producao'];
+
+function aplicarPerfil(perfil){
+  // Restaurar todas as abas primeiro
+  document.querySelectorAll('.sidebar-item,.mobile-tab,.sidebar-section-lbl').forEach(el=>el.style.display='');
+  if(perfil==='gerente'){
+    document.querySelectorAll('.sidebar-item').forEach(b=>{
+      const t=b.getAttribute('onclick')||'';
+      b.style.display=ABAS_GERENTE_TABS.some(a=>t.includes("'"+a+"'"))?'':'none';
+    });
+    document.querySelectorAll('.mobile-tab').forEach(b=>{
+      const t=b.getAttribute('onclick')||'';
+      b.style.display=ABAS_GERENTE_TABS.some(a=>t.includes("'"+a+"'"))?'':'none';
+    });
+    document.querySelectorAll('.sidebar-section-lbl').forEach((s,i)=>{
+      s.style.display=i===0?'':'none';
+    });
+    document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Gerente 📋';});
+  }else if(perfil==='entregador'){
+    document.querySelectorAll('.sidebar-item').forEach(b=>{
+      b.style.display=(b.getAttribute('onclick')||'').includes("'rota'")?'':'none';
+    });
+    document.querySelectorAll('.mobile-tab').forEach(b=>{
+      b.style.display=(b.getAttribute('onclick')||'').includes("'rota'")?'':'none';
+    });
+    document.querySelectorAll('.sidebar-section-lbl').forEach(s=>s.style.display='none');
+    document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Entregador 🚚';});
+  }else{
+    document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Admin';});
+  }
+}
+
 function entrarGerente(){
   perfilAtual='gerente';
   localStorage.setItem('slj_perfil_sessao','gerente');
   document.getElementById('login-screen').classList.add('hidden');
-  document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Gerente 📋';});
-  // Mostrar apenas abas permitidas
-  document.querySelectorAll('.tabs .tab').forEach((t,i)=>{
-    t.style.display=ABAS_GERENTE.includes(i)?'':'none';
-  });
+  aplicarPerfil('gerente');
   iniciarSistema();
-  // Ir para aba Pedido
   setTimeout(()=>setTab('pedido'),300);
 }
 
@@ -3954,8 +4109,7 @@ function entrarAdmin(){
   perfilAtual='admin';
   localStorage.setItem('slj_perfil_sessao','admin');
   document.getElementById('login-screen').classList.add('hidden');
-  document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Admin';});
-  document.querySelectorAll('.sidebar-item,.mobile-tab').forEach(t=>t.style.display='');
+  aplicarPerfil('admin');
   iniciarSistema();
 }
 
@@ -3963,26 +4117,16 @@ function entrarEntregador(){
   perfilAtual='entregador';
   localStorage.setItem('slj_perfil_sessao','entregador');
   document.getElementById('login-screen').classList.add('hidden');
-  document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Entregador 🚚';});
-  // Mobile: mostrar só aba Rota
-  document.querySelectorAll('.mobile-tab').forEach(b=>{
-    b.style.display=(b.getAttribute('onclick')||'').includes("'rota'")?'flex':'none';
-  });
-  // Sidebar: mostrar só item Rota
-  document.querySelectorAll('.sidebar-item').forEach(b=>{
-    b.style.display=(b.getAttribute('onclick')||'').includes("'rota'")?'flex':'none';
-  });
-  document.querySelectorAll('.sidebar-section').forEach(s=>s.style.display='none');
+  aplicarPerfil('entregador');
   iniciarSistemaEntregador();
 }
 
 function fazerLogout(){
   perfilAtual=null;
   localStorage.setItem('slj_perfil_sessao','');
+  localStorage.removeItem('slj_aba_ativa');
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.style.display='';});
-  document.querySelectorAll('.mobile-tab').forEach(t=>{t.style.display='';});
-  document.querySelectorAll('.sidebar-item').forEach(t=>{t.style.display='';});
-  document.querySelectorAll('.sidebar-section').forEach(s=>{s.style.display='';});
+  document.querySelectorAll('.sidebar-item,.mobile-tab,.sidebar-section-lbl').forEach(t=>{t.style.display='';});
   document.getElementById('login-screen').classList.remove('hidden');
   chartFatCustos=destroyChart(chartFatCustos);
   chartResultado=destroyChart(chartResultado);
@@ -3996,10 +4140,14 @@ function iniciarSistema(){
   const cacheOntem=load('slj_ped_ontem_bk',[]);
   pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
   document.getElementById('loading').classList.add('hidden');
+  // Restaurar aba ativa (respeitando perfil)
+  const abaAtiva=localStorage.getItem('slj_aba_ativa')||'dash';
   renderDash();
   renderClienteList();
   atualizarBadges();
   sincronizar();
+  // Ir para aba salva
+  setTimeout(()=>setTab(abaAtiva),200);
 }
 
 function iniciarSistemaEntregador(){
@@ -4076,28 +4224,18 @@ setInterval(()=>{
   if(sessao==='admin'){
     perfilAtual='admin';
     document.getElementById('login-screen').classList.add('hidden');
-    document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Admin';});
+    aplicarPerfil('admin');
     iniciarSistema();
   } else if(sessao==='gerente'){
     perfilAtual='gerente';
     document.getElementById('login-screen').classList.add('hidden');
-    document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Gerente 📋';});
-    document.querySelectorAll('.sidebar-item').forEach(b=>{
-      const tab=b.getAttribute('onclick')||'';
-      const allowed=['dash','pedido','dia','rota','producao'];
-      b.style.display=allowed.some(t=>tab.includes("'"+t+"'"))?'':'none';
-    });
-    document.querySelectorAll('.sidebar-section-lbl').forEach((s,i)=>{if(i>0)s.style.display='none';});
+    aplicarPerfil('gerente');
     iniciarSistema();
     setTimeout(()=>setTab('pedido'),300);
   } else if(sessao==='entregador'){
     perfilAtual='entregador';
     document.getElementById('login-screen').classList.add('hidden');
-    document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Entregador 🚚';});
-    document.querySelectorAll('.sidebar-item').forEach(b=>{
-      b.style.display=(b.getAttribute('onclick')||'').includes("'rota'")?'flex':'none';
-    });
-    document.querySelectorAll('.sidebar-section-lbl').forEach(s=>s.style.display='none');
+    aplicarPerfil('entregador');
     iniciarSistemaEntregador();
   }
   // else: mostrar tela de login (padrão)
