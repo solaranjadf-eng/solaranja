@@ -1679,15 +1679,14 @@ function renderDash(){
 
   // Custos do mês
   const mesAtual=hojeKey.slice(0,7);
-  let custoTotal=0;
-  if(custosOperacionais)Object.values(custosOperacionais).forEach(cat=>{if(cat.itens)cat.itens.forEach(item=>{if(item.data&&item.data.startsWith(mesAtual))custoTotal+=(item.valor||0);});});
+  const custoTotal=custosOp.filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.valor||0),0);
   const gastoLar=(comprasLaranja||[]).filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.total||0),0);
-  custoTotal+=gastoLar;
+  const custoTotalMes=custoTotal+gastoLar;
   const todosM=[...pedidos,...Object.values(historico).flat()];
   const fatMes=todosM.filter(p=>p.data&&p.data.startsWith(mesAtual)).reduce((s,p)=>s+p.total,0);
-  const lucroMes=fatMes-custoTotal;
+  const lucroMes=fatMes-custoTotalMes;
   if(el('dash-fat-mes'))   el('dash-fat-mes').textContent=moeda(fatMes);
-  if(el('dash-custo-mes')) el('dash-custo-mes').textContent=moeda(custoTotal);
+  if(el('dash-custo-mes')) el('dash-custo-mes').textContent=moeda(custoTotalMes);
   if(el('dash-lucro-mes')){el('dash-lucro-mes').textContent=moeda(lucroMes);el('dash-lucro-mes').style.color=lucroMes>=0?'var(--green)':'var(--red)';}
   if(el('dash-lucro-badge')){el('dash-lucro-badge').textContent=moeda(lucroMes);el('dash-lucro-badge').style.color=lucroMes>=0?'var(--green)':'var(--red)';}
 
@@ -3063,17 +3062,24 @@ function renderCustos(){
   const lista=getCopLista().sort((a,b)=>b.data.localeCompare(a.data));
   const total=lista.reduce((s,c)=>s+(c.valor||0),0);
 
-  // KPIs
+  // KPIs - faturamento do mesmo período
   const mesAtual=hojeKey.slice(0,7);
-  const todosM=[...pedidos,...Object.values(historico).flat()];
-  const fatPeriodo=lista.length>0?todosM.filter(p=>lista.some(c=>c.data===p.data)).reduce((s,p)=>s+p.total,0):0;
-  const lucro=fatPeriodo-total;
+  const todosP=[...pedidos,...Object.values(historico).flat()];
+  let fatPeriodo=0;
+  if(copFiltro==='mes') fatPeriodo=todosP.filter(p=>p.data&&p.data.startsWith(mesAtual)).reduce((s,p)=>s+p.total,0);
+  else if(copFiltro==='hoje') fatPeriodo=todosP.filter(p=>p.data===hojeKey).reduce((s,p)=>s+p.total,0);
+  else if(copFiltro==='ano') fatPeriodo=todosP.filter(p=>p.data&&p.data.startsWith(hojeKey.slice(0,4))).reduce((s,p)=>s+p.total,0);
+  else fatPeriodo=todosP.reduce((s,p)=>s+p.total,0);
+  // Adicionar laranjas ao custo se mês atual
+  const gastoLarPer=copFiltro==='mes'?(comprasLaranja||[]).filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.total||0),0):0;
+  const custoComLar=total+gastoLarPer;
+  const lucro=fatPeriodo-custoComLar;
 
   const el=id=>document.getElementById(id);
-  if(el('cop-total-mes'))   el('cop-total-mes').textContent=moeda(total);
-  if(el('cop-total-mes-sub'))el('cop-total-mes-sub').textContent=lista.length+' lançamento(s)';
+  if(el('cop-total-mes'))   el('cop-total-mes').textContent=moeda(custoComLar);
+  if(el('cop-total-mes-sub'))el('cop-total-mes-sub').textContent=lista.length+' lançamento(s)'+(gastoLarPer>0?' + '+moeda(gastoLarPer)+' laranjas':'');
   if(el('cop-lucro'))   {el('cop-lucro').textContent=moeda(lucro);el('cop-lucro').style.color=lucro>=0?'var(--green)':'var(--red)';}
-  if(el('cop-lucro-sub'))el('cop-lucro-sub').textContent='Fat: '+moeda(fatPeriodo)+' − Custos: '+moeda(total);
+  if(el('cop-lucro-sub'))el('cop-lucro-sub').textContent='Fat: '+moeda(fatPeriodo)+' − Custos: '+moeda(custoComLar);
 
   // Breakdown por categoria
   const breakdown={};
