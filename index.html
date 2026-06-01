@@ -546,10 +546,20 @@ a{color:var(--orange);text-decoration:none}
   <div id="ent-rota-list"></div>
 </main>
 <main class="page active" id="page-dash">
-  <!-- Saudação -->
-  <div style="margin-bottom:14px">
-    <div style="font-family:'Inter',sans-serif;font-size:22px;color:var(--text)" id="dash-saudacao">Bom dia!</div>
-    <div style="font-size:12px;color:var(--text3);margin-top:2px" id="dash-data-ext"></div>
+  <!-- Saudação e filtro de período -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:20px;font-weight:700;color:var(--text)" id="dash-saudacao">Bom dia!</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px" id="dash-data-ext"></div>
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+      <button class="fbtn active" id="dash-btn-hoje" onclick="setDashPeriodo('hoje',this)">Hoje</button>
+      <button class="fbtn" onclick="setDashPeriodo('mes',this)">Este mês</button>
+      <button class="fbtn" onclick="setDashPeriodo('mesant',this)">Mês anterior</button>
+      <button class="fbtn" onclick="setDashPeriodo('ano',this)">Este ano</button>
+      <button class="fbtn" id="dash-btn-custom" onclick="setDashPeriodo('custom',this)">Data</button>
+      <input type="date" id="dash-data-custom" style="height:30px;font-size:11px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 6px;display:none" onchange="renderDash()">
+    </div>
   </div>
 
   <!-- Alertas -->
@@ -942,53 +952,60 @@ a{color:var(--orange);text-decoration:none}
 
 <!-- CUSTOS OPERACIONAIS -->
 <main class="page" id="page-custos">
-  <!-- Resumo mensal -->
-  <div class="stats-row" style="margin-bottom:8px">
-    <div class="stat-card dark">
-      <div class="stat-label">Total de custos — mês atual</div>
-      <div class="stat-val" id="cop-total-mes">R$ 0</div>
-      <div class="stat-sub" id="cop-total-mes-sub"></div>
-    </div>
-    <div class="stat-card red">
-      <div class="stat-label">Total de custos — hoje</div>
-      <div class="stat-val" id="cop-total-hoje">R$ 0</div>
-      <div class="stat-sub" id="cop-total-hoje-sub"></div>
-    </div>
+  <!-- Filtro período -->
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+    <button class="fbtn active" id="cop-btn-mes" onclick="setCopFiltro('mes',this)">Este mês</button>
+    <button class="fbtn" onclick="setCopFiltro('mesant',this)">Mês anterior</button>
+    <button class="fbtn" onclick="setCopFiltro('hoje',this)">Hoje</button>
+    <button class="fbtn" onclick="setCopFiltro('ano',this)">Este ano</button>
+    <button class="fbtn" onclick="setCopFiltro('tudo',this)">Tudo</button>
+    <button class="fbtn" onclick="setCopFiltro('data',this)">Data</button>
+    <input type="date" id="cop-data-filtro" style="height:30px;font-size:11px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 6px;display:none" onchange="renderCustos()">
   </div>
 
-  <!-- Lucro operacional -->
-  <div class="stat-card sand" style="margin-bottom:14px" id="cop-lucro-card">
-    <div class="stat-label">Lucro operacional do mês (Faturamento − Custos)</div>
-    <div class="stat-val" id="cop-lucro">R$ 0</div>
-    <div class="stat-sub" id="cop-lucro-sub"></div>
+  <!-- KPIs -->
+  <div class="stats-row" style="margin-bottom:8px">
+    <div class="stat-card">
+      <div class="stat-label">Total de custos</div>
+      <div class="stat-val red" id="cop-total-mes">R$ 0</div>
+      <div class="stat-sub" id="cop-total-mes-sub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Lucro operacional</div>
+      <div class="stat-val" id="cop-lucro">R$ 0</div>
+      <div class="stat-sub" id="cop-lucro-sub"></div>
+    </div>
   </div>
 
   <!-- Registrar custo -->
-  <div class="card">
-    <div class="card-title">Registrar Custo</div>
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">Registrar Custo</div>
     <div class="form-group">
       <label>Categoria</label>
-      <select id="cop-cat" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white)" onchange="toggleCopColab()">
-        <option value="gasolina-visita">⛽ Gasolina — Visitas / Prospecção</option>
+      <select id="cop-cat" onchange="toggleCopColab()">
+        <option value="gasolina">⛽ Gasolina</option>
+        <option value="gasolina-visita">⛽ Gasolina — Visitas</option>
         <option value="gasolina-entrega">🚚 Gasolina — Entregas</option>
         <option value="colaborador-1">👤 Colaborador 1</option>
         <option value="colaborador-2">👤 Colaborador 2</option>
         <option value="energia">⚡ Energia Elétrica</option>
-        <option value="diverso">📦 Gasto Diverso</option>
+        <option value="manutencao">🔧 Manutenção</option>
+        <option value="embalagem">📦 Embalagem / Material</option>
+        <option value="diverso">💰 Gasto Diverso</option>
       </select>
     </div>
     <div id="cop-colab-nome-wrap" style="display:none" class="form-group">
       <label>Nome do colaborador</label>
       <input type="text" id="cop-colab-nome" placeholder="Ex: João Silva">
     </div>
-    <div class="action-row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <div class="form-group" style="flex:1;min-width:120px;margin:0">
+    <div class="form-row">
+      <div class="form-group">
         <label>Valor (R$)</label>
-        <input type="number" id="cop-valor" step="0.01" min="0" inputmode="decimal" placeholder="0,00" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text)">
+        <input type="number" id="cop-valor" step="0.01" min="0" inputmode="decimal" placeholder="0,00">
       </div>
-      <div class="form-group" style="flex:1;min-width:120px;margin:0">
+      <div class="form-group">
         <label>Data</label>
-        <input type="date" id="cop-data" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text)">
+        <input type="date" id="cop-data">
       </div>
     </div>
     <div class="form-group">
@@ -998,16 +1015,9 @@ a{color:var(--orange);text-decoration:none}
     <button class="btn btn-primary btn-full" onclick="registrarCusto()">Registrar Custo</button>
   </div>
 
-  <!-- Filtro período -->
-  <div class="filter-bar" style="margin-bottom:12px">
-    <button class="fbtn active" onclick="setCopFiltro('mes',this)">Este mês</button>
-    <button class="fbtn" onclick="setCopFiltro('hoje',this)">Hoje</button>
-    <button class="fbtn" onclick="setCopFiltro('tudo',this)">Tudo</button>
-  </div>
-
   <!-- Breakdown por categoria -->
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-title">Por categoria</div>
+  <div class="card" style="margin-bottom:10px">
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">Por categoria</div>
     <div id="cop-breakdown"></div>
   </div>
 
@@ -1411,8 +1421,8 @@ let custos=load('slj_custos',{
 });
 let metaDiaria=load('slj_meta',0);
 let diasInativo=load('slj_dias_inativo',30);
-let custosOp=load('slj_custos_op',[]);
-let copFiltro='mes';
+
+
 let comprasLaranja=load('slj_compras_lar',[]);
 let fornecedores=load('slj_fornecedores',[]);
 
@@ -1605,6 +1615,158 @@ function setTab(t){
   if(t==='historico')renderHistorico();
   if(t==='ranking')  renderRanking();
   if(t==='clientes') renderClientes();
+}
+
+// ── DASHBOARD ──────────────────────────────────────────────────────────────
+let dashPeriodo='hoje';
+let chartFatCustos=null,chartResultado=null,chartCustosCat=null,chartEmb=null;
+function destroyChart(c){if(c){try{c.destroy();}catch(e){}}return null;}
+
+function setDashPeriodo(p,btn){
+  dashPeriodo=p;
+  document.querySelectorAll('#page-dash .fbtn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  const customInp=document.getElementById('dash-data-custom');
+  if(customInp)customInp.style.display=p==='custom'?'':'none';
+  renderDash();
+}
+
+function getDashPedidos(){
+  const todos=[...pedidos,...Object.values(historico).flat()];
+  const mesAtual=hojeKey.slice(0,7);
+  const anoAtual=hojeKey.slice(0,4);
+  const d=new Date(hoje);d.setMonth(d.getMonth()-1);
+  const mesAnt=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
+  if(dashPeriodo==='hoje')   return todos.filter(p=>p.data===hojeKey);
+  if(dashPeriodo==='mes')    return todos.filter(p=>p.data&&p.data.startsWith(mesAtual));
+  if(dashPeriodo==='mesant') return todos.filter(p=>p.data&&p.data.startsWith(mesAnt));
+  if(dashPeriodo==='ano')    return todos.filter(p=>p.data&&p.data.startsWith(anoAtual));
+  if(dashPeriodo==='custom'){const v=document.getElementById('dash-data-custom')?.value;return v?todos.filter(p=>p.data===v):todos.filter(p=>p.data===hojeKey);}
+  return todos.filter(p=>p.data===hojeKey);
+}
+
+function renderDash(){
+  const h=hoje.getHours();
+  const sd=document.getElementById('dash-saudacao');if(sd)sd.textContent=(h<12?'Bom dia':h<18?'Boa tarde':'Boa noite')+'!';
+  const dd=document.getElementById('dash-data-ext');if(dd)dd.textContent=hoje.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+
+  const lista=getDashPedidos();
+  const fat=lista.reduce((s,p)=>s+p.total,0);
+  const qtdPed=lista.length;
+  const entregues=lista.filter(p=>p.entregue).length;
+  const arec=lista.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
+  const litros=lista.reduce((s,p)=>p.itens.reduce((ss,it)=>ss+(LITROS[it.tam]||0)*it.qtd,s),0);
+  const garrafas=lista.reduce((s,p)=>p.itens.reduce((ss,it)=>ss+it.qtd,s),0);
+
+  const el=id=>document.getElementById(id);
+  if(el('dash-fat'))     el('dash-fat').textContent=moeda(fat);
+  if(el('dash-fat-meta'))el('dash-fat-meta').textContent=garrafas+' garrafas · '+litros.toFixed(1)+' L';
+  if(el('dash-ped'))     el('dash-ped').textContent=qtdPed;
+  if(el('dash-ped-sub')) el('dash-ped-sub').textContent=entregues+' entregues';
+  if(el('dash-lit'))     el('dash-lit').textContent=litros.toFixed(1)+' L';
+  if(el('dash-lit-sub')) el('dash-lit-sub').textContent=garrafas+' garrafas';
+  if(el('dash-arec'))    el('dash-arec').textContent=moeda(arec);
+  if(el('dash-arec-sub'))el('dash-arec-sub').textContent=lista.filter(p=>p.entregue&&!p.pago).length+' clientes';
+
+  // Meta
+  if(metaDiaria>0&&dashPeriodo==='hoje'){
+    const pct=Math.min(100,Math.round(fat/metaDiaria*100));
+    if(el('dash-meta-label'))el('dash-meta-label').textContent=moeda(fat)+' / '+moeda(metaDiaria)+' ('+pct+'%)';
+    if(el('dash-meta-fill')) el('dash-meta-fill').style.width=pct+'%';
+  }else{
+    if(el('dash-meta-label'))el('dash-meta-label').textContent=dashPeriodo==='hoje'?'Meta não definida':'';
+  }
+
+  // Custos do mês
+  const mesAtual=hojeKey.slice(0,7);
+  let custoTotal=0;
+  if(custosOperacionais)Object.values(custosOperacionais).forEach(cat=>{if(cat.itens)cat.itens.forEach(item=>{if(item.data&&item.data.startsWith(mesAtual))custoTotal+=(item.valor||0);});});
+  const gastoLar=(comprasLaranja||[]).filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.total||0),0);
+  custoTotal+=gastoLar;
+  const todosM=[...pedidos,...Object.values(historico).flat()];
+  const fatMes=todosM.filter(p=>p.data&&p.data.startsWith(mesAtual)).reduce((s,p)=>s+p.total,0);
+  const lucroMes=fatMes-custoTotal;
+  if(el('dash-fat-mes'))   el('dash-fat-mes').textContent=moeda(fatMes);
+  if(el('dash-custo-mes')) el('dash-custo-mes').textContent=moeda(custoTotal);
+  if(el('dash-lucro-mes')){el('dash-lucro-mes').textContent=moeda(lucroMes);el('dash-lucro-mes').style.color=lucroMes>=0?'var(--green)':'var(--red)';}
+  if(el('dash-lucro-badge')){el('dash-lucro-badge').textContent=moeda(lucroMes);el('dash-lucro-badge').style.color=lucroMes>=0?'var(--green)':'var(--red)';}
+
+  // Mix embalagens
+  const mixEmb={};TAMS.forEach(t=>mixEmb[t]=0);
+  lista.forEach(p=>p.itens.forEach(it=>{mixEmb[it.tam]=(mixEmb[it.tam]||0)+it.qtd;}));
+  if(el('dash-emb-legenda')){
+    el('dash-emb-legenda').innerHTML=TAMS.filter(t=>mixEmb[t]>0).map(t=>
+      `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+        <span>${TL[t]}</span><span style="font-weight:700">${mixEmb[t]} un · ${((LITROS[t]||0)*mixEmb[t]).toFixed(1)} L</span>
+      </div>`).join('')||'<div style="font-size:13px;color:var(--text3)">Sem vendas no período</div>';
+  }
+
+  // Entregas recentes
+  if(el('dash-entregas')){
+    const rec=lista.filter(p=>p.entregue).slice(-5).reverse();
+    el('dash-entregas').innerHTML=rec.length?rec.map(p=>
+      `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <div><span style="font-weight:600">${p.clienteNome}</span><span class="status-badge entregue" style="margin-left:6px">Entregue</span></div>
+        <span style="font-weight:700">${moeda(p.total)}</span>
+      </div>`).join(''):'<div style="font-size:13px;color:var(--text3);text-align:center;padding:12px">Nenhuma entrega no período.</div>';
+  }
+
+  // Top clientes
+  const topMap={};
+  lista.forEach(p=>{topMap[p.clienteNome]=(topMap[p.clienteNome]||0)+p.total;});
+  const top5=Object.entries(topMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const topEl=el('dash-top-clientes');
+  if(topEl){
+    topEl.innerHTML=top5.length?top5.map(([nome,val],i)=>
+      `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <div><span style="font-weight:700;color:var(--text3);margin-right:8px">#${i+1}</span>${nome}</div>
+        <span style="font-weight:700">${moeda(val)}</span>
+      </div>`).join(''):'<div style="font-size:13px;color:var(--text3);text-align:center;padding:12px">Sem dados no período.</div>';
+  }
+
+  // Débitos
+  if(el('dash-debitos')){
+    const debtMap={};
+    todosM.filter(p=>p.entregue&&!p.pago).forEach(p=>{debtMap[p.clienteNome]=(debtMap[p.clienteNome]||0)+p.total;});
+    const debts=Object.entries(debtMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    el('dash-debitos').innerHTML=debts.length?`<div class="card" style="margin-top:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:8px">⚠ Maiores débitos em aberto</div>
+      ${debts.map(([nome,val])=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+        <span>${nome}</span><span style="font-weight:700;color:var(--red)">${moeda(val)}</span>
+      </div>`).join('')}
+    </div>`:'';
+  }
+
+  verificarAlertasEstoque();
+  renderGraficoDash(lista);
+}
+
+function renderGraficoDash(lista){
+  try{
+    const ctx=document.getElementById('chart-fat-custos')?.getContext('2d');
+    if(ctx){
+      chartFatCustos=destroyChart(chartFatCustos);
+      const dias=[],fats=[];
+      const todos=[...pedidos,...Object.values(historico).flat()];
+      for(let i=6;i>=0;i--){
+        const d=new Date(hoje);d.setDate(d.getDate()-i);
+        const dk=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
+        dias.push(d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}));
+        fats.push(todos.filter(p=>p.data===dk).reduce((s,p)=>s+p.total,0));
+      }
+      chartFatCustos=new Chart(ctx,{type:'bar',data:{labels:dias,datasets:[{label:'Faturamento',data:fats,backgroundColor:'rgba(224,122,47,.7)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR')}}}}});
+    }
+  }catch(e){}
+  try{
+    const ctx2=document.getElementById('chart-embalagens')?.getContext('2d');
+    if(ctx2){
+      chartEmb=destroyChart(chartEmb);
+      const vals=TAMS.map(t=>lista.reduce((s,p)=>s+p.itens.filter(it=>it.tam===t).reduce((ss,it)=>ss+it.qtd,0),0));
+      if(vals.some(v=>v>0)){
+        chartEmb=new Chart(ctx2,{type:'doughnut',data:{labels:TAMS.map(t=>TL[t]),datasets:[{data:vals,backgroundColor:['#E07A2F','#F28C3C','#2D7D52','#2563EB','#7C3AED'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+      }
+    }
+  }catch(e){}
 }
 
 // ── LARANJAS ───────────────────────────────────────────────────────────────
@@ -2134,16 +2296,16 @@ function renderDia(){
             +(p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPago(${i})">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
             +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:'')
-            +`<button class="psm psm-edit" onclick="abrirModalEdit(${i})">Editar</button>`
+            +(perfilAtual==='admin'?`<button class="psm psm-edit" onclick="abrirModalEdit(${i})">Editar</button>`:'')
             +`<button class="psm psm-wpp" onclick="enviarWhats(${i})">WPP</button>`
-            +`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="emitirNFe(${i})">NF-e</button>`
+            +(perfilAtual==='admin'?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="emitirNFe(${i})">NF-e</button>`:'')
             +`<button class="psm psm-del" onclick="delPedido(${i})">✕</button>`
           ):(
-            // Data histórica - mostrar só ações de pagamento
             (p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPagoHistorico(${p.id},'${dataSel}')">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
             +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:'')
             +`<button class="psm psm-wpp" onclick="enviarWhats(-1,'${dataSel}',${p.id})">WPP</button>`
+            +`<button class="psm psm-del" onclick="delPedidoUniversal(${p.id},'${dataSel}')">✕</button>`
           )}
         </div>
       </div>
@@ -2817,6 +2979,136 @@ function renderResumo(){
 function getCustoTotal(t){
   const c=custos[t]||{embalagem:0,laranja:0,adesivo:0};
   return (parseFloat(c.embalagem)||0)+(parseFloat(c.laranja)||0)+(parseFloat(c.adesivo)||0);
+}
+
+// ── CUSTOS OPERACIONAIS ────────────────────────────────────────────────────
+let copFiltro='mes';
+let custosOp=load('slj_custos_op2',[]);
+
+function setCopFiltro(f,btn){
+  copFiltro=f;
+  document.querySelectorAll('#page-custos .fbtn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  const inp=document.getElementById('cop-data-filtro');
+  if(inp)inp.style.display=f==='data'?'':'none';
+  renderCustos();
+}
+
+function getCopLista(){
+  const mesAtual=hojeKey.slice(0,7);
+  const anoAtual=hojeKey.slice(0,4);
+  const d=new Date(hoje);d.setMonth(d.getMonth()-1);
+  const mesAnt=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
+  if(copFiltro==='mes')    return custosOp.filter(c=>c.data&&c.data.startsWith(mesAtual));
+  if(copFiltro==='mesant') return custosOp.filter(c=>c.data&&c.data.startsWith(mesAnt));
+  if(copFiltro==='hoje')   return custosOp.filter(c=>c.data===hojeKey);
+  if(copFiltro==='ano')    return custosOp.filter(c=>c.data&&c.data.startsWith(anoAtual));
+  if(copFiltro==='data'){
+    const v=document.getElementById('cop-data-filtro')?.value;
+    return v?custosOp.filter(c=>c.data===v):custosOp;
+  }
+  return custosOp;
+}
+
+function toggleCopColab(){
+  const cat=document.getElementById('cop-cat')?.value||'';
+  const wrap=document.getElementById('cop-colab-nome-wrap');
+  if(wrap)wrap.style.display=cat.startsWith('colaborador')?'block':'none';
+}
+
+function registrarCusto(){
+  const cat=document.getElementById('cop-cat')?.value;
+  const valor=parseFloat(document.getElementById('cop-valor')?.value)||0;
+  const data=document.getElementById('cop-data')?.value||hojeKey;
+  const desc=document.getElementById('cop-desc')?.value.trim()||'';
+  const colab=document.getElementById('cop-colab-nome')?.value.trim()||'';
+  if(!cat){toast('Selecione uma categoria.');return;}
+  if(valor<=0){toast('Informe um valor maior que zero.');return;}
+  if(!data){toast('Informe a data.');return;}
+  const LABELS={
+    'gasolina':'⛽ Gasolina',
+    'gasolina-visita':'⛽ Gasolina — Visitas',
+    'gasolina-entrega':'🚚 Gasolina — Entregas',
+    'colaborador-1':'👤 '+(colab||'Colaborador 1'),
+    'colaborador-2':'👤 '+(colab||'Colaborador 2'),
+    'energia':'⚡ Energia Elétrica',
+    'manutencao':'🔧 Manutenção',
+    'embalagem':'📦 Embalagem / Material',
+    'diverso':'💰 Gasto Diverso'
+  };
+  const custo={id:Date.now().toString(),cat,label:LABELS[cat]||cat,valor,data,desc:colab?colab+(desc?' — '+desc:''):desc};
+  custosOp.unshift(custo);
+  lsave('slj_custos_op2',custosOp);
+  // Limpar form
+  document.getElementById('cop-valor').value='';
+  document.getElementById('cop-desc').value='';
+  if(document.getElementById('cop-colab-nome')) document.getElementById('cop-colab-nome').value='';
+  toast('✓ Custo registrado: '+moeda(valor));
+  renderCustos();
+}
+
+function delCusto(id){
+  if(!confirm('Remover este lançamento?'))return;
+  custosOp=custosOp.filter(c=>c.id!==id);
+  lsave('slj_custos_op2',custosOp);
+  toast('Custo removido.');
+  renderCustos();
+}
+
+function renderCustos(){
+  // Garantir data default
+  const dataInp=document.getElementById('cop-data');
+  if(dataInp&&!dataInp.value)dataInp.value=hojeKey;
+
+  const lista=getCopLista().sort((a,b)=>b.data.localeCompare(a.data));
+  const total=lista.reduce((s,c)=>s+(c.valor||0),0);
+
+  // KPIs
+  const mesAtual=hojeKey.slice(0,7);
+  const todosM=[...pedidos,...Object.values(historico).flat()];
+  const fatPeriodo=lista.length>0?todosM.filter(p=>lista.some(c=>c.data===p.data)).reduce((s,p)=>s+p.total,0):0;
+  const lucro=fatPeriodo-total;
+
+  const el=id=>document.getElementById(id);
+  if(el('cop-total-mes'))   el('cop-total-mes').textContent=moeda(total);
+  if(el('cop-total-mes-sub'))el('cop-total-mes-sub').textContent=lista.length+' lançamento(s)';
+  if(el('cop-lucro'))   {el('cop-lucro').textContent=moeda(lucro);el('cop-lucro').style.color=lucro>=0?'var(--green)':'var(--red)';}
+  if(el('cop-lucro-sub'))el('cop-lucro-sub').textContent='Fat: '+moeda(fatPeriodo)+' − Custos: '+moeda(total);
+
+  // Breakdown por categoria
+  const breakdown={};
+  lista.forEach(c=>{breakdown[c.label]=(breakdown[c.label]||0)+(c.valor||0);});
+  const breakEl=el('cop-breakdown');
+  if(breakEl){
+    const sorted=Object.entries(breakdown).sort((a,b)=>b[1]-a[1]);
+    breakEl.innerHTML=sorted.length?sorted.map(([lbl,val])=>{
+      const pct=total>0?Math.round(val/total*100):0;
+      return`<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span style="font-weight:600">${lbl}</span>
+          <span style="font-weight:700">${moeda(val)} <span style="color:var(--text3);font-weight:400">(${pct}%)</span></span>
+        </div>
+        <div style="background:var(--border);border-radius:2px;height:5px;overflow:hidden">
+          <div style="height:100%;background:var(--orange);border-radius:2px;width:${pct}%"></div>
+        </div>
+      </div>`;}).join(''):'<div style="font-size:13px;color:var(--text3)">Nenhum custo no período.</div>';
+  }
+
+  // Lista
+  const listaEl=el('cop-lista');
+  if(listaEl){
+    listaEl.innerHTML=lista.length?lista.map(c=>`
+      <div class="card" style="margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${c.label}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}${c.desc?' · '+c.desc:''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <span style="font-size:14px;font-weight:700;color:var(--red)">${moeda(c.valor)}</span>
+          <button onclick="delCusto('${c.id}')" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+      </div>`).join(''):'<div class="empty"><span class="empty-icon">○</span><p>Nenhum custo no período.</p></div>';
+  }
 }
 
 function renderCustosForm(){
@@ -4101,8 +4393,9 @@ function entrarGerente(){
   localStorage.setItem('slj_perfil_sessao','gerente');
   document.getElementById('login-screen').classList.add('hidden');
   aplicarPerfil('gerente');
+  // Na primeira vez vai para pedido, nas próximas restaura a aba salva
+  if(!localStorage.getItem('slj_aba_ativa')) localStorage.setItem('slj_aba_ativa','pedido');
   iniciarSistema();
-  setTimeout(()=>setTab('pedido'),300);
 }
 
 function entrarAdmin(){
@@ -4139,35 +4432,28 @@ function iniciarSistema(){
   pedidos=load('slj_ped_bk',[]).filter(p=>p.data===hojeKey);
   const cacheOntem=load('slj_ped_ontem_bk',[]);
   pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
-  document.getElementById('loading').classList.add('hidden');
-  // Restaurar aba ativa (respeitando perfil)
   const abaAtiva=localStorage.getItem('slj_aba_ativa')||'dash';
-  renderDash();
-  renderClienteList();
-  atualizarBadges();
-  sincronizar();
-  // Ir para aba salva
-  setTimeout(()=>setTab(abaAtiva),200);
+  sincronizar().finally(()=>{
+    document.getElementById('loading').classList.add('hidden');
+    renderClienteList();
+    atualizarBadges();
+    // Ir direto para a aba que estava ativa
+    setTab(abaAtiva);
+  });
+  setInterval(sincronizar,15000);
 }
 
 function iniciarSistemaEntregador(){
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
   pedidos=load('slj_ped_bk',[]);
-  // Só usar cache de ontem se os pedidos realmente são de ontem
   const cacheOntem=load('slj_ped_ontem_bk',[]);
   pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
-  document.getElementById('loading').classList.add('hidden');
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-rota').classList.add('active');
-  document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('active', i===3);
-  });
-  renderRota();
-  sincronizar().then(()=>{
-    renderRota();
-  }).catch(()=>{
+  sincronizar().finally(()=>{
+    document.getElementById('loading').classList.add('hidden');
+    setTab('rota');
     renderRota();
   });
+  setInterval(sincronizar,15000);
 }
 
 function renderEntregador(){
@@ -4231,7 +4517,6 @@ setInterval(()=>{
     document.getElementById('login-screen').classList.add('hidden');
     aplicarPerfil('gerente');
     iniciarSistema();
-    setTimeout(()=>setTab('pedido'),300);
   } else if(sessao==='entregador'){
     perfilAtual='entregador';
     document.getElementById('login-screen').classList.add('hidden');
