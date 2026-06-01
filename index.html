@@ -1534,12 +1534,20 @@ async function sincronizar(){
       const mapped=mapPedido(p);
       const local=localState[mapped.id];
       if(local){
-        // Estado local sempre prevalece — ele foi modificado pelo usuário
-        mapped.entregue=local.entregue;
-        if(local.horaEntrega) mapped.horaEntrega=local.horaEntrega;
-        mapped.pago=local.pago;
-        if(local.foto) mapped.foto=local.foto;
-        mapped.naoEntregue=local.naoEntregue||false;
+        // Se banco já tem entregue=true, manter
+        // Se local tem entregue=true mas banco ainda não, usar local
+        if(mapped.entregue===true || local.entregue===true){
+          mapped.entregue=true;
+          if(local.horaEntrega) mapped.horaEntrega=local.horaEntrega;
+          if(local.foto) mapped.foto=local.foto;
+        } else {
+          mapped.entregue=false;
+        }
+        // Pago: se qualquer um dos dois tiver pago, manter
+        if(mapped.pago===true || local.pago===true) mapped.pago=true;
+        // Não entregue: respeitar local (mais recente)
+        if(local.naoEntregue===true) mapped.naoEntregue=true;
+        if(local.naoEntregue===false && !mapped.naoEntregue) mapped.naoEntregue=false;
         if(local.motivoNaoEntregue) mapped.motivoNaoEntregue=local.motivoNaoEntregue;
       }
       return mapped;
@@ -2508,15 +2516,15 @@ function confirmarEntrega(){
   atualizarBadges();
   renderDia();
   renderRota();
-  window.scrollTo({top:0,behavior:'smooth'});
   toast('✅ Entrega confirmada às '+hora+'.');
 
-  // Salvar no banco em segundo plano
-  setTimeout(()=>{
-    sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:true,hora_entrega:hora,foto:foto})
-      .then(()=>setSyncStatus('ok','Sincronizado — nuvem ativa'))
-      .catch(()=>setSyncStatus('err','Erro ao sincronizar'));
-  },100);
+  // Salvar no banco — sem setTimeout, chamada direta
+  sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:true,hora_entrega:hora,foto:foto})
+    .then(()=>setSyncStatus('ok','✓ Conectado — dados sincronizados'))
+    .catch(()=>{
+      // Falhou mas está salvo no localStorage — vai sincronizar na próxima
+      setSyncStatus('err','Erro ao sincronizar — dado salvo localmente');
+    });
 }
 
 async function marcarPago(i){
@@ -2942,7 +2950,6 @@ function toggleRotaCheck(id){
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   if(p.entregue){
-    // Desfazer entrega
     if(!confirm('Desfazer entrega de '+p.clienteNome+'?'))return;
     p.entregue=false;p.horaEntrega=null;p.foto=null;
     lsave('slj_ped_bk',pedidos);
