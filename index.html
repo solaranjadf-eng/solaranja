@@ -61,7 +61,7 @@ html,body{height:100%;font-family:'Inter',system-ui,sans-serif;background:#F0F2F
 .btn-sair{width:auto;height:26px;padding:0 10px;border-radius:var(--radius-sm);border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);font-size:11px;font-weight:500;font-family:inherit;cursor:pointer;transition:all .12s;white-space:nowrap}
 .btn-sair:hover{background:rgba(255,255,255,.09);color:rgba(255,255,255,.75)}
 /* MAIN AREA */
-.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;min-height:0}
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;min-height:0;position:relative}
 .top-bar{display:none}
 .top-bar-title{font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.01em}
 .top-bar-right{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:500}
@@ -288,7 +288,18 @@ a{color:var(--orange);text-decoration:none}
 @media(max-width:768px){
   .mobile-header{display:none}
   .mobile-tabs{display:none}
-  .main-content{padding:11px 11px 55px;height:auto;overflow-y:visible}
+  .top-bar{display:none}
+  .page{max-width:100%}
+  .sidebar-nav{overflow-x:auto}
+  .sidebar-item{padding:0 8px;font-size:11px}
+  .sidebar-header{padding:0 10px;gap:8px}
+  .sidebar-footer{padding:0 8px;gap:6px}
+  .main-content{padding:11px 11px 80px !important;overflow-y:auto !important;-webkit-overflow-scrolling:touch;height:auto !important;flex:1}
+  .main-area{overflow:hidden;display:flex;flex-direction:column;min-height:0}
+  .app-shell{height:100vh;overflow:hidden;flex-direction:column}
+}
+  .mobile-tabs{display:none}
+  .main-content{padding:11px 11px 80px;height:auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .top-bar{display:none}
   .page{max-width:100%}
   .sidebar-nav{overflow-x:auto}
@@ -327,7 +338,7 @@ a{color:var(--orange);text-decoration:none}
   <button class="login-btn login-btn-admin" onclick="abrirSenhaAdmin()">
     <span style="font-size:20px">🔐</span> Entrar como Administrador
   </button>
-  <button class="login-btn" style="background:rgba(255,255,255,.15);color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="abrirSenhaGerente()">
+  <button class="login-btn" style="background:rgba(255,255,255,.15);color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="entrarGerente()">
     <span style="font-size:20px">📋</span> Entrar como Gerente
   </button>
   <button class="login-btn login-btn-entregador" onclick="entrarEntregador()">
@@ -350,19 +361,6 @@ a{color:var(--orange);text-decoration:none}
   </div>
 </div>
 
-<!-- MODAL SENHA GERENTE -->
-<div class="login-modal hidden" id="login-modal-gerente">
-  <div class="login-modal-box">
-    <div class="login-modal-title">Acesso Gerente</div>
-    <div class="login-modal-sub">Digite a senha para continuar.</div>
-    <input type="password" id="senha-gerente-input" placeholder="Senha" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:15px;margin-bottom:4px" onkeydown="if(event.key==='Enter')verificarSenhaGerente()">
-    <div class="login-error" id="login-error-gerente">Senha incorreta. Tente novamente.</div>
-    <div class="action-row" style="margin-top:14px;gap:8px">
-      <button class="btn btn-outline" onclick="fecharLoginModalGerente()" style="flex:1">Cancelar</button>
-      <button class="btn btn-primary" onclick="verificarSenhaGerente()" style="flex:2">Entrar</button>
-    </div>
-  </div>
-</div>
 
 <div class="loading-overlay" id="loading">
   <div class="spinner"></div>
@@ -682,10 +680,15 @@ a{color:var(--orange);text-decoration:none}
       <!-- Data de entrega -->
       <div style="margin-bottom:12px">
         <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px">Data de Entrega</label>
-        <div style="display:flex;gap:8px">
-          <button id="btn-entrega-hoje" class="btn btn-outline" onclick="setDataEntrega('hoje',this)" style="flex:1;height:40px;font-size:13px">📅 Hoje</button>
-          <button id="btn-entrega-amanha" class="btn btn-primary" onclick="setDataEntrega('amanha',this)" style="flex:1;height:40px;font-size:13px">📅 Amanhã</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="btn-entrega-hoje" class="btn btn-outline" onclick="setDataEntrega('hoje',this)" style="flex:1;min-width:80px;height:38px;font-size:12px">Hoje</button>
+          <button id="btn-entrega-amanha" class="btn btn-primary" onclick="setDataEntrega('amanha',this)" style="flex:1;min-width:80px;height:38px;font-size:12px">Amanhã</button>
+          <button id="btn-entrega-custom" class="btn btn-outline" onclick="setDataEntrega('custom',this)" style="flex:1;min-width:80px;height:38px;font-size:12px">Outra data</button>
         </div>
+        <div id="entrega-custom-wrap" style="display:none;margin-top:8px">
+          <input type="date" id="entrega-custom-data" onchange="atualizarLabelDataEntrega()" style="width:100%">
+        </div>
+        <div id="entrega-label" style="font-size:12px;color:var(--orange);font-weight:600;margin-top:6px"></div>
       </div>
       <div class="obs-wrap"><label>Observações</label><textarea id="obs" placeholder="Instruções de entrega, preferências..."></textarea></div>
       <div id="resumo-ped" class="resumo-ped" style="display:none">
@@ -1406,8 +1409,8 @@ let custosOp=load('slj_custos_op',[]);
 let copFiltro='mes';
 let comprasLaranja=load('slj_compras_lar',[]);
 let fornecedores=load('slj_fornecedores',[]);
-let larFiltro='mes';
-let rotaOrdem=[];
+
+let rotaOrdem=load('slj_rota_ordem',[]);
 let filtroAtual='todos', filtroFin='todos';
 let sel=null, qtds={}, editPedIdx=null, editPedQtds={}, editClienteId=null, editClienteIdModal=null;
 let fotoEntregaIdx=null, fotoBase64=null, fotoEntregaPedido=null;
@@ -1498,24 +1501,22 @@ async function sincronizar(){
     }
     const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id`);
     const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id`);
-    // Mesclar com estado local — preservar entregue/pago marcados localmente
+    // Capturar estado local ANTES de sobrescrever — timestamp para saber qual é mais recente
     const localState={};
-    pedidos.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto,naoEntregue:p.naoEntregue,motivoNaoEntregue:p.motivoNaoEntregue};});
-    pedidosOntem.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto,naoEntregue:p.naoEntregue,motivoNaoEntregue:p.motivoNaoEntregue};});
+    const agora=Date.now();
+    pedidos.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto,naoEntregue:p.naoEntregue,motivoNaoEntregue:p.motivoNaoEntregue,ts:agora};});
+    pedidosOntem.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto,naoEntregue:p.naoEntregue,motivoNaoEntregue:p.motivoNaoEntregue,ts:agora};});
 
     function mesclar(p){
       const mapped=mapPedido(p);
       const local=localState[mapped.id];
       if(local){
-        // Só sobrescreve se o estado local for MAIS recente (entregue=true ou naoEntregue=true)
-        // Se local tem entregue=false explicitamente, respeitar
-        if(local.entregue===true) mapped.entregue=true;
-        if(local.entregue===false) mapped.entregue=false;
+        // Estado local sempre prevalece — ele foi modificado pelo usuário
+        mapped.entregue=local.entregue;
         if(local.horaEntrega) mapped.horaEntrega=local.horaEntrega;
-        if(local.pago===true) mapped.pago=true;
+        mapped.pago=local.pago;
         if(local.foto) mapped.foto=local.foto;
-        if(local.naoEntregue===true) mapped.naoEntregue=true;
-        if(local.naoEntregue===false) mapped.naoEntregue=false;
+        mapped.naoEntregue=local.naoEntregue||false;
         if(local.motivoNaoEntregue) mapped.motivoNaoEntregue=local.motivoNaoEntregue;
       }
       return mapped;
@@ -1535,7 +1536,16 @@ async function sincronizar(){
     if(dbM&&dbM.length)dbM.forEach(e=>estMinimos[e.tam]=e.qty||0);
     const dbMov=await sbGet('movimentos','?order=id.desc&limit=100');
     movimentos=(dbMov||[]).map(m=>({tipo:m.tipo,tam:m.tam,qtd:m.qtd,obs:m.obs,data:m.data,hora:m.hora}));
-    rotaOrdem=pedidos.map(p=>p.id);
+    // Preservar rotaOrdem manual — só resetar se vazio
+    const listaRotaIds=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)].map(p=>p.id);
+    if(!rotaOrdem.length){
+      rotaOrdem=[...listaRotaIds];
+    }else{
+      // Adicionar novos pedidos ao fim da ordem existente
+      listaRotaIds.forEach(id=>{if(!rotaOrdem.includes(id))rotaOrdem.push(id);});
+      // Remover IDs que não existem mais
+      rotaOrdem=rotaOrdem.filter(id=>listaRotaIds.includes(id));
+    }
     setSyncStatus('ok','✓ Conectado — dados sincronizados');
     syncErros=0; // resetar contador de erros
     renderDash();
@@ -1587,6 +1597,149 @@ function setTab(t){
   if(t==='historico')renderHistorico();
   if(t==='ranking')  renderRanking();
   if(t==='clientes') renderClientes();
+}
+
+// ── LARANJAS ───────────────────────────────────────────────────────────────
+let larFiltro='mes';
+
+function renderLaranjas(){
+  const sel=document.getElementById('lar-forn');
+  if(sel){
+    const cur=sel.value;
+    sel.innerHTML='<option value="">Selecione um fornecedor...</option>';
+    fornecedores.forEach(f=>{
+      const op=document.createElement('option');
+      op.value=f.id;op.textContent=f.nome+(f.local?' — '+f.local:'');
+      sel.appendChild(op);
+    });
+    if(cur) sel.value=cur;
+  }
+  const mesAtual=hojeKey.slice(0,7);
+  const doMes=comprasLaranja.filter(c=>c.data&&c.data.startsWith(mesAtual));
+  const sacosMes=doMes.reduce((s,c)=>s+(c.qtd||0),0);
+  const gastoMes=doMes.reduce((s,c)=>s+(c.total||0),0);
+  const precoMed=sacosMes>0?gastoMes/sacosMes:0;
+  const sm=document.getElementById('lar-sacos-mes');if(sm)sm.textContent=sacosMes;
+  const gm=document.getElementById('lar-gasto-mes');if(gm)gm.textContent=moeda(gastoMes);
+  const pm=document.getElementById('lar-preco-med');if(pm)pm.textContent=moeda(precoMed);
+  const km=document.getElementById('lar-kg-mes');if(km)km.textContent=(sacosMes*20)+' kg';
+  let lista=larFiltro==='mes'?comprasLaranja.filter(c=>c.data&&c.data.startsWith(mesAtual)):
+            larFiltro==='hoje'?comprasLaranja.filter(c=>c.data===hojeKey):
+            [...comprasLaranja];
+  lista=[...lista].sort((a,b)=>b.data.localeCompare(a.data));
+  const el=document.getElementById('lar-lista');
+  if(el){
+    if(!lista.length){
+      el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhuma compra registrada.</p></div>';
+    }else{
+      el.innerHTML=lista.map(c=>{
+        const forn=fornecedores.find(f=>f.id===c.fornId);
+        return`<div class="card" style="margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${forn?forn.nome:'—'}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${c.qtd} saco(s) · ${moeda(c.preco)}/saco · ${c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+            ${c.obs?`<div style="font-size:11px;color:var(--text3);font-style:italic">${c.obs}</div>`:''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <div style="font-size:14px;font-weight:700">${moeda(c.total)}</div>
+            <button onclick="delCompraLaranja('${c.id}')" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer">✕</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+  const fl=document.getElementById('forn-lista');
+  if(fl){
+    if(!fornecedores.length){
+      fl.innerHTML='<div style="font-size:13px;color:var(--text3);padding:8px 0">Nenhum fornecedor cadastrado.</div>';
+    }else{
+      fl.innerHTML=fornecedores.map(f=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${f.nome}</div>
+            <div style="font-size:11px;color:var(--text3)">${f.tel?f.tel+' · ':''}${f.local||''}${f.precoRef?' · Ref: '+moeda(f.precoRef)+'/saco':''}</div>
+            ${f.obs?`<div style="font-size:11px;color:var(--text3);font-style:italic">${f.obs}</div>`:''}
+          </div>
+          <button onclick="delFornecedor('${f.id}')" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;flex-shrink:0">✕</button>
+        </div>`).join('');
+    }
+  }
+}
+
+function setLarFiltro(f,btn){
+  larFiltro=f;
+  document.querySelectorAll('#page-laranjas .fbtn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderLaranjas();
+}
+
+function atualizarTotalLar(){
+  const qtd=parseFloat(document.getElementById('lar-qtd')?.value)||0;
+  const preco=parseFloat(document.getElementById('lar-preco')?.value)||0;
+  const prev=document.getElementById('lar-total-preview');
+  if(!prev)return;
+  if(qtd>0&&preco>0){
+    prev.style.display='block';
+    const vEl=document.getElementById('lar-total-val');const kEl=document.getElementById('lar-total-kg');
+    if(vEl)vEl.textContent=moeda(qtd*preco);
+    if(kEl)kEl.textContent=(qtd*20)+' kg';
+  }else{prev.style.display='none';}
+}
+
+function registrarCompraLaranja(){
+  const fornId=document.getElementById('lar-forn')?.value;
+  const qtd=parseFloat(document.getElementById('lar-qtd')?.value)||0;
+  const preco=parseFloat(document.getElementById('lar-preco')?.value)||0;
+  const data=document.getElementById('lar-data')?.value||hojeKey;
+  const obs=document.getElementById('lar-obs')?.value.trim()||'';
+  if(!fornId){toast('Selecione um fornecedor.');return;}
+  if(qtd<=0){toast('Informe a quantidade de sacos.');return;}
+  if(preco<=0){toast('Informe o preço por saco.');return;}
+  const compra={id:Date.now().toString(),fornId,qtd,preco,total:qtd*preco,data,obs};
+  comprasLaranja.unshift(compra);
+  lsave('slj_compras_lar',comprasLaranja);
+  document.getElementById('lar-qtd').value='';
+  document.getElementById('lar-preco').value='';
+  document.getElementById('lar-obs').value='';
+  const prev=document.getElementById('lar-total-preview');if(prev)prev.style.display='none';
+  toast('✓ Compra registrada!');
+  renderLaranjas();
+}
+
+function delCompraLaranja(id){
+  if(!confirm('Remover esta compra?'))return;
+  comprasLaranja=comprasLaranja.filter(c=>c.id!==id);
+  lsave('slj_compras_lar',comprasLaranja);
+  toast('Compra removida.');
+  renderLaranjas();
+}
+
+function addFornecedor(){
+  const nome=document.getElementById('forn-nome')?.value.trim();
+  if(!nome){toast('Informe o nome do fornecedor.');return;}
+  const forn={
+    id:Date.now().toString(),
+    nome,
+    tel:document.getElementById('forn-tel')?.value.trim()||'',
+    local:document.getElementById('forn-local')?.value.trim()||'',
+    precoRef:parseFloat(document.getElementById('forn-preco-ref')?.value)||0,
+    obs:document.getElementById('forn-obs')?.value.trim()||''
+  };
+  fornecedores.push(forn);
+  lsave('slj_fornecedores',fornecedores);
+  ['forn-nome','forn-tel','forn-local','forn-preco-ref','forn-obs'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  toast('✓ Fornecedor adicionado!');
+  renderLaranjas();
+}
+
+function delFornecedor(id){
+  if(!confirm('Remover este fornecedor?'))return;
+  fornecedores=fornecedores.filter(f=>f.id!==id);
+  lsave('slj_fornecedores',fornecedores);
+  toast('Fornecedor removido.');
+  renderLaranjas();
 }
 
 function renderHistorico(){
@@ -1795,11 +1948,37 @@ function setDataEntrega(opcao, btn){
   dataEntregaSel = opcao;
   document.getElementById('btn-entrega-hoje').className='btn btn-outline';
   document.getElementById('btn-entrega-amanha').className='btn btn-outline';
+  document.getElementById('btn-entrega-custom').className='btn btn-outline';
   btn.className='btn btn-primary';
+  const wrap=document.getElementById('entrega-custom-wrap');
+  if(opcao==='custom'){
+    wrap.style.display='block';
+    // Pré-preencher com amanhã se vazio
+    const inp=document.getElementById('entrega-custom-data');
+    if(!inp.value) inp.value=getDataEntregaKey('amanha');
+    atualizarLabelDataEntrega();
+  }else{
+    wrap.style.display='none';
+    atualizarLabelDataEntrega();
+  }
 }
 
-function getDataEntregaKey(){
-  if(dataEntregaSel==='hoje') return hojeKey;
+function atualizarLabelDataEntrega(){
+  const el=document.getElementById('entrega-label');
+  if(!el)return;
+  const dk=getDataEntregaKey();
+  if(!dk){el.textContent='';return;}
+  const d=new Date(dk+'T12:00:00');
+  el.textContent='Entrega: '+d.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+}
+
+function getDataEntregaKey(override){
+  const sel=override||dataEntregaSel;
+  if(sel==='hoje') return hojeKey;
+  if(sel==='custom'){
+    const v=document.getElementById('entrega-custom-data')?.value;
+    return v||hojeKey;
+  }
   // amanhã
   const amanha=new Date(hoje);
   amanha.setDate(amanha.getDate()+1);
@@ -1846,6 +2025,11 @@ async function confirmar(){
     dataEntregaSel='amanha';
     document.getElementById('btn-entrega-hoje').className='btn btn-outline';
     document.getElementById('btn-entrega-amanha').className='btn btn-primary';
+    document.getElementById('btn-entrega-custom').className='btn btn-outline';
+    const wrap=document.getElementById('entrega-custom-wrap');
+    if(wrap)wrap.style.display='none';
+    const lbl=document.getElementById('entrega-label');
+    if(lbl)lbl.textContent='';
     limpar();sel=null;
     document.getElementById('order-area').style.display='none';
     document.getElementById('no-client').style.display='block';
@@ -2281,18 +2465,23 @@ function distKm(la1,ln1,la2,ln2){
 }
 
 function ordenarRota(){
-  const comCoord=[],semCoord=[];
-  pedidos.forEach(p=>{
+  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
+  // Ordenar somente os pendentes por distância; entregues e não entregues ficam no fim
+  const pendentes=listaRota.filter(p=>!p.entregue&&!p.naoEntregue);
+  const outros=listaRota.filter(p=>p.entregue||p.naoEntregue);
+  const comCoord=[], semCoord=[];
+  pendentes.forEach(p=>{
     const c=clientes.find(x=>x.id===p.clienteId)||{};
     const coord=extrairCoordenadas(c.maps||'');
-    if(coord)comCoord.push({p,dist:distKm(FABRICA_LAT,FABRICA_LNG,coord.lat,coord.lng)});
+    if(coord) comCoord.push({p,dist:distKm(FABRICA_LAT,FABRICA_LNG,coord.lat,coord.lng)});
     else semCoord.push(p);
   });
   comCoord.sort((a,b)=>a.dist-b.dist);
-  rotaOrdem=[...comCoord.map(x=>x.p),...semCoord].map(p=>p.id);
+  rotaOrdem=[...comCoord.map(x=>x.p),...semCoord,...outros].map(p=>p.id);
+  lsave('slj_rota_ordem', rotaOrdem);
   renderRota();
-  if(semCoord.length>0)toast(`Ordenado por distância. ${semCoord.length} cliente(s) sem link Maps — ao final.`);
-  else toast('Rota ordenada do mais próximo ao mais distante da fábrica.');
+  if(semCoord.length>0) toast(`Ordenado por distância. ${semCoord.length} cliente(s) sem Maps — ao final.`);
+  else toast('Rota ordenada do mais próximo ao mais distante.');
 }
 
 function renderRota(){
@@ -2421,6 +2610,7 @@ function dragDrop(e){
   const [moved]=arr.splice(fi,1);
   arr.splice(ti,0,moved);
   rotaOrdem=arr;
+  lsave('slj_rota_ordem', rotaOrdem);
   renderRota();
 }
 function toggleRotaCheck(id){
@@ -2867,22 +3057,31 @@ function renderExtratocliente(){
     return;
   }
 
-  // Tabela estilo Bling
+  // Tabela estilo Bling com checkboxes para PDF
   el.innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="sel-todos-fin" onchange="selecionarTodosFin(this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)">
+        Selecionar todos para o PDF
+      </label>
+      <span style="font-size:11px;color:var(--text3)">(marque os pedidos que deseja incluir no PDF)</span>
+    </div>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
-        <tr style="background:var(--bg);border-bottom:2px solid var(--border)">
-          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Nº</th>
-          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Data</th>
-          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Itens</th>
-          <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Total</th>
-          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Situação</th>
-          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Ação</th>
-          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em"></th>
+        <tr style="background:#2D3139;color:white">
+          <th style="padding:8px;width:36px;text-align:center"><input type="checkbox" id="sel-todos-fin2" onchange="selecionarTodosFin(this.checked)" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)"></th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em">Nº</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em">Data</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em">Itens</th>
+          <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:600;letter-spacing:.04em">Total</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:600;letter-spacing:.04em">Situação</th>
+          <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:600;letter-spacing:.04em">Ação</th>
+          <th style="padding:8px;width:36px"></th>
         </tr>
       </thead>
       <tbody>
-        ${pedsCli.map(p=>{
+        ${pedsCli.map((p,idx)=>{
           const dataFmt = p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
           const num = p.numeroPedido||'—';
           const situacao = p.pago
@@ -2895,33 +3094,35 @@ function renderExtratocliente(){
             : p.entregue
             ? `<div style="display:flex;flex-direction:column;gap:3px;align-items:center">
                 <button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--green);background:var(--green-bg);border:1px solid #B8DFC8;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">✓ Pago</button>
-                <button onclick="desmarcarEntregueFinItem(${p.id})" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:2px 6px;cursor:pointer">Desmarcar Entregue</button>
+                <button onclick="desmarcarEntregueFinItem(${p.id})" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:2px 6px;cursor:pointer">↩ Desmarcar</button>
                </div>`
             : `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:var(--od);background:var(--ol);border:1px solid rgba(224,122,47,.3);border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">Marcar Entregue</button>`;
-          return `<tr style="border-bottom:1px solid var(--border)">
+          return `<tr style="border-bottom:1px solid var(--border);${idx%2===1?'background:#F8F9FC':''}">
+            <td style="padding:8px;text-align:center"><input type="checkbox" class="fin-sel-ped" data-id="${p.id}" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)"></td>
             <td style="padding:8px 10px;color:var(--text3);font-weight:600">${num}</td>
-            <td style="padding:8px 10px">${dataFmt}</td>
+            <td style="padding:8px 10px;white-space:nowrap">${dataFmt}</td>
             <td style="padding:8px 10px;color:var(--text2)">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</td>
             <td style="padding:8px 10px;text-align:right;font-weight:700">${moeda(p.total)}</td>
             <td style="padding:8px 10px;text-align:center">${situacao}</td>
             <td style="padding:8px 10px;text-align:center">${btnAcao}</td>
-            <td style="padding:8px 10px;text-align:center"><button onclick="delPedidoFin(${p.id},'${p.data||''}')" title="Excluir pedido" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 7px;font-size:11px;font-weight:600;cursor:pointer">✕</button></td>
+            <td style="padding:8px;text-align:center"><button onclick="delPedidoFin(${p.id},'${p.data||''}')" title="Excluir" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 7px;font-size:11px;cursor:pointer">✕</button></td>
           </tr>`;
         }).join('')}
       </tbody>
       <tfoot>
         <tr style="background:var(--bg);border-top:2px solid var(--border)">
-          <td colspan="3" style="padding:10px;font-weight:700;font-size:12px;color:var(--text2)">TOTAL GERAL</td>
+          <td colspan="4" style="padding:10px;font-weight:700;font-size:12px;color:var(--text2)">TOTAL GERAL</td>
           <td style="padding:10px;text-align:right;font-weight:700">${moeda(totalGeral)}</td>
           <td colspan="3"></td>
         </tr>
         ${debito>0?`<tr style="background:#FEF3C7">
-          <td colspan="3" style="padding:8px 10px;font-weight:700;font-size:12px;color:#92400E">A RECEBER</td>
+          <td colspan="4" style="padding:8px 10px;font-weight:700;font-size:12px;color:#92400E">A RECEBER</td>
           <td style="padding:8px 10px;text-align:right;font-weight:700;color:#92400E">${moeda(debito)}</td>
-          <td colspan="2"></td>
+          <td colspan="3"></td>
         </tr>`:''}
       </tfoot>
-    </table>`;
+    </table>
+    </div>`;
 }
 
 function delPedidoFin(pedidoId, dataKey){
@@ -2942,6 +3143,18 @@ function delPedidoFin(pedidoId, dataKey){
     renderFinanceiro();
     atualizarBadges();
   }).catch(()=>toast('Erro ao excluir pedido.'));
+}
+
+function toggleEntregueFinItem(pedidoId){
+  let p=pedidos.find(x=>x.id===pedidoId);
+  if(!p) Object.values(historico).forEach(d=>d.forEach(x=>{if(x.id===pedidoId)p=x;}));
+  if(!p){toast('Pedido não encontrado.');return;}
+  const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  p.entregue=true;p.horaEntrega=hora;
+  lsave('slj_ped_bk',pedidos);
+  sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:true,hora_entrega:hora}).catch(()=>{});
+  renderExtratocliente();renderFinanceiro();atualizarBadges();
+  toast('✓ Marcado como entregue.');
 }
 
 function desmarcarEntregueFinItem(pedidoId){
@@ -2971,6 +3184,22 @@ function togglePagoFin(pedidoId){
 }
 
 // ── PDF DO EXTRATO DO CLIENTE ──────────────────────────────────────────────
+function selecionarTodosFin(checked){
+  document.querySelectorAll('.fin-sel-ped').forEach(cb=>cb.checked=checked);
+  const cb1=document.getElementById('sel-todos-fin');
+  const cb2=document.getElementById('sel-todos-fin2');
+  if(cb1) cb1.checked=checked;
+  if(cb2) cb2.checked=checked;
+}
+
+function getIdselecionadosFin(){
+  const ids=[];
+  document.querySelectorAll('.fin-sel-ped:checked').forEach(cb=>{
+    ids.push(parseInt(cb.dataset.id));
+  });
+  return ids;
+}
+
 function gerarPDFCliente(){
   if(!finCliSelecionado) return;
   const {jsPDF} = window.jspdf;
@@ -2978,7 +3207,14 @@ function gerarPDFCliente(){
   const cliCad = clientes.find(c=>c.id===cli.id)||{};
   const todos=[...pedidos];
   Object.values(historico).forEach(d=>d.forEach(p=>todos.push(p)));
-  const pedsCli = todos.filter(p=>p.clienteId===cli.id).sort((a,b)=>b.data.localeCompare(a.data));
+  const todosCli = todos.filter(p=>p.clienteId===cli.id).sort((a,b)=>b.data.localeCompare(a.data));
+
+  // Filtrar pelos selecionados
+  const idsSel = getIdselecionadosFin();
+  const pedsCli = idsSel.length>0 ? todosCli.filter(p=>idsSel.includes(p.id)) : todosCli;
+
+  if(!pedsCli.length){toast('Selecione ao menos um pedido para o PDF.');return;}
+
   const totalGeral = pedsCli.reduce((s,p)=>s+p.total,0);
   const debito = pedsCli.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
 
@@ -3840,27 +4076,28 @@ setInterval(()=>{
   if(sessao==='admin'){
     perfilAtual='admin';
     document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('perfil-badge').textContent='Admin';
-    document.getElementById('perfil-badge').style.background='rgba(232,119,34,.3)';
+    document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Admin';});
     iniciarSistema();
   } else if(sessao==='gerente'){
     perfilAtual='gerente';
     document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('perfil-badge').textContent='Gerente 📋';
-    document.getElementById('perfil-badge').style.background='rgba(100,160,255,.3)';
-    document.querySelectorAll('.tabs .tab').forEach((t,i)=>{
-      t.style.display=ABAS_GERENTE.includes(i)?'':'none';
+    document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Gerente 📋';});
+    document.querySelectorAll('.sidebar-item').forEach(b=>{
+      const tab=b.getAttribute('onclick')||'';
+      const allowed=['dash','pedido','dia','rota','producao'];
+      b.style.display=allowed.some(t=>tab.includes("'"+t+"'"))?'':'none';
     });
+    document.querySelectorAll('.sidebar-section-lbl').forEach((s,i)=>{if(i>0)s.style.display='none';});
     iniciarSistema();
     setTimeout(()=>setTab('pedido'),300);
   } else if(sessao==='entregador'){
     perfilAtual='entregador';
     document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('perfil-badge').textContent='Entregador 🚚';
-    document.getElementById('perfil-badge').style.background='rgba(255,255,255,.15)';
-    document.querySelectorAll('.tabs .tab').forEach((t,i)=>{
-      t.style.display = i===3 ? '' : 'none';
+    document.querySelectorAll('#perfil-badge,#perfil-badge-mobile').forEach(el=>{el.textContent='Entregador 🚚';});
+    document.querySelectorAll('.sidebar-item').forEach(b=>{
+      b.style.display=(b.getAttribute('onclick')||'').includes("'rota'")?'flex':'none';
     });
+    document.querySelectorAll('.sidebar-section-lbl').forEach(s=>s.style.display='none');
     iniciarSistemaEntregador();
   }
   // else: mostrar tela de login (padrão)
