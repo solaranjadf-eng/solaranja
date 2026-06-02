@@ -751,6 +751,12 @@ a{color:var(--orange);text-decoration:none}
     <strong>📍 Ponto de partida:</strong> Jardins Mangueiral PA 04 LT 04 LJ 105 — São Sebastião, Brasília - DF<br>
     <a href="https://maps.google.com/?q=Jardins+Mangueiral+PA+04+LT+04+LJ+105+São+Sebastião+Brasília+DF" target="_blank" style="color:var(--orange-dark);font-weight:700;font-size:12px">Abrir no Google Maps ↗</a>
   </div>
+  <!-- Seletor de data da rota -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px">
+    <label style="font-size:12px;font-weight:600;color:var(--text3);white-space:nowrap;text-transform:uppercase;letter-spacing:.04em">Data:</label>
+    <input type="date" id="rota-data" onchange="renderRota()" style="flex:1;height:32px;font-size:13px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;background:var(--bg)">
+    <button class="fbtn" onclick="document.getElementById('rota-data').value=hojeKey;renderRota()" style="font-size:11px;white-space:nowrap">Hoje</button>
+  </div>
   <div class="action-row" style="margin-bottom:12px">
     <button class="btn btn-primary" onclick="ordenarRota()" style="flex:1">Ordenar por Distância</button>
     <button class="btn btn-green" onclick="abrirEntregues()" style="flex:1">✅ Entregues</button>
@@ -993,6 +999,7 @@ a{color:var(--orange);text-decoration:none}
         <option value="gasolina">⛽ Gasolina</option>
         <option value="gasolina-visita">⛽ Gasolina — Visitas</option>
         <option value="gasolina-entrega">🚚 Gasolina — Entregas</option>
+        <option value="entregador">🚚 Entregador</option>
         <option value="colaborador-1">👤 Colaborador 1</option>
         <option value="colaborador-2">👤 Colaborador 2</option>
         <option value="energia">⚡ Energia Elétrica</option>
@@ -2356,7 +2363,8 @@ function renderDia(){
 let naoEntregePedido=null;
 
 function abrirNaoEntregue(id){
-  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
+  const _dk=getRotaDataKey();
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   naoEntregePedido=p;
@@ -2389,7 +2397,8 @@ function confirmarNaoEntregue(){
 }
 
 function desfazerNaoEntregue(id){
-  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
+  const _dk=getRotaDataKey();
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   if(!confirm('Desfazer "não entregue" de '+p.clienteNome+'?'))return;
@@ -2402,7 +2411,8 @@ function desfazerNaoEntregue(id){
 }
 
 async function delPedidoRota(id){
-  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
+  const _dk=getRotaDataKey();
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
   const p=listaRota.find(x=>x.id===id)||pedidos.find(x=>x.id===id);
   if(!p)return;
   if(!confirm('Remover pedido de '+p.clienteNome+' da rota?\nEsta ação não pode ser desfeita.'))return;
@@ -2427,7 +2437,8 @@ async function delPedidoRota(id){
 }
 
 function abrirEntregues(){
-  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
+  const _dk=getRotaDataKey();
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
   const entregues=listaRota.filter(p=>p.entregue);
   const el=document.getElementById('modal-entregues-list');
   if(!entregues.length){
@@ -2727,7 +2738,11 @@ function distKm(la1,ln1,la2,ln2){
 }
 
 function ordenarRota(){
-  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
+  const dataSel=getRotaDataKey();
+  let listaRota=[];
+  if(dataSel===hojeKey) listaRota=pedidos.filter(p=>p.data===hojeKey);
+  else if(dataSel===ontemKey) listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
+  else listaRota=historico[dataSel]||[];
   // Ordenar somente os pendentes por distância; entregues e não entregues ficam no fim
   const pendentes=listaRota.filter(p=>!p.entregue&&!p.naoEntregue);
   const outros=listaRota.filter(p=>p.entregue||p.naoEntregue);
@@ -2746,10 +2761,42 @@ function ordenarRota(){
   else toast('Rota ordenada do mais próximo ao mais distante.');
 }
 
+function getRotaDataKey(){
+  const inp=document.getElementById('rota-data');
+  if(inp&&inp.value) return inp.value;
+  return hojeKey;
+}
+
 function renderRota(){
   const el=document.getElementById('rota-list');
-  // Rota mostra pedidos de ONTEM (lançados ontem, entregues hoje)
-  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
+
+  // Garantir data padrão = hoje
+  const dataInp=document.getElementById('rota-data');
+  if(dataInp&&!dataInp.value) dataInp.value=hojeKey;
+  const dataSel=getRotaDataKey();
+
+  // Buscar pedidos da data selecionada em todos os caches
+  let listaRota=[];
+  if(dataSel===hojeKey){
+    listaRota=pedidos.filter(p=>p.data===hojeKey);
+  } else if(dataSel===ontemKey){
+    listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
+  } else {
+    // Buscar no histórico
+    listaRota=[...(historico[dataSel]||[])];
+    // Se não tem, buscar do banco
+    if(!listaRota.length){
+      sbGet('pedidos',`?data=eq.${dataSel}&order=id`).then(dbP=>{
+        if(dbP&&dbP.length){
+          if(!historico[dataSel]) historico[dataSel]=[];
+          historico[dataSel]=(dbP||[]).map(mapPedido);
+          renderRota();
+        }
+      }).catch(()=>{});
+      el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Buscando pedidos...</p></div>';
+      return;
+    }
+  }
   if(!listaRota.length){
     el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido para entregar hoje.<br><small style="color:var(--text3)">Sincronizando...</small></p></div>';
     return;
@@ -2906,7 +2953,8 @@ function touchEnd(e){
   const targetId=card?.dataset.id;
   if(targetId&&targetId!==dragId){
     // Aplicar reordenação
-    const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
+    const _dk=getRotaDataKey();
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
     const allIds=listaRota.map(p=>p.id);
     if(!rotaOrdem.length) rotaOrdem=[...allIds];
     allIds.forEach(id=>{if(!rotaOrdem.includes(id))rotaOrdem.push(id);});
@@ -2931,7 +2979,8 @@ function dragDrop(e){
   const targetId=e.currentTarget.dataset.id;
   if(!dragId||dragId===targetId)return;
   // Full rota list
-  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
+  const _dk=getRotaDataKey();
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
   const allIds=listaRota.map(p=>p.id);
   if(!rotaOrdem.length) rotaOrdem=[...allIds];
   allIds.forEach(id=>{if(!rotaOrdem.includes(id))rotaOrdem.push(id);});
@@ -2946,7 +2995,8 @@ function dragDrop(e){
   renderRota();
 }
 function toggleRotaCheck(id){
-  const listaRota=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)];
+  const _dk=getRotaDataKey();
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   if(p.entregue){
@@ -3054,7 +3104,12 @@ function getCopLista(){
 function toggleCopColab(){
   const cat=document.getElementById('cop-cat')?.value||'';
   const wrap=document.getElementById('cop-colab-nome-wrap');
-  if(wrap)wrap.style.display=cat.startsWith('colaborador')?'block':'none';
+  if(wrap)wrap.style.display=(cat.startsWith('colaborador')||cat==='entregador')?'block':'none';
+  const lbl=document.getElementById('cop-colab-nome');
+  if(lbl){
+    if(cat==='entregador') lbl.placeholder='Nome do entregador';
+    else lbl.placeholder='Nome do colaborador';
+  }
 }
 
 function registrarCusto(){
@@ -3070,6 +3125,7 @@ function registrarCusto(){
     'gasolina':'⛽ Gasolina',
     'gasolina-visita':'⛽ Gasolina — Visitas',
     'gasolina-entrega':'🚚 Gasolina — Entregas',
+    'entregador':'🚚 Entregador'+(colab?' — '+colab:''),
     'colaborador-1':'👤 '+(colab||'Colaborador 1'),
     'colaborador-2':'👤 '+(colab||'Colaborador 2'),
     'energia':'⚡ Energia Elétrica',
