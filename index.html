@@ -614,6 +614,7 @@ a{color:var(--orange);text-decoration:none}
       <div class="card-title" style="margin-bottom:0">💰 Resultado do mês</div>
       <div id="dash-lucro-badge" style="font-size:16px;font-weight:700;color:var(--green)">R$ 0</div>
     </div>
+    <!-- Linha principal -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
       <div style="text-align:center;background:var(--green-bg);border-radius:var(--radius);padding:10px">
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Faturamento</div>
@@ -635,7 +636,30 @@ a{color:var(--orange);text-decoration:none}
         <div style="font-size:10px;color:var(--text3);margin-top:2px" id="dash-lucro-sub"></div>
       </div>
     </div>
-    <div style="position:relative;height:150px">
+    <!-- Detalhamento de custos -->
+    <div style="border-top:1px solid var(--border);padding-top:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Detalhamento</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
+          <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">🍊 Laranjas</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-laranja">R$ 0</div>
+          <div style="font-size:10px;color:var(--text3)" id="dash-custo-laranja-sub"></div>
+        </div>
+        <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
+          <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">⛽ Gasolina</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-gas">R$ 0</div>
+        </div>
+        <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
+          <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">👤 Colaboradores</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-colab">R$ 0</div>
+        </div>
+        <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
+          <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">🚚 Entregador</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-entregador">R$ 0</div>
+        </div>
+      </div>
+    </div>
+    <div style="position:relative;height:150px;margin-top:12px">
       <canvas id="chart-resultado"></canvas>
     </div>
   </div>
@@ -1699,35 +1723,52 @@ function renderDash(){
     if(el('dash-meta-label'))el('dash-meta-label').textContent=dashPeriodo==='hoje'?'Meta não definida':'';
   }
 
-  // Custos do mês
+  // Custos do mês — separados corretamente
   const mesAtual=hojeKey.slice(0,7);
-  // 1. Custo operacional (gasolina, colaboradores, etc.)
-  const custoOpMes=custosOp.filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.valor||0),0);
-  // 2. Custo de laranja (compras do mês)
+  const opMes=custosOp.filter(c=>c.data&&c.data.startsWith(mesAtual));
+
+  // Custo de laranja (compras do mês) — parte do custo de PRODUÇÃO
   const gastoLar=(comprasLaranja||[]).filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.total||0),0);
-  // 3. Custo de produção (custo unitário × qtd vendida de cada tamanho no mês)
+  const sacosMes=(comprasLaranja||[]).filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.qtd||0),0);
+
+  // Custos OPERACIONAIS — excluindo embalagem e laranja (já estão no custo produção)
+  const catExcluidas=['embalagem']; // laranja já está nas compras separadas
+  const custoOpMes=opMes.filter(c=>!catExcluidas.includes(c.cat)).reduce((s,c)=>s+(c.valor||0),0);
+
+  // Detalhamento por categoria
+  const gastoGas=opMes.filter(c=>c.cat.startsWith('gasolina')).reduce((s,c)=>s+(c.valor||0),0);
+  const gastoColab=opMes.filter(c=>c.cat.startsWith('colaborador')).reduce((s,c)=>s+(c.valor||0),0);
+  const gastoEntregador=opMes.filter(c=>c.cat==='entregador').reduce((s,c)=>s+(c.valor||0),0);
+
+  // Custo de produção (custo unitário × qtd vendida)
   const todosM=[...pedidos,...Object.values(historico).flat()];
   const pedidosMes=todosM.filter(p=>p.data&&p.data.startsWith(mesAtual));
   const qtdMes={};TAMS.forEach(t=>qtdMes[t]=0);
   pedidosMes.forEach(p=>p.itens.forEach(it=>{qtdMes[it.tam]=(qtdMes[it.tam]||0)+it.qtd;}));
   const custoProdMes=TAMS.reduce((s,t)=>s+getCustoTotal(t)*qtdMes[t],0);
-  const custoTotalMes=custoOpMes+gastoLar; // custos operacionais (sem duplicar produção)
-  const fatMes=pedidosMes.reduce((s,p)=>s+p.total,0);
-  // Lucro líquido = Faturamento - Custo produção - Custos operacionais - Laranjas
-  const lucroLiquido=fatMes-custoProdMes-custoOpMes-gastoLar;
 
-  if(el('dash-fat-mes'))    el('dash-fat-mes').textContent=moeda(fatMes);
-  if(el('dash-custo-prod')) el('dash-custo-prod').textContent=moeda(custoProdMes);
-  if(el('dash-custo-mes'))  el('dash-custo-mes').textContent=moeda(custoOpMes+gastoLar);
+  const fatMes=pedidosMes.reduce((s,p)=>s+p.total,0);
+  // Lucro líquido = Faturamento − Custo produção − Custos operacionais (sem embalagem, já no prod)
+  const lucroLiquido=fatMes-custoProdMes-custoOpMes;
+
+  if(el('dash-fat-mes'))       el('dash-fat-mes').textContent=moeda(fatMes);
+  if(el('dash-custo-prod'))    el('dash-custo-prod').textContent=moeda(custoProdMes);
+  if(el('dash-custo-mes'))     el('dash-custo-mes').textContent=moeda(custoOpMes);
   if(el('dash-lucro-mes')){
     el('dash-lucro-mes').textContent=moeda(lucroLiquido);
     el('dash-lucro-mes').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
   }
-  if(el('dash-lucro-sub'))  el('dash-lucro-sub').textContent=lucroLiquido>=0?'✓ Lucro':'⚠ Prejuízo';
+  if(el('dash-lucro-sub'))     el('dash-lucro-sub').textContent=lucroLiquido>=0?'✓ Lucro':'⚠ Prejuízo';
   if(el('dash-lucro-badge')){
     el('dash-lucro-badge').textContent=moeda(lucroLiquido);
     el('dash-lucro-badge').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
   }
+  // Detalhamento
+  if(el('dash-custo-laranja'))     el('dash-custo-laranja').textContent=moeda(gastoLar);
+  if(el('dash-custo-laranja-sub')) el('dash-custo-laranja-sub').textContent=sacosMes+' saco(s)';
+  if(el('dash-custo-gas'))         el('dash-custo-gas').textContent=moeda(gastoGas);
+  if(el('dash-custo-colab'))       el('dash-custo-colab').textContent=moeda(gastoColab);
+  if(el('dash-custo-entregador'))  el('dash-custo-entregador').textContent=moeda(gastoEntregador);
 
   // Mix embalagens
   const mixEmb={};TAMS.forEach(t=>mixEmb[t]=0);
