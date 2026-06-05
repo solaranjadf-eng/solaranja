@@ -786,6 +786,22 @@ a{color:var(--orange);text-decoration:none}
     <button class="btn btn-green" onclick="abrirEntregues()" style="flex:1">✅ Entregues</button>
     <button class="btn btn-outline" onclick="imprimirRota()" style="flex:1">Imprimir</button>
   </div>
+  <!-- Separação por rota -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">🚚 Separar por Viagem</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Cada pedido pertence a uma viagem do carro. Arraste os pedidos e defina a viagem de cada um.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <select id="rota-num-sel" style="height:32px;font-size:12px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;background:var(--bg)">
+        <option value="0">Todas as viagens</option>
+        <option value="1">🚚 Viagem 1</option>
+        <option value="2">🚚 Viagem 2</option>
+        <option value="3">🚚 Viagem 3</option>
+        <option value="4">🚚 Viagem 4</option>
+      </select>
+      <button class="fbtn" onclick="renderRota()" style="white-space:nowrap">Filtrar</button>
+      <button class="btn btn-outline" style="height:32px;font-size:11px" onclick="mostrarResumoViagens()">Ver resumo</button>
+    </div>
+  </div>
   <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Arraste os cartões para reordenar manualmente.</p>
   <div id="rota-list"></div>
 </main>
@@ -1602,23 +1618,26 @@ async function sincronizar(){
     if(dbM&&dbM.length)dbM.forEach(e=>estMinimos[e.tam]=e.qty||0);
     const dbMov=await sbGet('movimentos','?order=id.desc&limit=100');
     movimentos=(dbMov||[]).map(m=>({tipo:m.tipo,tam:m.tam,qtd:m.qtd,obs:m.obs,data:m.data,hora:m.hora}));
-    // Preservar rotaOrdem manual — só resetar se vazio
-    const listaRotaIds=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)].map(p=>p.id);
-    // Buscar ordem salva no banco (movimentos com tipo='rota_ordem')
+    // Restaurar rotaOrdem — banco sempre vence se mais recente
+    const listaRotaIds=pedidos.filter(p=>p.data===hojeKey).map(p=>p.id);
     const dbOrdem=movimentos.find(m=>m.tipo==='rota_ordem'&&m.data===hojeKey);
-    const ordemBanco=dbOrdem?JSON.parse(dbOrdem.obs||'[]'):[];
-    const localTs=parseInt(localStorage.getItem('slj_rota_ts')||'0');
-    const bancoTs=dbOrdem?new Date(dbOrdem.hora||0).getTime():0;
-    if(ordemBanco.length>0&&bancoTs>localTs){
-      // Banco é mais recente — usar ordem do banco
-      rotaOrdem=ordemBanco;
-      lsave('slj_rota_ordem',rotaOrdem);
-    }else if(!rotaOrdem.length){
+    if(dbOrdem&&dbOrdem.obs){
+      try{
+        const parsed=JSON.parse(dbOrdem.obs);
+        const ordemBanco=parsed.ordem||parsed||[];
+        const bancoTs=parsed.ts||0;
+        const localTs=parseInt(localStorage.getItem('slj_rota_ts')||'0');
+        if(ordemBanco.length>0&&bancoTs>=localTs){
+          rotaOrdem=ordemBanco;
+          lsave('slj_rota_ordem',rotaOrdem);
+          localStorage.setItem('slj_rota_ts',bancoTs.toString());
+        }
+      }catch(e){}
+    }
+    if(!rotaOrdem.length){
       rotaOrdem=[...listaRotaIds];
     }else{
-      // Adicionar novos pedidos ao fim da ordem existente
       listaRotaIds.forEach(id=>{if(!rotaOrdem.includes(id))rotaOrdem.push(id);});
-      // Remover IDs que não existem mais
       rotaOrdem=rotaOrdem.filter(id=>listaRotaIds.includes(id));
     }
     setSyncStatus('ok','✓ Conectado — dados sincronizados');
@@ -2816,14 +2835,18 @@ function distKm(la1,ln1,la2,ln2){
 
 function salvarRotaOrdemBanco(){
   lsave('slj_rota_ordem',rotaOrdem);
-  localStorage.setItem('slj_rota_ts', Date.now().toString());
-  // Salvar no banco como movimento especial
-  const hora=new Date().toISOString();
-  sbPost('movimentos',[{tipo:'rota_ordem',tam:'',qtd:0,obs:JSON.stringify(rotaOrdem),data:hojeKey,hora}])
-    .then(()=>{
-      // Remover entradas antigas de rota_ordem para hoje
-      sbDel('movimentos','?tipo=eq.rota_ordem&data=eq.'+hojeKey+'&id=lt.'+(Date.now()-1)).catch(()=>{});
-    }).catch(()=>{});
+  const ts=Date.now();
+  localStorage.setItem('slj_rota_ts', ts.toString());
+  // Salvar no banco com upsert — chave fixa por data
+  sbUps('movimentos',[{
+    id: parseInt(hojeKey.replace(/-/g,'')), // ID fixo: ex: 20260604
+    tipo:'rota_ordem',
+    tam:'rota',
+    qtd:0,
+    obs:JSON.stringify({ordem:rotaOrdem,ts}),
+    data:hojeKey,
+    hora:new Date().toISOString()
+  }]).catch(()=>{});
 }
 
 function salvarRotaOrdemOld(){
@@ -2870,6 +2893,48 @@ function getRotaDataKey(){
   return hojeKey;
 }
 
+let viagens=load('slj_viagens',{}); // {pedidoId: numViagem}
+
+function setViagemPedido(pedidoId, num){
+  if(num===0) delete viagens[pedidoId];
+  else viagens[pedidoId]=num;
+  lsave('slj_viagens',viagens);
+  renderRota();
+}
+
+function mostrarResumoViagens(){
+  const dataSel=getRotaDataKey();
+  let lista=dataSel===hojeKey?pedidos.filter(p=>p.data===hojeKey):dataSel===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[dataSel]||[]);
+  const grupos={};
+  lista.forEach(p=>{
+    const v=viagens[p.id]||0;
+    if(!grupos[v])grupos[v]=[];
+    grupos[v].push(p);
+  });
+  let html='<div style="font-size:13px;font-weight:700;margin-bottom:12px">Resumo de Viagens</div>';
+  [1,2,3,4].forEach(v=>{
+    if(grupos[v]){
+      const tot=grupos[v].reduce((s,p)=>s+p.total,0);
+      const itens=grupos[v].reduce((s,p)=>s+p.itens.reduce((ss,it)=>ss+it.qtd,0),0);
+      html+=`<div class="card" style="margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--orange)">🚚 Viagem ${v}</div>
+        <div style="font-size:11px;color:var(--text3);margin:4px 0">${grupos[v].length} cliente(s) · ${itens} garrafas · ${moeda(tot)}</div>
+        ${grupos[v].map(p=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)">${p.clienteNome} — ${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</div>`).join('')}
+      </div>`;
+    }
+  });
+  if(grupos[0]&&grupos[0].length){
+    html+=`<div style="font-size:12px;color:var(--text3)">${grupos[0].length} pedido(s) sem viagem definida</div>`;
+  }
+  // Mostrar em toast ou modal simples
+  const w=window.open('','_blank','width=420,height=600');
+  if(!w){toast('Permita pop-ups.');return;}
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Viagens</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px;font-size:13px}.card{border:1px solid #ddd;border-radius:6px;padding:12px;margin-bottom:8px}button{padding:8px 16px;background:#E07A2F;color:white;border:none;border-radius:4px;cursor:pointer;margin-bottom:16px}@media print{button{display:none}}</style></head>
+  <body><button onclick="window.print()">🖨 Imprimir</button>${html}</body></html>`);
+  w.document.close();
+}
+
 function renderRota(){
   const el=document.getElementById('rota-list');
 
@@ -2901,18 +2966,21 @@ function renderRota(){
     }
   }
   if(!listaRota.length){
-    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido para entregar hoje.<br><small style="color:var(--text3)">Sincronizando...</small></p></div>';
+    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido nesta data.<br><small style="color:var(--text3)">Sincronizando...</small></p></div>';
     return;
   }
+  // Filtrar por viagem se selecionada
+  const viagemFiltro=parseInt(document.getElementById('rota-num-sel')?.value||'0');
+  const listaFiltrada=viagemFiltro>0?listaRota.filter(p=>viagens[p.id]===viagemFiltro):listaRota;
   // Inicializar rotaOrdem se vazio
   if(!rotaOrdem.length){rotaOrdem=listaRota.map(p=>p.id);}
   listaRota.forEach(p=>{if(!rotaOrdem.includes(p.id))rotaOrdem.push(p.id);});
   // Ordenar pela rotaOrdem
-  const listaOrdenada=rotaOrdem.map(id=>listaRota.find(p=>p.id===id)).filter(Boolean);
+  const listaOrdenada=rotaOrdem.map(id=>listaFiltrada.find(p=>p.id===id)).filter(Boolean);
   const pendentes=listaOrdenada.filter(p=>!p.entregue&&!p.naoEntregue);
-  const entreguesList=listaRota.filter(p=>p.entregue);
-  const naoEntreguesList=listaRota.filter(p=>p.naoEntregue&&!p.entregue);
-  const total=listaRota.length;
+  const entreguesList=listaFiltrada.filter(p=>p.entregue);
+  const naoEntreguesList=listaFiltrada.filter(p=>p.naoEntregue&&!p.entregue);
+  const total=listaFiltrada.length;
   const nEnt=entreguesList.length;
   const nPend=pendentes.length;
   const nNaoEnt=naoEntreguesList.length;
@@ -2946,7 +3014,17 @@ function renderRota(){
         </div>
         ${p.horaEntrega?`<div style="font-size:11px;color:var(--green);margin-top:3px;font-weight:600">✓ Entregue às ${p.horaEntrega}</div>`:''}
         ${p.naoEntregue?`<div style="font-size:11px;color:var(--red);margin-top:3px;font-weight:600">✗ Não entregue${p.motivoNaoEntregue?' — '+p.motivoNaoEntregue:''}</div>`:''}
-      </div>
+        <!-- Seletor de viagem -->
+        <div style="margin-top:6px">
+          <select onchange="setViagemPedido(${p.id},parseInt(this.value))" style="height:26px;font-size:11px;border:1px solid var(--border2);border-radius:3px;padding:0 6px;background:var(--bg);color:${viagens[p.id]?'var(--orange)':'var(--text3)'}" onclick="event.stopPropagation()">
+            <option value="0" ${!viagens[p.id]?'selected':''}>Sem viagem</option>
+            <option value="1" ${viagens[p.id]===1?'selected':''}>🚚 Viagem 1</option>
+            <option value="2" ${viagens[p.id]===2?'selected':''}>🚚 Viagem 2</option>
+            <option value="3" ${viagens[p.id]===3?'selected':''}>🚚 Viagem 3</option>
+            <option value="4" ${viagens[p.id]===4?'selected':''}>🚚 Viagem 4</option>
+          </select>
+        </div>
+      </div><!-- fim coluna conteudo -->
       <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
         <!-- Botão entregue / desfazer entregue -->
         <div onclick="toggleRotaCheck(${p.id})"
