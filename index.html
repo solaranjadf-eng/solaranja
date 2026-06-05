@@ -243,7 +243,7 @@ label{font-size:11px;font-weight:600;color:var(--text3);display:block;margin-bot
 .alert-box.warn{background:var(--amber-bg);color:var(--amber);border-color:#FCD34D}
 .alert-box.info{background:var(--blue-bg);color:var(--blue);border-color:#93C5FD}
 /* ROTA */
-.rota-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:9px;cursor:grab}
+.rota-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:9px;cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .rota-nome{font-size:13px;font-weight:600;color:var(--text);margin-bottom:1px}
 .rota-end{font-size:11px;color:var(--text3)}
 .rota-itens{font-size:11px;font-weight:600;color:var(--od)}
@@ -1234,6 +1234,10 @@ a{color:var(--orange);text-decoration:none}
     <button class="btn btn-primary" onclick="importarDoBlIng()" style="flex:1">⬇ Importar do Bling</button>
   </div>
   <p class="sec-label">Cadastrados (<span id="total-clientes">0</span>)</p>
+  <div class="search-wrap" style="margin-bottom:10px">
+    <span class="si">⊙</span>
+    <input type="search" id="cli-busca" placeholder="Buscar por nome, CNPJ ou bairro..." oninput="renderClientes()" autocomplete="off">
+  </div>
   <div id="clientes-list"></div>
 
   <!-- Alterar senha — discreto -->
@@ -2264,10 +2268,25 @@ function atualizarResumo(){
   else av.style.display='none';
 }
 function limpar(){TAMS.forEach(t=>qtds[t]=0);document.getElementById('obs').value='';renderGarrafas();atualizarResumo();}
+let _confirmando=false; // proteção contra duplo clique
+let _ultimoPedidoHash=''; // proteção extra contra duplicatas
+
 async function confirmar(){
+  if(_confirmando){toast('Aguarde, salvando...');return;}
   if(!sel){toast('Selecione um cliente.');return;}
   const itens=TAMS.filter(t=>qtds[t]>0&&sel.precos[t]>0).map(t=>({tam:t,qtd:qtds[t],preco:sel.precos[t]}));
   if(!itens.length){toast('Adicione ao menos um item.');return;}
+
+  // Proteção extra: checar se é pedido duplicado (mesmo cliente + mesmos itens nos últimos 10 segundos)
+  const hash=sel.id+'|'+JSON.stringify(itens)+'|'+getDataEntregaKey();
+  if(hash===_ultimoPedidoHash){toast('⚠ Pedido idêntico já foi enviado. Aguarde.');return;}
+
+  // Bloquear imediatamente
+  _confirmando=true;
+  _ultimoPedidoHash=hash;
+  const btnConfirmar=document.querySelector('#page-pedido .btn-primary[onclick="confirmar()"]');
+  if(btnConfirmar){btnConfirmar.disabled=true;btnConfirmar.textContent='Salvando...';}
+
   const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const total=itens.reduce((s,i)=>s+i.preco*i.qtd,0);
   setSyncStatus('loading','Salvando...');
@@ -2281,7 +2300,7 @@ async function confirmar(){
     lsave('slj_ped_bk',pedidos);
     pedidoSalvo=true;
     setSyncStatus('ok','Sincronizado — nuvem ativa');
-    toast('Pedido de '+sel.nome+' confirmado.');
+    toast('✓ Pedido de '+sel.nome+' confirmado.');
     atualizarBadges();verificarAlertasEstoque();
     // Reset data entrega para amanhã
     dataEntregaSel='amanha';
@@ -2302,10 +2321,16 @@ async function confirmar(){
     }else{
       setSyncStatus('err','Erro ao salvar pedido');
       toast('Erro de conexão. Tente novamente.');
-      return;
+      _ultimoPedidoHash=''; // Liberar para tentar de novo
     }
+  }finally{
+    // SEMPRE liberar o botão, com ou sem erro
+    _confirmando=false;
+    if(btnConfirmar){btnConfirmar.disabled=false;btnConfirmar.textContent='Confirmar Pedido';}
+    // Limpar hash de proteção após 10 segundos
+    setTimeout(()=>{ _ultimoPedidoHash=''; }, 10000);
   }
-  // Descontar estoque em segundo plano — não bloqueia nada
+  // Descontar estoque em segundo plano
   const nomeCliente = pedidos[pedidos.length-1]?.clienteNome || '';
   setTimeout(async ()=>{
     for(const it of itens){
@@ -2904,10 +2929,11 @@ function renderRota(){
       ?'background:#FFF0F0;border:1.5px solid #FFAAAA'
       :'background:var(--white);border:1.5px solid var(--border)';
     const numBg=p.entregue?'var(--green)':p.naoEntregue?'var(--red)':'var(--orange)';
-    return `<div style="${bgCard};border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;touch-action:none;user-select:none"
+    return `<div style="${bgCard};border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none"
       draggable="true" data-id="${p.id}"
       ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)"
-      ontouchstart="touchStart(event)" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)">
+      ontouchstart="touchStart(event)" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)"
+      oncontextmenu="return false">
       <div style="width:32px;height:32px;border-radius:50%;background:${numBg};color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;cursor:grab">
         ${p.entregue?'✓':num}
       </div>
@@ -2990,6 +3016,10 @@ function touchStart(e){
   const el=e.currentTarget;
   longPressActive=false;
   dragId=null;
+  // Cancelar long press se mover o dedo
+  const startY=e.touches[0].clientY;
+  const startX=e.touches[0].clientX;
+
   longPressTimer=setTimeout(()=>{
     longPressActive=true;
     dragId=el.dataset.id;
@@ -3008,9 +3038,11 @@ function touchStart(e){
 
 function touchMove(e){
   if(!longPressActive){
+    // Cancelar long press se o usuário está rolando
     clearTimeout(longPressTimer);
-    return;
+    return; // Scroll normal
   }
+  // Drag ativo — bloquear scroll
   e.preventDefault();
   if(!touchClone)return;
   const touch=e.touches[0];
@@ -4310,9 +4342,17 @@ function fecharModal(m){document.getElementById('modal-'+m).classList.remove('op
 
 // ── CLIENTES ───────────────────────────────────────────────────────────────
 function renderClientes(){
-  document.getElementById('total-clientes').textContent=clientes.length;
+  const busca=(document.getElementById('cli-busca')?.value||'').toLowerCase().trim();
+  const filtrados=busca?clientes.filter(c=>
+    c.nome.toLowerCase().includes(busca)||
+    (c.cnpj||'').toLowerCase().includes(busca)||
+    (c.bairro||'').toLowerCase().includes(busca)||
+    (c.regiao||'').toLowerCase().includes(busca)||
+    (c.tel||'').includes(busca)
+  ):clientes;
+  document.getElementById('total-clientes').textContent=busca?`${filtrados.length}/${clientes.length}`:clientes.length;
   const el=document.getElementById('clientes-list');
-  el.innerHTML=clientes.length?clientes.map(c=>{
+  el.innerHTML=filtrados.length?filtrados.map(c=>{
     const deb=clienteDebitoTotal(c.id);const inativo=isInativo(c.id);
     return`<div class="client-item${inativo?' inativo':''}" style="cursor:default;align-items:flex-start">
       <div style="flex:1;min-width:0">
@@ -4328,7 +4368,7 @@ function renderClientes(){
         <button class="psm psm-edit" onclick="abrirModalCliente(${c.id})">Editar</button>
         <button class="psm psm-del" onclick="delCliente(${c.id})">Remover</button>
       </div>
-    </div>`;}).join(''):'<div class="empty"><span class="empty-icon">○</span><p>Nenhum cliente.</p></div>';
+    </div>`;}).join(''):(busca?'<div class="empty"><span class="empty-icon">⊙</span><p>Nenhum cliente encontrado para "<strong>'+busca+'</strong>".</p></div>':'<div class="empty"><span class="empty-icon">○</span><p>Nenhum cliente.</p></div>');
 }
 
 async function addCliente(){
