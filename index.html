@@ -1600,7 +1600,16 @@ async function sincronizar(){
     movimentos=(dbMov||[]).map(m=>({tipo:m.tipo,tam:m.tam,qtd:m.qtd,obs:m.obs,data:m.data,hora:m.hora}));
     // Preservar rotaOrdem manual — só resetar se vazio
     const listaRotaIds=[...pedidosOntem.filter(p=>p.data===ontemKey),...pedidos.filter(p=>p.data===hojeKey)].map(p=>p.id);
-    if(!rotaOrdem.length){
+    // Buscar ordem salva no banco (movimentos com tipo='rota_ordem')
+    const dbOrdem=movimentos.find(m=>m.tipo==='rota_ordem'&&m.data===hojeKey);
+    const ordemBanco=dbOrdem?JSON.parse(dbOrdem.obs||'[]'):[];
+    const localTs=parseInt(localStorage.getItem('slj_rota_ts')||'0');
+    const bancoTs=dbOrdem?new Date(dbOrdem.hora||0).getTime():0;
+    if(ordemBanco.length>0&&bancoTs>localTs){
+      // Banco é mais recente — usar ordem do banco
+      rotaOrdem=ordemBanco;
+      lsave('slj_rota_ordem',rotaOrdem);
+    }else if(!rotaOrdem.length){
       rotaOrdem=[...listaRotaIds];
     }else{
       // Adicionar novos pedidos ao fim da ordem existente
@@ -2379,7 +2388,7 @@ function renderDia(){
             +(p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPago(${i})">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
             +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:'')
-            +(perfilAtual==='admin'?`<button class="psm psm-edit" onclick="abrirModalEdit(${i})">Editar</button>`:'')
+            +(['admin','gerente'].includes(perfilAtual)?`<button class="psm psm-edit" onclick="abrirModalEdit(${i})">Editar</button>`:'')
             +`<button class="psm psm-wpp" onclick="enviarWhats(${i})">WPP</button>`
             +(perfilAtual==='admin'?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="emitirNFe(${i})">NF-e</button>`:'')
             +`<button class="psm psm-del" onclick="delPedido(${i})">✕</button>`
@@ -2387,6 +2396,7 @@ function renderDia(){
             (p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPagoHistorico(${p.id},'${dataSel}')">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
             +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:'')
+            +(['admin','gerente'].includes(perfilAtual)?`<button class="psm psm-edit" onclick="abrirModalEditHist(${p.id},'${dataSel}')">Editar</button>`:'')
             +`<button class="psm psm-wpp" onclick="enviarWhats(-1,'${dataSel}',${p.id})">WPP</button>`
             +`<button class="psm psm-del" onclick="delPedidoUniversal(${p.id},'${dataSel}')">✕</button>`
           )}
@@ -2778,6 +2788,32 @@ function distKm(la1,ln1,la2,ln2){
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
+
+function salvarRotaOrdemBanco(){
+  lsave('slj_rota_ordem',rotaOrdem);
+  localStorage.setItem('slj_rota_ts', Date.now().toString());
+  // Salvar no banco como movimento especial
+  const hora=new Date().toISOString();
+  sbPost('movimentos',[{tipo:'rota_ordem',tam:'',qtd:0,obs:JSON.stringify(rotaOrdem),data:hojeKey,hora}])
+    .then(()=>{
+      // Remover entradas antigas de rota_ordem para hoje
+      sbDel('movimentos','?tipo=eq.rota_ordem&data=eq.'+hojeKey+'&id=lt.'+(Date.now()-1)).catch(()=>{});
+    }).catch(()=>{});
+}
+
+function salvarRotaOrdemOld(){
+  lsave('slj_rota_ordem',rotaOrdem);
+  // Salvar no banco como obs em um movimento especial
+  sbUps('est_minimos',[]).catch(()=>{}); // keep connection alive
+  // Usar localStorage timestamp para saber qual dispositivo foi o último
+  localStorage.setItem('slj_rota_ts', Date.now().toString());
+}
+
+function carregarRotaOrdem(){
+  // Buscar ordem salva — quem tiver o timestamp mais recente vence
+  const local=load('slj_rota_ordem',[]);
+  return local;
+}
 function ordenarRota(){
   const dataSel=getRotaDataKey();
   let listaRota=[];
@@ -2797,6 +2833,7 @@ function ordenarRota(){
   comCoord.sort((a,b)=>a.dist-b.dist);
   rotaOrdem=[...comCoord.map(x=>x.p),...semCoord,...outros].map(p=>p.id);
   lsave('slj_rota_ordem', rotaOrdem);
+  localStorage.setItem('slj_rota_ts', Date.now().toString());
   renderRota();
   if(semCoord.length>0) toast(`Ordenado por distância. ${semCoord.length} cliente(s) sem Maps — ao final.`);
   else toast('Rota ordenada do mais próximo ao mais distante.');
@@ -2878,7 +2915,7 @@ function renderRota(){
         <div style="font-size:14px;font-weight:700;color:${p.entregue?'var(--green)':'var(--text)'};text-decoration:${p.entregue?'line-through':'none'}">${p.clienteNome}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">📍 ${end}${dist!==null?` · ${dist.toFixed(1)} km`:''}</div>
         <div style="display:flex;gap:8px;margin-top:4px;align-items:center;flex-wrap:wrap">
-          <div style="font-size:11px;font-weight:600;color:${p.entregue?'var(--green)':'var(--orange-dark)'}">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')} · ${moeda(p.total)}</div>
+          <div style="font-size:11px;font-weight:600;color:${p.entregue?'var(--green)':'var(--orange-dark)'}">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</div>
           ${mapsUrl?`<a href="${mapsUrl}" target="_blank" style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:2px 7px;border-radius:4px;font-weight:700;text-decoration:none;white-space:nowrap">Maps ↗</a>`:''}
         </div>
         ${p.horaEntrega?`<div style="font-size:11px;color:var(--green);margin-top:3px;font-weight:600">✓ Entregue às ${p.horaEntrega}</div>`:''}
@@ -2944,60 +2981,69 @@ function renderRota(){
   el.innerHTML=html;
 }
 let dragId=null;
-let touchDragEl=null, touchClone=null, touchStartY=0, touchOffsetY=0;
+let touchDragEl=null, touchClone=null, touchOffsetY=0;
+let longPressTimer=null, longPressActive=false;
 
 function dragStart(e){dragId=e.currentTarget.dataset.id;}
 
 function touchStart(e){
   const el=e.currentTarget;
-  dragId=el.dataset.id;
-  touchDragEl=el;
-  const touch=e.touches[0];
-  const rect=el.getBoundingClientRect();
-  touchOffsetY=touch.clientY-rect.top;
-  touchStartY=touch.clientY;
-  // Clone visual
-  touchClone=el.cloneNode(true);
-  touchClone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:.85;z-index:9999;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.2);transform:scale(1.02);transition:none;margin:0`;
-  document.body.appendChild(touchClone);
-  el.style.opacity='.3';
+  longPressActive=false;
+  dragId=null;
+  longPressTimer=setTimeout(()=>{
+    longPressActive=true;
+    dragId=el.dataset.id;
+    touchDragEl=el;
+    if(navigator.vibrate)navigator.vibrate(80);
+    const touch=e.touches[0];
+    const rect=el.getBoundingClientRect();
+    touchOffsetY=touch.clientY-rect.top;
+    touchClone=el.cloneNode(true);
+    touchClone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:.88;z-index:9999;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.25);transform:scale(1.03);transition:none;margin:0;border:2px solid var(--orange)`;
+    document.body.appendChild(touchClone);
+    el.style.opacity='.3';
+    toast('Arraste para reordenar');
+  },800);
 }
 
 function touchMove(e){
-  if(!touchClone)return;
+  if(!longPressActive){
+    clearTimeout(longPressTimer);
+    return;
+  }
   e.preventDefault();
+  if(!touchClone)return;
   const touch=e.touches[0];
-  const rect=touchDragEl.getBoundingClientRect();
   touchClone.style.top=(touch.clientY-touchOffsetY)+'px';
-  // Encontrar elemento alvo
   touchClone.style.display='none';
   const target=document.elementFromPoint(touch.clientX,touch.clientY);
   touchClone.style.display='';
   const card=target?.closest('[data-id]');
+  document.querySelectorAll('[data-id]').forEach(c=>c.style.outline='');
   if(card&&card.dataset.id&&card.dataset.id!==dragId){
-    card.style.borderTop='3px solid var(--orange)';
-    document.querySelectorAll('[data-id]').forEach(c=>{if(c.dataset.id!==card.dataset.id)c.style.borderTop='';});
+    card.style.outline='2px solid var(--orange)';
   }
 }
 
 function touchEnd(e){
-  if(!touchClone){dragId=null;return;}
+  clearTimeout(longPressTimer);
+  if(!longPressActive){dragId=null;longPressActive=false;return;}
+  if(!touchClone){dragId=null;longPressActive=false;return;}
   const touch=e.changedTouches[0];
   touchClone.style.display='none';
   const target=document.elementFromPoint(touch.clientX,touch.clientY);
   touchClone.style.display='';
   document.body.removeChild(touchClone);
   touchClone=null;
-  if(touchDragEl) touchDragEl.style.opacity='';
-  document.querySelectorAll('[data-id]').forEach(c=>c.style.borderTop='');
+  if(touchDragEl)touchDragEl.style.opacity='';
+  document.querySelectorAll('[data-id]').forEach(c=>c.style.outline='');
   const card=target?.closest('[data-id]');
   const targetId=card?.dataset.id;
   if(targetId&&targetId!==dragId){
-    // Aplicar reordenação
     const _dk=getRotaDataKey();
-  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+    const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
     const allIds=listaRota.map(p=>p.id);
-    if(!rotaOrdem.length) rotaOrdem=[...allIds];
+    if(!rotaOrdem.length)rotaOrdem=[...allIds];
     allIds.forEach(id=>{if(!rotaOrdem.includes(id))rotaOrdem.push(id);});
     const arr=[...rotaOrdem];
     const fi=arr.indexOf(parseInt(dragId));
@@ -3006,13 +3052,14 @@ function touchEnd(e){
       const [moved]=arr.splice(fi,1);
       arr.splice(ti,0,moved);
       rotaOrdem=arr;
-      lsave('slj_rota_ordem',rotaOrdem);
+      salvarRotaOrdemBanco();
       renderRota();
-      toast('Ordem atualizada.');
+      toast('✓ Ordem atualizada.');
     }
   }
   dragId=null;
   touchDragEl=null;
+  longPressActive=false;
 }
 function dragOver(e){e.preventDefault();}
 function dragDrop(e){
@@ -3032,7 +3079,9 @@ function dragDrop(e){
   const [moved]=arr.splice(fi,1);
   arr.splice(ti,0,moved);
   rotaOrdem=arr;
-  lsave('slj_rota_ordem', rotaOrdem);
+  lsave('slj_rota_ordem',rotaOrdem);
+  // Salvar no banco para sincronizar entre dispositivos
+  sbUps('bling_tokens',[{id:99,access_token:JSON.stringify(rotaOrdem),refresh_token:'rota_ordem',expires_at:hojeKey,updated_at:new Date().toISOString()}]).catch(()=>{});
   renderRota();
 }
 function toggleRotaCheck(id){
@@ -3059,30 +3108,55 @@ function toggleRotaCheck(id){
   }
 }
 function imprimirRota(){
-  if(!pedidos.length){toast('Nenhum pedido hoje.');return;}
-  const data=hoje.toLocaleDateString('pt-BR');
-  const ordered=rotaOrdem.map(id=>pedidos.find(p=>p.id===id)).filter(Boolean);
-  const lista=[...ordered,...pedidos.filter(p=>!rotaOrdem.includes(p.id))];
+  const dataSel=getRotaDataKey();
+  let lista=[];
+  if(dataSel===hojeKey) lista=pedidos.filter(p=>p.data===hojeKey);
+  else if(dataSel===ontemKey) lista=pedidosOntem.filter(p=>p.data===ontemKey);
+  else lista=historico[dataSel]||[];
+  if(!lista.length){toast('Nenhum pedido nesta data.');return;}
+
+  // Ordenar conforme rotaOrdem
+  const pendentes=rotaOrdem.map(id=>lista.find(p=>p.id===id)).filter(p=>p&&!p.entregue&&!p.naoEntregue);
+  const entregues=lista.filter(p=>p.entregue);
+  const naoEnt=lista.filter(p=>p.naoEntregue&&!p.entregue);
+  const listaOrdenada=[...pendentes,...entregues,...naoEnt];
+
+  const dataFmt=new Date(dataSel+'T12:00:00').toLocaleDateString('pt-BR');
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet"><title>Rota ${data}</title>
-  <style>body{font-family:'DM Sans',sans-serif;padding:24px;color:#1C1008;max-width:600px;margin:0 auto}h1{font-family:'Inter',sans-serif;font-size:20px;margin-bottom:2px}.sub{font-size:12px;color:#9C8878;margin-bottom:18px}
-  .origem{background:#FEF0E3;border:1px solid #F9D4AF;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#9B3F00}
-  .origem strong{display:block;font-size:13px;margin-bottom:2px}
-  .item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #E8DDD0;align-items:flex-start}
-  .num{font-family:'Inter',sans-serif;font-size:20px;color:#E87722;min-width:24px}
-  .nome{font-size:13px;font-weight:700}.end{font-size:11px;color:#9C8878;margin-top:2px}.itens{font-size:11px;color:#C45E0A;margin-top:3px;font-weight:600}
-  .check{width:20px;height:20px;border:2px solid #D5C9B8;border-radius:4px;margin-left:auto;flex-shrink:0}
-  @media print{button{display:none!important}}</style></head><body>
-  <h1>Só Laranja — Rota de Entrega</h1><p class="sub">${data} · ${lista.length} parada(s)</p>
-  <div class="origem"><strong>🏭 Ponto de partida:</strong>${FABRICA_ENDERECO}</div>
-  ${lista.map((p,i)=>{
+  if(!w){toast('Permita pop-ups para imprimir.');return;}
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Rota ${dataFmt}</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:20px;color:#111;max-width:640px;margin:0 auto}
+    h1{font-size:18px;margin-bottom:2px}
+    .sub{font-size:12px;color:#666;margin-bottom:14px}
+    .origem{background:#FEF0E3;border:1px solid #F9D4AF;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#9B3F00}
+    .item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #ddd;align-items:flex-start}
+    .num{font-size:18px;color:#E87722;min-width:24px;font-weight:700}
+    .nome{font-size:13px;font-weight:700}
+    .end{font-size:11px;color:#888;margin-top:2px}
+    .itens{font-size:11px;color:#C45E0A;margin-top:3px;font-weight:600}
+    .check{width:18px;height:18px;border:2px solid #ccc;border-radius:3px;margin-left:auto;flex-shrink:0}
+    .entregue{opacity:.5;text-decoration:line-through}
+    @media print{button{display:none!important}}
+  </style></head><body>
+  <h1>Só Laranja — Rota de Entrega</h1>
+  <p class="sub">${dataFmt} · ${listaOrdenada.length} parada(s)</p>
+  <div class="origem"><strong>🏭 Ponto de partida:</strong> Jardins Mangueiral PA 04 LT 04 LJ 105 — Brasília, DF</div>
+  ${listaOrdenada.map((p,i)=>{
     const c=clientes.find(x=>x.id===p.clienteId)||{};
     const end=c.endereco||[c.bairro,c.regiao].filter(Boolean).join(', ')||'Endereço não cadastrado';
-    return`<div class="item"><div class="num">${i+1}</div><div><div class="nome">${p.clienteNome}</div><div class="end">📍 ${end}</div><div class="itens">${p.itens.map(it=>`${TL[it.tam]}×${it.qtd}`).join(' · ')} · ${moeda(p.total)}</div></div><div class="check"></div></div>`;}).join('')}
-  <script>window.onload=()=>window.print()<\/script>    </div><!-- /main-content -->
-  </div><!-- /main-area -->
-</div><!-- /app-shell -->
-</body></html>`);
+    return`<div class="item ${p.entregue?'entregue':''}">
+      <div class="num">${p.entregue?'✓':i+1}</div>
+      <div>
+        <div class="nome">${p.clienteNome}</div>
+        <div class="end">📍 ${end}</div>
+        <div class="itens">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</div>
+      </div>
+      <div class="check"></div>
+    </div>`;}).join('')}
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`);
   w.document.close();
 }
 
@@ -4102,6 +4176,28 @@ function renderRanking(){
 }
 
 // ── MODAL EDITAR PEDIDO ────────────────────────────────────────────────────
+function abrirModalEditHist(pedidoId, dataKey){
+  // Buscar pedido no histórico
+  let p=null;
+  if(historico[dataKey]) p=historico[dataKey].find(x=>x.id===pedidoId);
+  if(!p) p=pedidosOntem.find(x=>x.id===pedidoId);
+  if(!p){toast('Pedido não encontrado.');return;}
+  // Usar editPedIdx=-1 como sinal de histórico
+  editPedIdx=-1;
+  window._editHistPedido=p;
+  window._editHistDataKey=dataKey;
+  editPedQtds={};TAMS.forEach(t=>editPedQtds[t]=0);
+  p.itens.forEach(it=>editPedQtds[it.tam]=it.qtd);
+  editClienteId=p.clienteId;
+  document.getElementById('modal-ped-nome').textContent=p.clienteNome;
+  document.getElementById('modal-obs').value=p.obs||'';
+  const c=clientes.find(x=>x.id===p.clienteId)||{precos:p.precos||{}};
+  document.getElementById('modal-garrafas').innerHTML=TAMS.map(t=>{
+    const pr=(c.precos||{})[t]||(p.precos||{})[t];const ok=pr&&pr>0;
+    return`<div class="g-card ${ok?'has-price':'disabled'}"><div class="g-size">${TL[t]}</div>${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}<div class="qty-ctrl"><button class="qty-btn" ontouchstart="" onclick="altM('${t}',-1)">−</button><span class="qty-val" id="mq-${t}">${editPedQtds[t]||0}</span><button class="qty-btn" ontouchstart="" onclick="altM('${t}',1)">+</button></div></div>`;}).join('');
+  document.getElementById('modal-edit').classList.add('open');
+}
+
 function abrirModalEdit(i){
   editPedIdx=i;const p=pedidos[i];
   editPedQtds={};TAMS.forEach(t=>editPedQtds[t]=0);p.itens.forEach(it=>editPedQtds[it.tam]=it.qtd);
@@ -4117,13 +4213,36 @@ function abrirModalEdit(i){
 function altM(t,d){editPedQtds[t]=Math.max(0,(editPedQtds[t]||0)+d);document.getElementById('mq-'+t).textContent=editPedQtds[t];}
 async function salvarEdicaoPedido(){
   if(editPedIdx===null)return;
-  const c=clientes.find(x=>x.id===editClienteId)||{precos:pedidos[editPedIdx].precos||{}};
-  const itens=TAMS.filter(t=>editPedQtds[t]>0&&c.precos[t]>0).map(t=>({tam:t,qtd:editPedQtds[t],preco:c.precos[t]}));
+
+  // Determinar qual pedido editar
+  let p=null;
+  let isHist=false;
+  if(editPedIdx===-1&&window._editHistPedido){
+    p=window._editHistPedido;
+    isHist=true;
+  }else if(editPedIdx>=0){
+    p=pedidos[editPedIdx];
+  }else return;
+
+  const c=clientes.find(x=>x.id===editClienteId)||{precos:p.precos||{}};
+  const precos=c.precos||p.precos||{};
+  const itens=TAMS.filter(t=>editPedQtds[t]>0&&precos[t]>0).map(t=>({tam:t,qtd:editPedQtds[t],preco:precos[t]}));
   if(!itens.length){toast('Adicione ao menos um item.');return;}
-  const total=itens.reduce((s,i)=>s+i.preco*i.qtd,0);const obs=document.getElementById('modal-obs').value.trim();
-  try{await sbPatch('pedidos',`?id=eq.${pedidos[editPedIdx].id}`,{itens,total,obs});pedidos[editPedIdx].itens=itens;pedidos[editPedIdx].total=total;pedidos[editPedIdx].obs=obs;setSyncStatus('ok','Sincronizado — nuvem ativa');}
-  catch(e){setSyncStatus('err','Erro ao sincronizar');}
-  fecharModal('edit');renderDia();toast('Pedido atualizado.');
+  const total=itens.reduce((s,i)=>s+i.preco*i.qtd,0);
+  const obs=document.getElementById('modal-obs').value.trim();
+
+  try{
+    await sbPatch('pedidos',`?id=eq.${p.id}`,{itens,total,obs});
+    p.itens=itens;p.total=total;p.obs=obs;
+    if(!isHist){lsave('slj_ped_bk',pedidos);}
+    setSyncStatus('ok','✓ Conectado — dados sincronizados');
+  }catch(e){setSyncStatus('err','Erro ao sincronizar');}
+
+  fecharModal('edit');
+  renderDia();
+  toast('✓ Pedido atualizado.');
+  window._editHistPedido=null;
+  window._editHistDataKey=null;
 }
 
 // ── MODAL CLIENTE HISTÓRICO ────────────────────────────────────────────────
