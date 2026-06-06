@@ -1618,13 +1618,13 @@ async function sincronizar(){
     if(dbM&&dbM.length)dbM.forEach(e=>estMinimos[e.tam]=e.qty||0);
     const dbMov=await sbGet('movimentos','?order=id.desc&limit=100');
     movimentos=(dbMov||[]).map(m=>({tipo:m.tipo,tam:m.tam,qtd:m.qtd,obs:m.obs,data:m.data,hora:m.hora}));
-    // Restaurar rotaOrdem — banco sempre vence se mais recente
+    // Restaurar rotaOrdem — buscar do bling_tokens id=2
     const listaRotaIds=pedidos.filter(p=>p.data===hojeKey).map(p=>p.id);
-    const dbOrdem=movimentos.find(m=>m.tipo==='rota_ordem'&&m.data===hojeKey);
-    if(dbOrdem&&dbOrdem.obs){
-      try{
-        const parsed=JSON.parse(dbOrdem.obs);
-        const ordemBanco=parsed.ordem||parsed||[];
+    try{
+      const dbRota=await sbGet('bling_tokens','?id=eq.2');
+      if(dbRota&&dbRota.length&&dbRota[0].refresh_token==='rota_ordem'){
+        const parsed=JSON.parse(dbRota[0].access_token||'{}');
+        const ordemBanco=parsed.ordem||[];
         const bancoTs=parsed.ts||0;
         const localTs=parseInt(localStorage.getItem('slj_rota_ts')||'0');
         if(ordemBanco.length>0&&bancoTs>=localTs){
@@ -1632,8 +1632,8 @@ async function sincronizar(){
           lsave('slj_rota_ordem',rotaOrdem);
           localStorage.setItem('slj_rota_ts',bancoTs.toString());
         }
-      }catch(e){}
-    }
+      }
+    }catch(e){}
     if(!rotaOrdem.length){
       rotaOrdem=[...listaRotaIds];
     }else{
@@ -2296,7 +2296,28 @@ async function confirmar(){
   const itens=TAMS.filter(t=>qtds[t]>0&&sel.precos[t]>0).map(t=>({tam:t,qtd:qtds[t],preco:sel.precos[t]}));
   if(!itens.length){toast('Adicione ao menos um item.');return;}
 
-  // Proteção extra: checar se é pedido duplicado (mesmo cliente + mesmos itens nos últimos 10 segundos)
+  // Verificar se já existe pedido para este cliente na mesma data de entrega
+  const dataEntrega=getDataEntregaKey();
+  const todosOsPedidos=[...pedidos,...Object.values(historico).flat()];
+  const pedidoExistente=todosOsPedidos.find(p=>
+    p.clienteId===sel.id &&
+    p.data===dataEntrega
+  );
+  if(pedidoExistente){
+    const dataFmt=new Date(dataEntrega+'T12:00:00').toLocaleDateString('pt-BR');
+    const itensExist=pedidoExistente.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(', ');
+    const confirmar2=confirm(
+      `⚠ ATENÇÃO — Pedido duplicado!\n\n`+
+      `Já existe um pedido para ${sel.nome} na data ${dataFmt}:\n`+
+      `${itensExist} — ${moeda(pedidoExistente.total)}\n\n`+
+      `Tem certeza que quer lançar outro pedido para este cliente na mesma data?`
+    );
+    if(!confirmar2){
+      _confirmando=false;
+      if(btnConfirmar){btnConfirmar.disabled=false;btnConfirmar.textContent='Confirmar Pedido';}
+      return;
+    }
+  }
   const hash=sel.id+'|'+JSON.stringify(itens)+'|'+getDataEntregaKey();
   if(hash===_ultimoPedidoHash){toast('⚠ Pedido idêntico já foi enviado. Aguarde.');return;}
 
@@ -2836,26 +2857,17 @@ function distKm(la1,ln1,la2,ln2){
 function salvarRotaOrdemBanco(){
   lsave('slj_rota_ordem',rotaOrdem);
   const ts=Date.now();
-  localStorage.setItem('slj_rota_ts', ts.toString());
-  // Salvar no banco com upsert — chave fixa por data
-  sbUps('movimentos',[{
-    id: parseInt(hojeKey.replace(/-/g,'')), // ID fixo: ex: 20260604
-    tipo:'rota_ordem',
-    tam:'rota',
-    qtd:0,
-    obs:JSON.stringify({ordem:rotaOrdem,ts}),
-    data:hojeKey,
-    hora:new Date().toISOString()
+  localStorage.setItem('slj_rota_ts',ts.toString());
+  // Salvar no Supabase usando bling_tokens (suporta upsert por id)
+  sbUps('bling_tokens',[{
+    id:2,
+    access_token:JSON.stringify({ordem:rotaOrdem,ts}),
+    refresh_token:'rota_ordem',
+    expires_at:hojeKey,
+    updated_at:new Date().toISOString()
   }]).catch(()=>{});
 }
 
-function salvarRotaOrdemOld(){
-  lsave('slj_rota_ordem',rotaOrdem);
-  // Salvar no banco como obs em um movimento especial
-  sbUps('est_minimos',[]).catch(()=>{}); // keep connection alive
-  // Usar localStorage timestamp para saber qual dispositivo foi o último
-  localStorage.setItem('slj_rota_ts', Date.now().toString());
-}
 
 function carregarRotaOrdem(){
   // Buscar ordem salva — quem tiver o timestamp mais recente vence
@@ -3191,7 +3203,7 @@ function dragDrop(e){
   rotaOrdem=arr;
   lsave('slj_rota_ordem',rotaOrdem);
   // Salvar no banco para sincronizar entre dispositivos
-  sbUps('bling_tokens',[{id:99,access_token:JSON.stringify(rotaOrdem),refresh_token:'rota_ordem',expires_at:hojeKey,updated_at:new Date().toISOString()}]).catch(()=>{});
+  
   renderRota();
 }
 function toggleRotaCheck(id){
