@@ -591,30 +591,52 @@ a{color:var(--orange);text-decoration:none}
     </div>
   </div>
 
-  <!-- Meta do dia -->
-  <div class="meta-bar-wrap" style="margin-bottom:14px">
-    <div class="meta-bar-header">
-      <span class="meta-bar-label">Meta diária</span>
-      <span class="meta-bar-val" id="dash-meta-label">—</span>
+  <!-- Meta do mês -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">🎯 Meta do mês</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="number" id="meta-mes-input" placeholder="Ex: 30000" style="width:130px;height:30px;font-size:12px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px" oninput="salvarMetaMes()">
+        <span style="font-size:11px;color:var(--text3)">R$/mês</span>
+      </div>
     </div>
-    <div class="meta-bar-track"><div class="meta-bar-fill" id="dash-meta-fill" style="width:0%"></div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center">
+      <div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Faturado este mês</div>
+        <div style="font-size:20px;font-weight:700;color:var(--text)" id="dash-meta-fat">R$ 0</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px" id="dash-meta-pct-txt">—</div>
+        <div style="background:var(--border);border-radius:3px;height:8px;overflow:hidden;margin-top:8px">
+          <div id="dash-meta-bar" style="height:100%;background:var(--orange);border-radius:3px;width:0%;transition:width .4s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:3px">
+          <span>R$ 0</span>
+          <span id="dash-meta-total-txt">Meta não definida</span>
+        </div>
+      </div>
+      <div style="position:relative;height:140px">
+        <canvas id="chart-meta-pizza"></canvas>
+        <div id="dash-meta-centro" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
+          <div style="font-size:18px;font-weight:700;color:var(--text)" id="dash-meta-pct">0%</div>
+          <div style="font-size:10px;color:var(--text3)">da meta</div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- GRÁFICO: Faturamento vs Custos (últimos 7 dias) -->
+  <!-- GRÁFICO: Faturamento últimos 7 dias -->
   <div class="card" style="margin-bottom:12px">
-    <div class="card-title">📈 Faturamento × Custos — últimos 7 dias</div>
-    <div style="position:relative;height:200px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">📈 Faturamento — últimos 7 dias</div>
+    <div style="position:relative;height:180px">
       <canvas id="chart-fat-custos"></canvas>
     </div>
   </div>
 
-  <!-- GRÁFICO: Lucro operacional do mês -->
+  <!-- GRÁFICO: Resultado do mês -->
   <div class="card" style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div class="card-title" style="margin-bottom:0">💰 Resultado do mês</div>
       <div id="dash-lucro-badge" style="font-size:16px;font-weight:700;color:var(--green)">R$ 0</div>
     </div>
-    <!-- Linha principal -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
       <div style="text-align:center;background:var(--green-bg);border-radius:var(--radius);padding:10px">
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Faturamento</div>
@@ -630,13 +652,12 @@ a{color:var(--orange);text-decoration:none}
         <div style="font-size:15px;font-weight:700;color:var(--red)" id="dash-custo-mes">R$ 0</div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px">gas+colab+outros</div>
       </div>
-      <div style="text-align:center;background:var(--orange-light);border-radius:var(--radius);padding:10px;border:1px solid rgba(224,122,47,.2)">
+      <div style="text-align:center;background:var(--ol);border-radius:var(--radius);padding:10px;border:1px solid rgba(224,122,47,.2)">
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Lucro Líquido</div>
         <div style="font-size:15px;font-weight:700" id="dash-lucro-mes">R$ 0</div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px" id="dash-lucro-sub"></div>
       </div>
     </div>
-    <!-- Detalhamento de custos -->
     <div style="border-top:1px solid var(--border);padding-top:10px">
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Detalhamento</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
@@ -659,19 +680,6 @@ a{color:var(--orange);text-decoration:none}
         </div>
       </div>
     </div>
-    <div style="position:relative;height:150px;margin-top:12px">
-      <canvas id="chart-resultado"></canvas>
-    </div>
-  </div>
-
-  <!-- GRÁFICO: Custos operacionais por categoria -->
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-title">💸 Custos operacionais do mês</div>
-    <div id="dash-sem-custos" style="display:none;font-size:13px;color:var(--text3);text-align:center;padding:16px">Nenhum custo registrado este mês.</div>
-    <div style="position:relative;height:200px">
-      <canvas id="chart-custos-cat"></canvas>
-    </div>
-    <div id="dash-custos-legenda" style="margin-top:12px"></div>
   </div>
 
   <!-- GRÁFICO: Garrafas por embalagem hoje -->
@@ -840,12 +848,27 @@ a{color:var(--orange);text-decoration:none}
 <!-- PRODUÇÃO -->
 <main class="page" id="page-producao">
   <div class="card" style="background:var(--text);color:white;margin-bottom:14px">
-    <div class="stat-label" style="color:rgba(255,255,255,.6)">Ordem de produção — hoje</div>
-    <div style="font-family:'Inter',sans-serif;font-size:13px;margin-top:8px;color:rgba(255,255,255,.8)" id="prod-resumo-topo"></div>
+    <div class="stat-label" style="color:rgba(255,255,255,.6)">Ordem de produção</div>
+    <div style="font-size:13px;margin-top:8px;color:rgba(255,255,255,.8)" id="prod-resumo-topo"></div>
   </div>
-  <div class="action-row" style="margin-bottom:14px">
-    <button class="btn btn-primary btn-full" onclick="imprimirOrdemProducao()">Imprimir Ordem de Produção</button>
+
+  <!-- Seletor de data para imprimir -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:4px">🖨 Selecione a data de entrega para produzir</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Mostra os pedidos que serão entregues na data selecionada — ou seja, o que produzir hoje.</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="fbtn" id="prod-btn-hoje" onclick="setProdData('hoje',this)">Entrega hoje</button>
+        <button class="fbtn active" id="prod-btn-amanha" onclick="setProdData('amanha',this)">Entrega amanhã ⭐</button>
+        <button class="fbtn" id="prod-btn-todos" onclick="setProdData('todos',this)">Todos do dia 🔀</button>
+        <button class="fbtn" id="prod-btn-custom" onclick="setProdData('custom',this)">Outra data</button>
+      </div>
+      <input type="date" id="prod-data-custom" style="height:30px;font-size:12px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;display:none" onchange="renderProducao()">
+      <button class="btn btn-primary" onclick="imprimirOrdemProducao()" style="height:34px">🖨 Imprimir</button>
+    </div>
+    <div style="font-size:11px;color:var(--orange);font-weight:600;margin-top:6px" id="prod-data-label"></div>
   </div>
+
   <p class="sec-label">Detalhamento por embalagem</p>
   <div id="prod-grid"></div>
   <div class="card" style="margin-top:4px">
@@ -1554,12 +1577,14 @@ const CLIENTES_PADRAO=[
 // ── SINCRONIZAR ────────────────────────────────────────────────────────────
 async function sincronizar(){
   setSyncStatus('loading','Sincronizando...');
-  // Abre imediatamente com dados locais enquanto sincroniza em segundo plano
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
   pedidos=load('slj_ped_bk',[]);
   renderClienteList();atualizarBadges();
   document.getElementById('loading').classList.add('hidden');
   try{
+    // Teste rápido de conectividade primeiro
+    const teste=await fetch(SB_URL+'/pedidos?limit=1',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    if(!teste.ok) throw new Error('HTTP '+teste.status);
     const dbC=await sbGet('clientes','?order=nome');
     if(dbC&&dbC.length>0){
       clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,tel:c.tel||'',
@@ -1608,9 +1633,18 @@ async function sincronizar(){
     pedidos=(dbP||[]).map(mesclar).filter(p=>p.data===hojeKey);
     lsave('slj_ped_bk',pedidos);
     lsave('slj_ped_ontem_bk',pedidosOntem);
-    const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&order=data.desc,id.desc&limit=1000`);
-    historico={};
-    (dbH||[]).forEach(p=>{const dk=p.data||'sem-data';if(!historico[dk])historico[dk]=[];historico[dk].push(mapPedido(p));});
+    // Só buscar histórico a cada 10 minutos para economizar dados
+const agora2=Date.now();
+const ultimaHistSync=parseInt(localStorage.getItem('slj_hist_sync')||'0');
+let dbH=null;
+if(agora2-ultimaHistSync>600000){
+  dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&order=data.desc,id.desc&limit=200`);
+  localStorage.setItem('slj_hist_sync',agora2.toString());
+}
+    if(dbH!==null){
+      historico={};
+      (dbH||[]).forEach(p=>{const dk=p.data||'sem-data';if(!historico[dk])historico[dk]=[];historico[dk].push(mapPedido(p));});
+    }
     const dbE=await sbGet('estoque','');
     if(dbE&&dbE.length)dbE.forEach(e=>estoque[e.tam]=e.qty||0);
     else await sbUps('estoque',TAMS.map(t=>({tam:t,qty:0})));
@@ -1618,13 +1652,13 @@ async function sincronizar(){
     if(dbM&&dbM.length)dbM.forEach(e=>estMinimos[e.tam]=e.qty||0);
     const dbMov=await sbGet('movimentos','?order=id.desc&limit=100');
     movimentos=(dbMov||[]).map(m=>({tipo:m.tipo,tam:m.tam,qtd:m.qtd,obs:m.obs,data:m.data,hora:m.hora}));
-    // Restaurar rotaOrdem — buscar do bling_tokens id=2
+    // Restaurar rotaOrdem — buscar do bling_tokens id=2 (não fatal se falhar)
     const listaRotaIds=pedidos.filter(p=>p.data===hojeKey).map(p=>p.id);
     try{
-      const dbRota=await sbGet('bling_tokens','?id=eq.2');
-      if(dbRota&&dbRota.length&&dbRota[0].refresh_token==='rota_ordem'){
+      const dbRota=await sbGet('bling_tokens','?id=eq.2&refresh_token=eq.rota_ordem');
+      if(dbRota&&dbRota.length){
         const parsed=JSON.parse(dbRota[0].access_token||'{}');
-        const ordemBanco=parsed.ordem||[];
+        const ordemBanco=Array.isArray(parsed)?parsed:(parsed.ordem||[]);
         const bancoTs=parsed.ts||0;
         const localTs=parseInt(localStorage.getItem('slj_rota_ts')||'0');
         if(ordemBanco.length>0&&bancoTs>=localTs){
@@ -1633,10 +1667,11 @@ async function sincronizar(){
           localStorage.setItem('slj_rota_ts',bancoTs.toString());
         }
       }
-    }catch(e){}
-    if(!rotaOrdem.length){
-      rotaOrdem=[...listaRotaIds];
-    }else{
+    }catch(e){
+      // Falha silenciosa — não quebra a sync
+    }
+    if(!rotaOrdem.length) rotaOrdem=[...listaRotaIds];
+    else{
       listaRotaIds.forEach(id=>{if(!rotaOrdem.includes(id))rotaOrdem.push(id);});
       rotaOrdem=rotaOrdem.filter(id=>listaRotaIds.includes(id));
     }
@@ -1649,11 +1684,15 @@ async function sincronizar(){
     if(perfilAtual==='entregador') renderRota();
   }catch(e){
     syncErros=(syncErros||0)+1;
-    // Só mostrar erro após 3 falhas consecutivas
-    if(syncErros>=3){
+    console.error('Sync erro #'+syncErros+':', e?.message||e);
+    // Só mostrar erro após 5 falhas consecutivas
+    if(syncErros>=5){
       setSyncStatus('err','Sem conexão — usando dados locais');
+    }else{
+      // Tentar novamente em 5 segundos
+      setSyncStatus('loading','Reconectando...');
+      setTimeout(sincronizar, 5000);
     }
-    console.warn('Sync falhou (tentativa '+syncErros+'):',e);
   }
 }
 
@@ -1723,6 +1762,30 @@ function getDashPedidos(){
   return todos.filter(p=>p.data===hojeKey);
 }
 
+function verificarAlertasEstoque(){
+  const alertasEl=document.getElementById('dash-alertas');
+  if(!alertasEl)return;
+  const alertas=TAMS.filter(t=>(estoque[t]||0)<=(estMinimos[t]||0)&&estMinimos[t]>0);
+  if(!alertas.length){alertasEl.innerHTML='';return;}
+  alertasEl.innerHTML=alertas.map(t=>
+    `<div class="alert-box warn" style="margin-bottom:5px">
+      ⚠ Estoque baixo: <strong>${TL[t]}</strong> — ${estoque[t]||0} un (mínimo: ${estMinimos[t]})
+    </div>`
+  ).join('');
+}
+
+function verificarAniversarios(){
+  const hoje2=hoje.toLocaleDateString('pt-BR',{month:'2-digit',day:'2-digit'});
+  const aniversariantes=clientes.filter(c=>c.aniver&&c.aniver.slice(5).split('-').reverse().join('/')===hoje2);
+  const alertasEl=document.getElementById('dash-alertas');
+  if(!alertasEl||!aniversariantes.length)return;
+  const aviso=document.createElement('div');
+  aviso.className='alert-box info';
+  aviso.style.marginBottom='5px';
+  aviso.innerHTML='🎂 Aniversário hoje: <strong>'+aniversariantes.map(c=>c.nome).join(', ')+'</strong>';
+  alertasEl.prepend(aviso);
+}
+
 function renderDash(){
   const h=hoje.getHours();
   const sd=document.getElementById('dash-saudacao');if(sd)sd.textContent=(h<12?'Bom dia':h<18?'Boa tarde':'Boa noite')+'!';
@@ -1738,25 +1801,47 @@ function renderDash(){
 
   const el=id=>document.getElementById(id);
   if(el('dash-fat'))     el('dash-fat').textContent=moeda(fat);
-  if(el('dash-fat-meta'))el('dash-fat-meta').textContent=garrafas+' garrafas · '+litros.toFixed(1)+' L';
+  if(el('dash-fat-meta'))el('dash-fat-meta').textContent=litros.toFixed(1)+' L';
   if(el('dash-ped'))     el('dash-ped').textContent=qtdPed;
   if(el('dash-ped-sub')) el('dash-ped-sub').textContent=entregues+' entregues';
   if(el('dash-lit'))     el('dash-lit').textContent=litros.toFixed(1)+' L';
-  if(el('dash-lit-sub')) el('dash-lit-sub').textContent=garrafas+' garrafas';
+  if(el('dash-lit-sub')) el('dash-lit-sub').textContent='';
   if(el('dash-arec'))    el('dash-arec').textContent=moeda(arec);
   if(el('dash-arec-sub'))el('dash-arec-sub').textContent=lista.filter(p=>p.entregue&&!p.pago).length+' clientes';
 
-  // Meta
-  if(metaDiaria>0&&dashPeriodo==='hoje'){
-    const pct=Math.min(100,Math.round(fat/metaDiaria*100));
-    if(el('dash-meta-label'))el('dash-meta-label').textContent=moeda(fat)+' / '+moeda(metaDiaria)+' ('+pct+'%)';
-    if(el('dash-meta-fill')) el('dash-meta-fill').style.width=pct+'%';
-  }else{
-    if(el('dash-meta-label'))el('dash-meta-label').textContent=dashPeriodo==='hoje'?'Meta não definida':'';
-  }
-
   // Custos do mês — separados corretamente
   const mesAtual=hojeKey.slice(0,7);
+  // Meta do mês — pizza chart
+  const metaMes=load('slj_meta_mes',0);
+  const metaMesInp=document.getElementById('meta-mes-input');
+  if(metaMesInp&&!metaMesInp.value&&metaMes>0) metaMesInp.value=metaMes;
+  const todosM2=[...pedidos,...Object.values(historico).flat()];
+  const fatMesAtual=todosM2.filter(p=>p.data&&p.data.startsWith(mesAtual)).reduce((s,p)=>s+p.total,0);
+  const pctMeta=metaMes>0?Math.min(100,Math.round(fatMesAtual/metaMes*100)):0;
+  const faltaMeta=metaMes>0?Math.max(0,metaMes-fatMesAtual):0;
+  if(el('dash-meta-fat'))       el('dash-meta-fat').textContent=moeda(fatMesAtual);
+  if(el('dash-meta-pct'))       el('dash-meta-pct').textContent=metaMes>0?pctMeta+'%':'—';
+  if(el('dash-meta-bar'))     { el('dash-meta-bar').style.width=pctMeta+'%'; el('dash-meta-bar').style.background=pctMeta>=100?'var(--green)':'var(--orange)'; }
+  if(el('dash-meta-pct-txt'))   el('dash-meta-pct-txt').textContent=metaMes>0?(pctMeta>=100?'✓ Meta atingida!':'Falta '+moeda(faltaMeta)):'Defina uma meta acima';
+  if(el('dash-meta-total-txt')) el('dash-meta-total-txt').textContent=metaMes>0?moeda(metaMes):'—';
+  try{
+    const ctx3=document.getElementById('chart-meta-pizza')?.getContext('2d');
+    if(ctx3){
+      if(window._chartMetaPizza) window._chartMetaPizza.destroy();
+      window._chartMetaPizza=new Chart(ctx3,{
+        type:'doughnut',
+        data:{
+          labels:metaMes>0?['Faturado','Restante']:['Sem meta'],
+          datasets:[{
+            data:metaMes>0?[Math.min(fatMesAtual,metaMes),Math.max(0,faltaMeta)]:[1],
+            backgroundColor:metaMes>0?[pctMeta>=100?'#16A34A':'#E07A2F','#E4E6EA']:['#E4E6EA'],
+            borderWidth:0
+          }]
+        },
+        options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>metaMes>0?moeda(c.raw):'Sem meta'}}}}
+      });
+    }
+  }catch(e){}
   const opMes=custosOp.filter(c=>c.data&&c.data.startsWith(mesAtual));
 
   // Custo de laranja (compras do mês) — parte do custo de PRODUÇÃO
@@ -2101,6 +2186,12 @@ function verificarAniversarios(){
 }
 
 // META
+function salvarMetaMes(){
+  const v=parseFloat(document.getElementById('meta-mes-input')?.value)||0;
+  lsave('slj_meta_mes',v);
+  renderDash();
+}
+
 function salvarMeta(){const v=parseFloat(document.getElementById('meta-input').value);metaDiaria=isNaN(v)||v<=0?0:v;lsave('slj_meta',metaDiaria);atualizarMeta();}
 function atualizarMeta(){
   const tval=pedidos.reduce((s,p)=>s+p.total,0);
@@ -3517,13 +3608,66 @@ function salvarCustos(){
   lsave('slj_custos',custos);renderProducao();toast('Custos salvos.');
 }
 
+let prodDataSel='amanha'; // padrão: produzir hoje para entregar amanhã
+
+function setProdData(tipo,btn){
+  prodDataSel=tipo;
+  document.querySelectorAll('#page-producao .fbtn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  const inp=document.getElementById('prod-data-custom');
+  if(inp) inp.style.display=tipo==='custom'?'':'none';
+  renderProducao();
+}
+
+function getProdDataKey(){
+  if(prodDataSel==='amanha'){
+    const d=new Date(hoje);d.setDate(d.getDate()+1);
+    return d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
+  }
+  if(prodDataSel==='custom'){
+    return document.getElementById('prod-data-custom')?.value||hojeKey;
+  }
+  return hojeKey; // hoje e todos usam hojeKey como base
+}
+
+function getPedidosParaProducao(dataKey){
+  const todos=[...pedidos,...Object.values(historico).flat()];
+  if(prodDataSel==='todos'){
+    // Combina: entrega hoje + entrega amanhã
+    const amanha=new Date(hoje);amanha.setDate(amanha.getDate()+1);
+    const amanhaKey=amanha.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
+    const lista=[...todos.filter(p=>p.data===hojeKey),...todos.filter(p=>p.data===amanhaKey)];
+    // Remover duplicatas
+    const ids=new Set();
+    return lista.filter(p=>{if(ids.has(p.id))return false;ids.add(p.id);return true;});
+  }
+  return todos.filter(p=>p.data===dataKey);
+}
+
 function renderProducao(){
   renderCustosForm();
+  // Garantir data default
+  const customInp=document.getElementById('prod-data-custom');
+  if(customInp&&!customInp.value) customInp.value=hojeKey;
+
+  const dataKey=getProdDataKey();
+  const dataFmt=new Date(dataKey+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  const lbl=document.getElementById('prod-data-label');
+  if(lbl){
+    const amanhaFmt=new Date(new Date(hoje).setDate(hoje.getDate()+1)).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    const labelTipo=prodDataSel==='amanha'?'Produzir HOJE → Entrega de ':
+                    prodDataSel==='hoje'?'Produzir e entregar HOJE — ':
+                    prodDataSel==='todos'?`Produzir HOJE → Entrega hoje + amanhã (${amanhaFmt}) — `:
+                    'Entrega de ';
+    lbl.textContent=labelTipo+dataFmt;
+  }
+
+  const pedsProd=getPedidosParaProducao(dataKey);
   const totais={};TAMS.forEach(t=>totais[t]=0);
-  pedidos.forEach(p=>p.itens.forEach(it=>totais[it.tam]=(totais[it.tam]||0)+it.qtd));
+  pedsProd.forEach(p=>p.itens.forEach(it=>totais[it.tam]=(totais[it.tam]||0)+it.qtd));
   const tqtd=TAMS.reduce((s,t)=>s+totais[t],0);
-  const tlit=pedidos.reduce((s,p)=>s+calcLitros(p.itens),0);
-  const trec=pedidos.reduce((s,p)=>s+p.total,0);
+  const tlit=pedsProd.reduce((s,p)=>s+calcLitros(p.itens),0);
+  const trec=pedsProd.reduce((s,p)=>s+p.total,0);
   const tcusto=TAMS.reduce((s,t)=>s+getCustoTotal(t)*totais[t],0);
   const margem=trec-tcusto;
   document.getElementById('prod-resumo-topo').innerHTML=
@@ -3531,9 +3675,9 @@ function renderProducao(){
     (tcusto>0?` · Custo: ${moeda(tcusto)} · <span style="color:${margem>=0?'#9FE0B4':'#F0997B'}">${margem>=0?'Lucro':'Prejuízo'}: ${moeda(Math.abs(margem))}</span>`:'');
   const el=document.getElementById('prod-grid');
   const ativos=TAMS.filter(t=>totais[t]>0);
-  if(!ativos.length){el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido hoje.</p></div>';return;}
+  if(!ativos.length){el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido para esta data.</p></div>';return;}
   el.innerHTML=ativos.map(t=>{
-    const rec=pedidos.reduce((s,p)=>s+p.itens.filter(i=>i.tam===t).reduce((a,i)=>a+i.preco*i.qtd,0),0);
+    const rec=pedsProd.reduce((s,p)=>s+p.itens.filter(i=>i.tam===t).reduce((a,i)=>a+i.preco*i.qtd,0),0);
     const custoUnit=getCustoTotal(t);
     const vendaUnit=(custos[t]&&custos[t].venda)||0;
     const custo=custoUnit*totais[t];
@@ -3551,36 +3695,53 @@ function renderProducao(){
       <div class="prod-row total"><span>Margem total</span><span class="${margem>=0?'prod-lucro':'prod-prej'}">${moeda(margem)}</span></div>`:''}
     </div>`;}).join('');
 }
+
 function imprimirOrdemProducao(){
-  if(!pedidos.length){toast('Nenhum pedido hoje.');return;}
-  const data=hoje.toLocaleDateString('pt-BR');
+  const dataKey=getProdDataKey();
+  const pedsProd=getPedidosParaProducao(dataKey);
+  if(!pedsProd.length){toast('Nenhum pedido para esta data.');return;}
+  const dataFmt=new Date(dataKey+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   const totais={};TAMS.forEach(t=>totais[t]=0);
-  pedidos.forEach(p=>p.itens.forEach(it=>totais[it.tam]=(totais[it.tam]||0)+it.qtd));
-  const tlit=pedidos.reduce((s,p)=>s+calcLitros(p.itens),0);
+  pedsProd.forEach(p=>p.itens.forEach(it=>totais[it.tam]=(totais[it.tam]||0)+it.qtd));
+  const tlit=pedsProd.reduce((s,p)=>s+calcLitros(p.itens),0);
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet"><title>Produção ${data}</title>
-  <style>body{font-family:'DM Sans',sans-serif;padding:24px;color:#1C1008;max-width:600px;margin:0 auto}h1{font-family:'Inter',sans-serif;font-size:20px;margin-bottom:2px}.sub{font-size:12px;color:#9C8878;margin-bottom:18px}
-  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
-  .pc{background:#FEF0E3;border:1px solid #F9D4AF;border-radius:8px;padding:12px 8px;text-align:center}
-  .pc .l{font-size:11px;font-weight:700;color:#9C8878;text-transform:uppercase;margin-bottom:4px}
-  .pc .q{font-family:'Inter',sans-serif;font-size:28px;color:#E87722}
-  .pc .s{font-size:11px;color:#9C8878;margin-top:3px}
-  .tot{background:#1C1008;color:white;border-radius:8px;padding:14px;margin-bottom:20px;display:flex;gap:20px}
-  .tot span{font-size:13px;opacity:.8}.tot strong{display:block;font-size:18px;color:white;margin-top:2px}
-  table{width:100%;border-collapse:collapse;font-size:12px}
-  th{background:#F4EDE0;padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
-  td{padding:7px 8px;border-bottom:1px solid #E8DDD0}
-  @media print{button{display:none!important}}</style></head><body>
-  <h1>Só Laranja — Ordem de Produção</h1><p class="sub">${data} · ${pedidos.length} cliente(s)</p>
+  if(!w){toast('Permita pop-ups para imprimir.');return;}
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Produção ${dataFmt}</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:24px;color:#1C1008;max-width:680px;margin:0 auto}
+    h1{font-size:18px;margin-bottom:2px}
+    .sub{font-size:12px;color:#888;margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}
+    .pc{background:#FEF0E3;border:1px solid #F9D4AF;border-radius:6px;padding:10px 6px;text-align:center}
+    .pc .l{font-size:10px;font-weight:700;color:#9C8878;text-transform:uppercase;margin-bottom:3px}
+    .pc .q{font-size:26px;font-weight:700;color:#E87722}
+    .pc .s{font-size:10px;color:#9C8878;margin-top:2px}
+    .tot{background:#1C1008;color:white;border-radius:6px;padding:12px;margin-bottom:16px;display:flex;gap:20px;flex-wrap:wrap}
+    .tot div{min-width:80px}
+    .tot span{font-size:11px;opacity:.7}
+    .tot strong{display:block;font-size:16px;color:white;margin-top:1px}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th{background:#F4EDE0;padding:5px 7px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+    td{padding:6px 7px;border-bottom:1px solid #E8DDD0}
+    @media print{button{display:none!important}}
+  </style></head><body>
+  <h1>Só Laranja — Ordem de Produção</h1>
+  <p class="sub">${dataFmt} · ${pedsProd.length} cliente(s)</p>
   <div class="grid">${TAMS.map(t=>`<div class="pc"><div class="l">${TL[t]}</div><div class="q">${totais[t]}</div><div class="s">${(totais[t]*LITROS[t]).toFixed(1)} L</div></div>`).join('')}</div>
-  <div class="tot"><div><span>Total garrafas</span><strong>${TAMS.reduce((s,t)=>s+totais[t],0)}</strong></div><div><span>Total litros</span><strong>${tlit.toFixed(1)} L</strong></div><div><span>Clientes</span><strong>${pedidos.length}</strong></div></div>
-  <table><thead><tr><th>Cliente</th><th>Endereço</th>${TAMS.map(t=>`<th>${TL[t]}</th>`).join('')}<th>Total</th></tr></thead><tbody>
-  ${pedidos.map(p=>{const c=clientes.find(x=>x.id===p.clienteId)||{};const end=[c.bairro,c.regiao].filter(Boolean).join(', ')||'—';return`<tr><td><strong>${p.clienteNome}</strong></td><td style="font-size:11px;color:#9C8878">${end}</td>${TAMS.map(t=>`<td style="text-align:center">${p.itens.find(i=>i.tam===t)?.qtd||'—'}</td>`).join('')}<td style="font-weight:700;color:#C45E0A">${moeda(p.total)}</td></tr>`;}).join('')}
+  <div class="tot">
+    <div><span>Total garrafas</span><strong>${TAMS.reduce((s,t)=>s+totais[t],0)}</strong></div>
+    <div><span>Total litros</span><strong>${tlit.toFixed(1)} L</strong></div>
+    <div><span>Clientes</span><strong>${pedsProd.length}</strong></div>
+  </div>
+  <table><thead><tr><th>Cliente</th><th>Endereço</th>${TAMS.map(t=>`<th style="text-align:center">${TL[t]}</th>`).join('')}<th>Total</th></tr></thead><tbody>
+  ${pedsProd.map(p=>{
+    const c=clientes.find(x=>x.id===p.clienteId)||{};
+    const end=[c.bairro,c.regiao].filter(Boolean).join(', ')||'—';
+    return`<tr><td><strong>${p.clienteNome}</strong></td><td style="font-size:10px;color:#888">${end}</td>${TAMS.map(t=>`<td style="text-align:center">${p.itens.find(i=>i.tam===t)?.qtd||'—'}</td>`).join('')}<td style="font-weight:700;color:#C45E0A">${moeda(p.total)}</td></tr>`;
+  }).join('')}
   </tbody></table>
-  <script>window.onload=()=>window.print()<\/script>    </div><!-- /main-content -->
-  </div><!-- /main-area -->
-</div><!-- /app-shell -->
-</body></html>`);
+  <script>window.onload=()=>window.print()<\/script>
+  </body></html>`);
   w.document.close();
 }
 
@@ -4834,7 +4995,7 @@ function iniciarSistema(){
     // Ir direto para a aba que estava ativa
     setTab(abaAtiva);
   });
-  setInterval(sincronizar,15000);
+  setInterval(sincronizar,120000);
 }
 
 function iniciarSistemaEntregador(){
@@ -4847,7 +5008,7 @@ function iniciarSistemaEntregador(){
     setTab('rota');
     renderRota();
   });
-  setInterval(sincronizar,15000);
+  setInterval(sincronizar,120000);
 }
 
 function renderEntregador(){
