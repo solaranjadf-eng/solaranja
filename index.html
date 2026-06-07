@@ -600,11 +600,11 @@ a{color:var(--orange);text-decoration:none}
         <span style="font-size:11px;color:var(--text3)">R$/mês</span>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center">
-      <div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center;min-width:0">
+      <div style="min-width:0">
         <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Faturado este mês</div>
-        <div style="font-size:20px;font-weight:700;color:var(--text)" id="dash-meta-fat">R$ 0</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px" id="dash-meta-pct-txt">—</div>
+        <div style="font-size:18px;font-weight:700;color:var(--text)" id="dash-meta-fat">R$ 0</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px" id="dash-meta-pct-txt">—</div>
         <div style="background:var(--border);border-radius:3px;height:8px;overflow:hidden;margin-top:8px">
           <div id="dash-meta-bar" style="height:100%;background:var(--orange);border-radius:3px;width:0%;transition:width .4s"></div>
         </div>
@@ -613,10 +613,10 @@ a{color:var(--orange);text-decoration:none}
           <span id="dash-meta-total-txt">Meta não definida</span>
         </div>
       </div>
-      <div style="position:relative;height:140px">
+      <div style="position:relative;height:130px;min-width:0">
         <canvas id="chart-meta-pizza"></canvas>
         <div id="dash-meta-centro" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
-          <div style="font-size:18px;font-weight:700;color:var(--text)" id="dash-meta-pct">0%</div>
+          <div style="font-size:16px;font-weight:700;color:var(--text)" id="dash-meta-pct">0%</div>
           <div style="font-size:10px;color:var(--text3)">da meta</div>
         </div>
       </div>
@@ -637,7 +637,7 @@ a{color:var(--orange);text-decoration:none}
       <div class="card-title" style="margin-bottom:0">💰 Resultado do mês</div>
       <div id="dash-lucro-badge" style="font-size:16px;font-weight:700;color:var(--green)">R$ 0</div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">
       <div style="text-align:center;background:var(--green-bg);border-radius:var(--radius);padding:10px">
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Faturamento</div>
         <div style="font-size:15px;font-weight:700;color:var(--green)" id="dash-fat-mes">R$ 0</div>
@@ -660,7 +660,7 @@ a{color:var(--orange);text-decoration:none}
     </div>
     <div style="border-top:1px solid var(--border);padding-top:10px">
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Detalhamento</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
           <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">🍊 Laranjas</div>
           <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-laranja">R$ 0</div>
@@ -684,12 +684,12 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- GRÁFICO: Garrafas por embalagem hoje -->
   <div class="card" style="margin-bottom:12px">
-    <div class="card-title">📦 Mix de embalagens — hoje</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center">
-      <div style="position:relative;height:160px">
+    <div class="card-title">📦 Mix de embalagens</div>
+    <div style="display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:center;min-width:0">
+      <div style="position:relative;height:130px;min-width:0">
         <canvas id="chart-embalagens"></canvas>
       </div>
-      <div id="dash-emb-legenda"></div>
+      <div id="dash-emb-legenda" style="min-width:0;overflow:hidden"></div>
     </div>
   </div>
 
@@ -1892,8 +1892,8 @@ function renderDash(){
   lista.forEach(p=>p.itens.forEach(it=>{mixEmb[it.tam]=(mixEmb[it.tam]||0)+it.qtd;}));
   if(el('dash-emb-legenda')){
     el('dash-emb-legenda').innerHTML=TAMS.filter(t=>mixEmb[t]>0).map(t=>
-      `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
-        <span>${TL[t]}</span><span style="font-weight:700">${mixEmb[t]} un · ${((LITROS[t]||0)*mixEmb[t]).toFixed(1)} L</span>
+      `<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;gap:8px">
+        <span style="white-space:nowrap">${TL[t]}</span><span style="font-weight:700;white-space:nowrap">${mixEmb[t]} un · ${((LITROS[t]||0)*mixEmb[t]).toFixed(1)} L</span>
       </div>`).join('')||'<div style="font-size:13px;color:var(--text3)">Sem vendas no período</div>';
   }
 
@@ -3543,6 +3543,104 @@ function renderCustos(){
   }
 }
 
+// ── ESTOQUE ────────────────────────────────────────────────────────────────
+function renderEstoque(){
+  // Saldo atual
+  const grid=document.getElementById('estoque-grid');
+  if(grid){
+    grid.innerHTML=TAMS.map(t=>`
+      <div class="rg-card ${(estoque[t]||0)<=(estMinimos[t]||0)&&estMinimos[t]>0?'style="border:2px solid var(--red)"':''}">
+        <div class="rg-size">${TL[t]}</div>
+        <div class="rg-val ${(estoque[t]||0)<=(estMinimos[t]||0)&&estMinimos[t]>0?'style="color:var(--red)"':''}">${estoque[t]||0}</div>
+        <div style="font-size:10px;color:var(--text3)">mín: ${estMinimos[t]||0}</div>
+      </div>`).join('');
+  }
+  // Mínimos
+  TAMS.forEach(t=>{
+    const inp=document.getElementById('min-'+t);
+    if(inp) inp.value=estMinimos[t]||0;
+  });
+  // Movimentações
+  renderMovimentos();
+  verificarAlertasEstoque();
+}
+
+async function registrarEntrada(){
+  const tam=document.getElementById('ent-tam')?.value;
+  const qtd=parseInt(document.getElementById('ent-qtd')?.value)||0;
+  const obs=document.getElementById('ent-obs')?.value.trim()||'';
+  if(!tam){toast('Selecione a embalagem.');return;}
+  if(qtd<=0){toast('Informe a quantidade.');return;}
+  const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  estoque[tam]=(estoque[tam]||0)+qtd;
+  try{
+    await sbUps('estoque',[{tam,qty:estoque[tam]}]);
+    await sbPost('movimentos',[{tipo:'entrada',tam,qtd,obs:obs||'Entrada manual',data:hojeKey,hora}]);
+    movimentos.unshift({tipo:'entrada',tam,qtd,obs:obs||'Entrada manual',data:hojeKey,hora});
+    setSyncStatus('ok','✓ Conectado');
+  }catch(e){setSyncStatus('err','Erro ao sincronizar');}
+  document.getElementById('ent-qtd').value='';
+  document.getElementById('ent-obs').value='';
+  toast('✓ Entrada de '+qtd+' un. de '+TL[tam]+' registrada.');
+  renderEstoque();
+}
+
+async function registrarAjuste(){
+  const tam=document.getElementById('aj-tam')?.value;
+  const novoSaldo=parseInt(document.getElementById('aj-qtd')?.value);
+  const obs=document.getElementById('aj-obs')?.value.trim()||'Ajuste manual';
+  if(!tam){toast('Selecione a embalagem.');return;}
+  if(isNaN(novoSaldo)||novoSaldo<0){toast('Informe o novo saldo.');return;}
+  const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const diff=novoSaldo-(estoque[tam]||0);
+  estoque[tam]=novoSaldo;
+  try{
+    await sbUps('estoque',[{tam,qty:novoSaldo}]);
+    await sbPost('movimentos',[{tipo:'ajuste',tam,qtd:diff,obs,data:hojeKey,hora}]);
+    movimentos.unshift({tipo:'ajuste',tam,qtd:diff,obs,data:hojeKey,hora});
+    setSyncStatus('ok','✓ Conectado');
+  }catch(e){setSyncStatus('err','Erro ao sincronizar');}
+  document.getElementById('aj-qtd').value='';
+  document.getElementById('aj-obs').value='';
+  toast('✓ Estoque de '+TL[tam]+' ajustado para '+novoSaldo+' un.');
+  renderEstoque();
+}
+
+async function salvarMinimos(){
+  TAMS.forEach(t=>{
+    const v=parseInt(document.getElementById('min-'+t)?.value)||0;
+    estMinimos[t]=v;
+  });
+  try{
+    await sbUps('est_minimos',TAMS.map(t=>({tam:t,qty:estMinimos[t]||0})));
+    setSyncStatus('ok','✓ Conectado');
+    toast('✓ Mínimos salvos.');
+  }catch(e){setSyncStatus('err','Erro ao sincronizar');toast('Erro ao salvar.');}
+  verificarAlertasEstoque();
+  renderEstoque();
+}
+
+function renderMovimentos(){
+  const el=document.getElementById('mov-list');
+  if(!el)return;
+  const lista=movimentos.filter(m=>m.tipo!=='rota_ordem').slice(0,30);
+  if(!lista.length){el.innerHTML='<div style="font-size:13px;color:var(--text3);text-align:center;padding:12px">Nenhuma movimentação recente.</div>';return;}
+  el.innerHTML=lista.map(m=>{
+    const cor=m.tipo==='entrada'?'var(--green)':m.tipo==='ajuste'?'var(--blue)':'var(--red)';
+    const sinal=m.tipo==='entrada'?'+':m.tipo==='ajuste'?(m.qtd>=0?'+':''):'−';
+    const qtdAbs=Math.abs(m.qtd);
+    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <span style="font-size:11px;font-weight:700;color:${cor};text-transform:uppercase">${m.tipo}</span>
+        <span style="font-size:12px;color:var(--text);margin-left:6px">${TL[m.tam]||m.tam}</span>
+        ${m.obs?`<span style="font-size:11px;color:var(--text3)"> — ${m.obs}</span>`:''}
+        <div style="font-size:10px;color:var(--text3)">${m.data?new Date(m.data+'T12:00:00').toLocaleDateString('pt-BR'):''} ${m.hora||''}</div>
+      </div>
+      <span style="font-size:14px;font-weight:700;color:${cor}">${sinal}${qtdAbs}</span>
+    </div>`;
+  }).join('');
+}
+
 function renderCustosForm(){
   const el=document.getElementById('custos-form');
   if(!el)return;
@@ -3733,12 +3831,14 @@ function imprimirOrdemProducao(){
     <div><span>Total litros</span><strong>${tlit.toFixed(1)} L</strong></div>
     <div><span>Clientes</span><strong>${pedsProd.length}</strong></div>
   </div>
-  <table><thead><tr><th>Cliente</th><th>Endereço</th>${TAMS.map(t=>`<th style="text-align:center">${TL[t]}</th>`).join('')}<th>Total</th></tr></thead><tbody>
+  <table><thead><tr><th>Cliente</th><th>Endereço</th>${TAMS.map(t=>`<th style="text-align:center">${TL[t]}</th>`).join('')}<th style="text-align:center">Total un.</th></tr></thead><tbody>
   ${pedsProd.map(p=>{
     const c=clientes.find(x=>x.id===p.clienteId)||{};
     const end=[c.bairro,c.regiao].filter(Boolean).join(', ')||'—';
-    return`<tr><td><strong>${p.clienteNome}</strong></td><td style="font-size:10px;color:#888">${end}</td>${TAMS.map(t=>`<td style="text-align:center">${p.itens.find(i=>i.tam===t)?.qtd||'—'}</td>`).join('')}<td style="font-weight:700;color:#C45E0A">${moeda(p.total)}</td></tr>`;
+    const totalUn=p.itens.reduce((s,it)=>s+it.qtd,0);
+    return`<tr><td><strong>${p.clienteNome}</strong></td><td style="font-size:10px;color:#888">${end}</td>${TAMS.map(t=>`<td style="text-align:center">${p.itens.find(i=>i.tam===t)?.qtd||'—'}</td>`).join('')}<td style="text-align:center;font-weight:700">${totalUn}</td></tr>`;
   }).join('')}
+  <tr style="background:#F4EDE0;font-weight:700"><td>TOTAL</td><td></td>${TAMS.map(t=>`<td style="text-align:center">${totais[t]||'—'}</td>`).join('')}<td style="text-align:center">${TAMS.reduce((s,t)=>s+totais[t],0)}</td></tr>
   </tbody></table>
   <script>window.onload=()=>window.print()<\/script>
   </body></html>`);
