@@ -1577,9 +1577,10 @@ const CLIENTES_PADRAO=[
 // ── SINCRONIZAR ────────────────────────────────────────────────────────────
 async function sincronizar(){
   setSyncStatus('loading','Sincronizando...');
-  clientes=load('slj_cli_bk',CLIENTES_PADRAO);
-  pedidos=load('slj_ped_bk',[]);
-  renderClienteList();atualizarBadges();
+  // NÃO limpar dados aqui — usar o que está em memória
+  // Só carregar do localStorage se arrays estiverem vazios
+  if(!clientes.length) clientes=load('slj_cli_bk',CLIENTES_PADRAO);
+  if(!pedidos.length)  pedidos=load('slj_ped_bk',[]);
   document.getElementById('loading').classList.add('hidden');
   try{
     // Teste rápido de conectividade primeiro
@@ -1587,6 +1588,7 @@ async function sincronizar(){
     if(!teste.ok) throw new Error('HTTP '+teste.status);
     const dbC=await sbGet('clientes','?order=nome');
     if(dbC&&dbC.length>0){
+      // Só atualizar clientes se banco retornou dados válidos
       clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,tel:c.tel||'',
         bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
         maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos||{}}));
@@ -1634,16 +1636,18 @@ async function sincronizar(){
     lsave('slj_ped_bk',pedidos);
     lsave('slj_ped_ontem_bk',pedidosOntem);
     // Só buscar histórico a cada 10 minutos para economizar dados
-const agora2=Date.now();
-const ultimaHistSync=parseInt(localStorage.getItem('slj_hist_sync')||'0');
-let dbH=null;
-if(agora2-ultimaHistSync>600000){
-  dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&order=data.desc,id.desc&limit=200`);
-  localStorage.setItem('slj_hist_sync',agora2.toString());
-}
-    if(dbH!==null){
-      historico={};
-      (dbH||[]).forEach(p=>{const dk=p.data||'sem-data';if(!historico[dk])historico[dk]=[];historico[dk].push(mapPedido(p));});
+    const agora2=Date.now();
+    const ultimaHistSync=parseInt(localStorage.getItem('slj_hist_sync')||'0');
+    let dbH=null;
+    if(agora2-ultimaHistSync>600000){
+      dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&order=data.desc,id.desc&limit=200`);
+      localStorage.setItem('slj_hist_sync',agora2.toString());
+    }
+    if(dbH!==null&&dbH.length>0){
+      // Só substituir historico se banco retornou dados — nunca zerar sem ter novos
+      const novoHist={};
+      dbH.forEach(p=>{const dk=p.data||'sem-data';if(!novoHist[dk])novoHist[dk]=[];novoHist[dk].push(mapPedido(p));});
+      historico=novoHist;
     }
     const dbE=await sbGet('estoque','');
     if(dbE&&dbE.length)dbE.forEach(e=>estoque[e.tam]=e.qty||0);
