@@ -631,6 +631,14 @@ a{color:var(--orange);text-decoration:none}
     </div>
   </div>
 
+  <!-- GRÁFICO: Volume mensal do ano -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">📊 Faturamento mensal — <span id="chart-ano-label"></span></div>
+    <div style="position:relative;height:180px">
+      <canvas id="chart-fat-mensal"></canvas>
+    </div>
+  </div>
+
   <!-- GRÁFICO: Resultado do mês -->
   <div class="card" style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -1945,12 +1953,14 @@ function renderDash(){
 }
 
 function renderGraficoDash(lista){
+  const todos=[...pedidos,...pedidosOntem,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+
+  // Gráfico 1: Faturamento últimos 7 dias
   try{
     const ctx=document.getElementById('chart-fat-custos')?.getContext('2d');
     if(ctx){
       chartFatCustos=destroyChart(chartFatCustos);
       const dias=[],fats=[];
-      const todos=[...pedidos,...pedidosOntem,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
       for(let i=6;i>=0;i--){
         const d=new Date(hoje);d.setDate(d.getDate()-i);
         const dk=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
@@ -1960,13 +1970,38 @@ function renderGraficoDash(lista){
       chartFatCustos=new Chart(ctx,{type:'bar',data:{labels:dias,datasets:[{label:'Faturamento',data:fats,backgroundColor:'rgba(224,122,47,.7)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR')}}}}});
     }
   }catch(e){}
+
+  // Gráfico 2: Faturamento mensal do ano
   try{
-    const ctx2=document.getElementById('chart-embalagens')?.getContext('2d');
+    const ctx2=document.getElementById('chart-fat-mensal')?.getContext('2d');
     if(ctx2){
+      if(window._chartFatMensal) window._chartFatMensal.destroy();
+      const anoAtual=hojeKey.slice(0,4);
+      const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      const fatsMes=meses.map((_,i)=>{
+        const mes=String(i+1).padStart(2,'0');
+        return todos.filter(p=>p.data&&p.data.startsWith(`${anoAtual}-${mes}`)).reduce((s,p)=>s+p.total,0);
+      });
+      const mesAtualIdx=parseInt(hojeKey.slice(5,7))-1;
+      const cores=meses.map((_,i)=>i===mesAtualIdx?'rgba(224,122,47,.95)':'rgba(224,122,47,.4)');
+      const lbl=document.getElementById('chart-ano-label');
+      if(lbl) lbl.textContent=anoAtual;
+      window._chartFatMensal=new Chart(ctx2,{
+        type:'bar',
+        data:{labels:meses,datasets:[{label:'Faturamento',data:fatsMes,backgroundColor:cores,borderRadius:4}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'R$ '+c.raw.toLocaleString('pt-BR',{minimumFractionDigits:2})}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR')}}}}
+      });
+    }
+  }catch(e){}
+
+  // Gráfico 3: Mix embalagens
+  try{
+    const ctx3=document.getElementById('chart-embalagens')?.getContext('2d');
+    if(ctx3){
       chartEmb=destroyChart(chartEmb);
       const vals=TAMS.map(t=>lista.reduce((s,p)=>s+p.itens.filter(it=>it.tam===t).reduce((ss,it)=>ss+it.qtd,0),0));
       if(vals.some(v=>v>0)){
-        chartEmb=new Chart(ctx2,{type:'doughnut',data:{labels:TAMS.map(t=>TL[t]),datasets:[{data:vals,backgroundColor:['#E07A2F','#F28C3C','#2D7D52','#2563EB','#7C3AED'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+        chartEmb=new Chart(ctx3,{type:'doughnut',data:{labels:TAMS.map(t=>TL[t]),datasets:[{data:vals,backgroundColor:['#E07A2F','#F28C3C','#2D7D52','#2563EB','#7C3AED'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
       }
     }
   }catch(e){}
@@ -4103,6 +4138,7 @@ function renderExtratocliente(){
           <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em">Nº</th>
           <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em">Data</th>
           <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em">Itens</th>
+          <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em">Observação</th>
           <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:600;letter-spacing:.04em">Total</th>
           <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:600;letter-spacing:.04em">Situação</th>
           <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:600;letter-spacing:.04em">Ação</th>
@@ -4131,6 +4167,7 @@ function renderExtratocliente(){
             <td style="padding:8px 10px;color:var(--text3);font-weight:600">${num}</td>
             <td style="padding:8px 10px;white-space:nowrap">${dataFmt}</td>
             <td style="padding:8px 10px;color:var(--text2)">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</td>
+            <td style="padding:8px 10px;color:var(--text3);font-style:italic;font-size:11px">${p.obs||'—'}</td>
             <td style="padding:8px 10px;text-align:right;font-weight:700">${moeda(p.total)}</td>
             <td style="padding:8px 10px;text-align:center">${situacao}</td>
             <td style="padding:8px 10px;text-align:center">${btnAcao}</td>
@@ -4140,12 +4177,12 @@ function renderExtratocliente(){
       </tbody>
       <tfoot>
         <tr style="background:var(--bg);border-top:2px solid var(--border)">
-          <td colspan="4" style="padding:10px;font-weight:700;font-size:12px;color:var(--text2)">TOTAL GERAL</td>
+          <td colspan="5" style="padding:10px;font-weight:700;font-size:12px;color:var(--text2)">TOTAL GERAL</td>
           <td style="padding:10px;text-align:right;font-weight:700">${moeda(totalGeral)}</td>
           <td colspan="3"></td>
         </tr>
         ${debito>0?`<tr style="background:#FEF3C7">
-          <td colspan="4" style="padding:8px 10px;font-weight:700;font-size:12px;color:#92400E">A RECEBER</td>
+          <td colspan="5" style="padding:8px 10px;font-weight:700;font-size:12px;color:#92400E">A RECEBER</td>
           <td style="padding:8px 10px;text-align:right;font-weight:700;color:#92400E">${moeda(debito)}</td>
           <td colspan="3"></td>
         </tr>`:''}
@@ -5018,7 +5055,7 @@ function verificarSenhaGerente(){
   }
 }
 
-const ABAS_GERENTE_TABS=['dash','pedido','dia','rota','producao'];
+const ABAS_GERENTE_TABS=['dash','pedido','dia','rota','producao','clientes'];
 
 function aplicarPerfil(perfil){
   // Restaurar todas as abas primeiro
