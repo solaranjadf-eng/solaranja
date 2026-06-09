@@ -1690,6 +1690,34 @@ async function sincronizar(){
       listaRotaIds.forEach(id=>{if(!rotaOrdem.includes(id))rotaOrdem.push(id);});
       rotaOrdem=rotaOrdem.filter(id=>listaRotaIds.includes(id));
     }
+    // Migrar dados locais para o banco se existirem e banco estiver vazio
+    try{
+      // Custos operacionais
+      const dbCustos=await sbGet('custos_op','?order=data.desc&limit=1000');
+      if(dbCustos&&dbCustos.length>0){
+        custosOp=dbCustos.map(c=>({id:c.id,cat:c.cat,label:c.label||c.cat,valor:c.valor,data:c.data,desc:c.descricao||''}));
+        lsave('slj_custos_op2',custosOp);
+      } else if(custosOp.length>0){
+        // Migrar localStorage → banco
+        await sbUps('custos_op',custosOp.map(c=>({id:c.id,cat:c.cat,label:c.label||c.cat,valor:c.valor,data:c.data,descricao:c.desc||''})));
+      }
+
+      const dbForn=await sbGet('fornecedores_laranja','?order=nome');      if(dbForn&&dbForn.length>0){
+        fornecedores=dbForn.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',precoRef:f.preco_ref||0,obs:f.obs||''}));
+        lsave('slj_fornecedores',fornecedores);
+      } else if(fornecedores.length>0){
+        // Migrar do localStorage para o banco
+        await sbUps('fornecedores_laranja',fornecedores.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',preco_ref:f.precoRef||0,obs:f.obs||''})));
+      }
+      const dbCompras=await sbGet('compras_laranja','?order=data.desc&limit=500');
+      if(dbCompras&&dbCompras.length>0){
+        comprasLaranja=dbCompras.map(c=>({id:c.id,fornId:c.forn_id,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:c.obs||''}));
+        lsave('slj_compras_lar',comprasLaranja);
+      } else if(comprasLaranja.length>0){
+        // Migrar do localStorage para o banco
+        await sbUps('compras_laranja',comprasLaranja.map(c=>({id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:c.obs||''})));
+      }
+    }catch(e){}
     setSyncStatus('ok','✓ Conectado — dados sincronizados');
     syncErros=0; // resetar contador de erros
     renderDash();
@@ -2110,6 +2138,10 @@ function registrarCompraLaranja(){
   const compra={id:Date.now().toString(),fornId,qtd,preco,total:qtd*preco,data,obs};
   comprasLaranja.unshift(compra);
   lsave('slj_compras_lar',comprasLaranja);
+  // Salvar no banco
+  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd,preco,total:compra.total,data,obs}])
+    .then(()=>setSyncStatus('ok','✓ Conectado'))
+    .catch(()=>setSyncStatus('err','Erro ao sincronizar'));
   document.getElementById('lar-qtd').value='';
   document.getElementById('lar-preco').value='';
   document.getElementById('lar-obs').value='';
@@ -2122,6 +2154,7 @@ function delCompraLaranja(id){
   if(!confirm('Remover esta compra?'))return;
   comprasLaranja=comprasLaranja.filter(c=>c.id!==id);
   lsave('slj_compras_lar',comprasLaranja);
+  sbDel('compras_laranja',`?id=eq.${id}`).catch(()=>{});
   toast('Compra removida.');
   renderLaranjas();
 }
@@ -2139,6 +2172,10 @@ function addFornecedor(){
   };
   fornecedores.push(forn);
   lsave('slj_fornecedores',fornecedores);
+  // Salvar no banco
+  sbUps('fornecedores_laranja',[{id:forn.id,nome:forn.nome,tel:forn.tel,local:forn.local,preco_ref:forn.precoRef,obs:forn.obs}])
+    .then(()=>setSyncStatus('ok','✓ Conectado'))
+    .catch(()=>setSyncStatus('err','Erro ao sincronizar'));
   ['forn-nome','forn-tel','forn-local','forn-preco-ref','forn-obs'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
@@ -2150,6 +2187,7 @@ function delFornecedor(id){
   if(!confirm('Remover este fornecedor?'))return;
   fornecedores=fornecedores.filter(f=>f.id!==id);
   lsave('slj_fornecedores',fornecedores);
+  sbDel('fornecedores_laranja',`?id=eq.${id}`).catch(()=>{});
   toast('Fornecedor removido.');
   renderLaranjas();
 }
@@ -3506,6 +3544,10 @@ function registrarCusto(){
   const custo={id:Date.now().toString(),cat,label:LABELS[cat]||cat,valor,data,desc:colab?colab+(desc?' — '+desc:''):desc};
   custosOp.unshift(custo);
   lsave('slj_custos_op2',custosOp);
+  // Salvar no banco
+  sbUps('custos_op',[{id:custo.id,cat:custo.cat,label:custo.label,valor:custo.valor,data:custo.data,descricao:custo.desc||''}])
+    .then(()=>setSyncStatus('ok','✓ Conectado'))
+    .catch(()=>setSyncStatus('err','Erro ao sincronizar'));
   // Limpar form
   document.getElementById('cop-valor').value='';
   document.getElementById('cop-desc').value='';
@@ -3518,6 +3560,7 @@ function delCusto(id){
   if(!confirm('Remover este lançamento?'))return;
   custosOp=custosOp.filter(c=>c.id!==id);
   lsave('slj_custos_op2',custosOp);
+  sbDel('custos_op',`?id=eq.${id}`).catch(()=>{});
   toast('Custo removido.');
   renderCustos();
 }
