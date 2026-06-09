@@ -1171,6 +1171,13 @@ a{color:var(--orange);text-decoration:none}
       <label>Observação (opcional)</label>
       <input type="text" id="lar-obs" placeholder="Ex: Laranja pera, qualidade boa">
     </div>
+    <div class="form-group">
+      <label>Situação do pagamento</label>
+      <div style="display:flex;gap:8px">
+        <button id="lar-btn-pago" class="fbtn active" onclick="setLarPagamento('pago',this)" style="flex:1;height:36px">✓ Pago</button>
+        <button id="lar-btn-npago" class="fbtn" onclick="setLarPagamento('nao_pago',this)" style="flex:1;height:36px">⏳ A pagar</button>
+      </div>
+    </div>
     <button class="btn btn-primary btn-full" onclick="registrarCompraLaranja()">Registrar Compra</button>
   </div>
 
@@ -2073,15 +2080,24 @@ function renderLaranjas(){
     }else{
       el.innerHTML=lista.map(c=>{
         const forn=fornecedores.find(f=>f.id===c.fornId);
+        const pagoBadge=c.pago
+          ?`<span style="background:var(--green-bg);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase">✓ Pago</span>`
+          :`<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase">⏳ A pagar</span>`;
+        const btnPago=c.pago
+          ?`<button onclick="togglePagoLaranja('${c.id}')" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:2px 6px;cursor:pointer">Desmarcar</button>`
+          :`<button onclick="togglePagoLaranja('${c.id}')" style="font-size:11px;color:var(--green);background:var(--green-bg);border:1px solid #B8DFC8;border-radius:3px;padding:2px 8px;cursor:pointer;font-weight:700">✓ Marcar Pago</button>`;
         return`<div class="card" style="margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:10px">
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:600;color:var(--text)">${forn?forn.nome:'—'}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${forn?forn.nome:'—'} ${pagoBadge}</div>
             <div style="font-size:11px;color:var(--text3);margin-top:2px">${c.qtd} saco(s) · ${moeda(c.preco)}/saco · ${c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
             ${c.obs?`<div style="font-size:11px;color:var(--text3);font-style:italic">${c.obs}</div>`:''}
           </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
             <div style="font-size:14px;font-weight:700">${moeda(c.total)}</div>
-            <button onclick="delCompraLaranja('${c.id}')" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer">✕</button>
+            <div style="display:flex;gap:4px">
+              ${btnPago}
+              <button onclick="delCompraLaranja('${c.id}')" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer">✕</button>
+            </div>
           </div>
         </div>`;
       }).join('');
@@ -2112,10 +2128,15 @@ function setLarFiltro(f,btn){
   renderLaranjas();
 }
 
+let larPagamentoSel='pago';
+
+function setLarPagamento(v,btn){
+  larPagamentoSel=v;
+  document.getElementById('lar-btn-pago').classList.toggle('active',v==='pago');
+  document.getElementById('lar-btn-npago').classList.toggle('active',v==='nao_pago');
+}
+
 function atualizarTotalLar(){
-  const qtd=parseFloat(document.getElementById('lar-qtd')?.value)||0;
-  const preco=parseFloat(document.getElementById('lar-preco')?.value)||0;
-  const prev=document.getElementById('lar-total-preview');
   if(!prev)return;
   if(qtd>0&&preco>0){
     prev.style.display='block';
@@ -2135,18 +2156,31 @@ function registrarCompraLaranja(){
   if(!fornId){toast('Selecione um fornecedor.');return;}
   if(qtd<=0){toast('Informe a quantidade de sacos.');return;}
   if(preco<=0){toast('Informe o preço por saco.');return;}
-  const compra={id:Date.now().toString(),fornId,qtd,preco,total:qtd*preco,data,obs};
+  const compra={id:Date.now().toString(),fornId,qtd,preco,total:qtd*preco,data,obs,pago:larPagamentoSel==='pago'};
   comprasLaranja.unshift(compra);
   lsave('slj_compras_lar',comprasLaranja);
   // Salvar no banco
-  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd,preco,total:compra.total,data,obs}])
+  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd,preco,total:compra.total,data,obs,pago:compra.pago}])
     .then(()=>setSyncStatus('ok','✓ Conectado'))
     .catch(()=>setSyncStatus('err','Erro ao sincronizar'));
   document.getElementById('lar-qtd').value='';
   document.getElementById('lar-preco').value='';
   document.getElementById('lar-obs').value='';
+  larPagamentoSel='pago';
+  document.getElementById('lar-btn-pago').classList.add('active');
+  document.getElementById('lar-btn-npago').classList.remove('active');
   const prev=document.getElementById('lar-total-preview');if(prev)prev.style.display='none';
   toast('✓ Compra registrada!');
+  renderLaranjas();
+}
+
+function togglePagoLaranja(id){
+  const c=comprasLaranja.find(x=>x.id===id);
+  if(!c)return;
+  c.pago=!c.pago;
+  lsave('slj_compras_lar',comprasLaranja);
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago}]).catch(()=>{});
+  toast(c.pago?'✓ Marcado como pago':'Desmarcado.');
   renderLaranjas();
 }
 
