@@ -1941,11 +1941,11 @@ function renderDash(){
   const mixEmb={};TAMS.forEach(t=>mixEmb[t]=0);
   lista.forEach(p=>p.itens.forEach(it=>{mixEmb[it.tam]=(mixEmb[it.tam]||0)+it.qtd;}));
   if(el('dash-emb-legenda')){
-    const _cores=['#E07A2F','#2563EB','#16A34A','#7C3AED','#DC2626'];
+    const _coresTamL={'200ml':'#E07A2F','300ml':'#2563EB','500ml':'#16A34A','1L':'#7C3AED','5L':'#DC2626'};
     const _ativos=TAMS.filter(t=>mixEmb[t]>0);
     el('dash-emb-legenda').innerHTML=_ativos.map((t,i)=>
       `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
-        <div style="width:10px;height:10px;border-radius:50%;background:${_cores[i%5]};flex-shrink:0"></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:${_coresTamL[t]};flex-shrink:0"></div>
         <div style="flex:1;font-size:12px;font-weight:600;color:var(--text)">${TL[t]}</div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-size:13px;font-weight:700;color:var(--text)">${mixEmb[t]} un</div>
@@ -2044,7 +2044,12 @@ function renderGraficoDash(lista){
       chartEmb=destroyChart(chartEmb);
       const vals=TAMS.map(t=>lista.reduce((s,p)=>s+p.itens.filter(it=>it.tam===t).reduce((ss,it)=>ss+it.qtd,0),0));
       if(vals.some(v=>v>0)){
-        chartEmb=new Chart(ctx3,{type:'doughnut',data:{labels:TAMS.map(t=>TL[t]),datasets:[{data:vals,backgroundColor:['#E07A2F','#2563EB','#16A34A','#7C3AED','#DC2626'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+        const _coresTam={'200ml':'#E07A2F','300ml':'#2563EB','500ml':'#16A34A','1L':'#7C3AED','5L':'#DC2626'};
+      const _tamsAtivos=TAMS.filter((_,i)=>vals[i]>0);
+      const _labelsAtivos=_tamsAtivos.map(t=>TL[t]);
+      const _valsAtivos=_tamsAtivos.map(t=>vals[TAMS.indexOf(t)]);
+      const _coresAtivos=_tamsAtivos.map(t=>_coresTam[t]);
+      chartEmb=new Chart(ctx3,{type:'doughnut',data:{labels:_labelsAtivos,datasets:[{data:_valsAtivos,backgroundColor:_coresAtivos,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
       }
     }
   }catch(e){}
