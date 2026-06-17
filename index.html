@@ -999,9 +999,10 @@ a{color:var(--orange);text-decoration:none}
 <!-- COBRANÇAS -->
 <main class="page" id="page-cobrancas">
   <div class="card" style="margin-bottom:12px">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">+ Adicionar cliente à cobrança</div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">+ Adicionar estabelecimento</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <select id="cob-cliente-sel" style="flex:1;min-width:180px;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px"></select>
+      <input type="text" id="cob-novo-nome" placeholder="Nome do estabelecimento" style="flex:2;min-width:150px;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px">
+      <input type="text" id="cob-novo-email" placeholder="E-mail" style="flex:2;min-width:150px;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px">
       <button class="btn btn-primary" onclick="addClienteCobranca()" style="height:36px">Adicionar</button>
     </div>
   </div>
@@ -1012,7 +1013,19 @@ a{color:var(--orange);text-decoration:none}
     <button class="fbtn" onclick="mudarMesCobranca(1)">Próximo mês →</button>
   </div>
 
-  <div id="cob-lista"></div>
+  <div style="overflow-x:auto;background:var(--white);border-radius:var(--radius);border:1px solid var(--border)">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
+      <thead>
+        <tr style="background:var(--text);color:white">
+          <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600">Estabelecimento</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600">E-mail</th>
+          <th style="padding:9px 12px;text-align:center;font-size:11px;font-weight:600;white-space:nowrap" id="cob-th-status">Status do mês</th>
+          <th style="padding:9px;width:30px"></th>
+        </tr>
+      </thead>
+      <tbody id="cob-tbody"></tbody>
+    </table>
+  </div>
 </main>
 
 <!-- ESTOQUE -->
@@ -1756,10 +1769,10 @@ async function sincronizar(){
       // Cobranças
       const dbCob=await sbGet('cobrancas','?order=created_at');
       if(dbCob&&dbCob.length>0){
-        cobrancas=dbCob.map(c=>({id:c.id,clienteId:c.cliente_id,regraNf:c.regra_nf||'',contato:c.contato||'',prazoCobranca:c.prazo_cobranca||'',prazoVencimento:c.prazo_vencimento||'',ativo:c.ativo!==false}));
+        cobrancas=dbCob.map(c=>({id:c.id,nome:c.nome||'',email:c.email||'',ativo:c.ativo!==false}));
         lsave('slj_cobrancas',cobrancas);
       } else if(cobrancas.length>0){
-        await sbUps('cobrancas',cobrancas.map(c=>({id:c.id,cliente_id:c.clienteId,regra_nf:c.regraNf,contato:c.contato,prazo_cobranca:c.prazoCobranca,prazo_vencimento:c.prazoVencimento,ativo:true})));
+        await sbUps('cobrancas',cobrancas.map(c=>({id:c.id,nome:c.nome,email:c.email,ativo:true})));
       }
       const dbCobDatas=await sbGet('cobrancas_datas','?order=data&limit=2000');
       if(dbCobDatas&&dbCobDatas.length>0){
@@ -3914,7 +3927,7 @@ function renderColaboradores(){
 }
 
 // ── COBRANÇAS ──────────────────────────────────────────────────────────────
-let cobrancas=load('slj_cobrancas',[]); // [{id,clienteId,regraNf,contato,prazoCobranca,prazoVencimento,ativo}]
+let cobrancas=load('slj_cobrancas',[]); // [{id,nome,email,ativo}]
 let cobrancasDatas=load('slj_cobrancas_datas',[]); // [{id,cobrancaId,data,cobrado}]
 let cobMesVisivel=hojeKey.slice(0,7);
 
@@ -3926,19 +3939,21 @@ function mudarMesCobranca(delta){
 }
 
 function addClienteCobranca(){
-  const clienteId=document.getElementById('cob-cliente-sel')?.value;
-  if(!clienteId){toast('Selecione um cliente.');return;}
-  if(cobrancas.find(c=>c.clienteId===clienteId)){toast('Este cliente já está na lista de cobrança.');return;}
-  const cob={id:Date.now().toString(),clienteId,regraNf:'',contato:'',prazoCobranca:'',prazoVencimento:'',ativo:true};
+  const nome=document.getElementById('cob-novo-nome')?.value.trim();
+  const email=document.getElementById('cob-novo-email')?.value.trim();
+  if(!nome){toast('Informe o nome do estabelecimento.');return;}
+  const cob={id:Date.now().toString(),nome,email:email||'',ativo:true};
   cobrancas.push(cob);
   lsave('slj_cobrancas',cobrancas);
-  sbUps('cobrancas',[{id:cob.id,cliente_id:clienteId,regra_nf:'',contato:'',prazo_cobranca:'',prazo_vencimento:'',ativo:true}]).catch(()=>{});
-  toast('✓ Cliente adicionado à cobrança.');
+  sbUps('cobrancas',[{id:cob.id,nome:cob.nome,email:cob.email,ativo:true}]).catch(()=>{});
+  document.getElementById('cob-novo-nome').value='';
+  document.getElementById('cob-novo-email').value='';
+  toast('✓ Estabelecimento adicionado.');
   renderCobrancas();
 }
 
 function delClienteCobranca(id){
-  if(!confirm('Remover este cliente da lista de cobrança? O histórico de datas será perdido.'))return;
+  if(!confirm('Remover este estabelecimento? O histórico será perdido.'))return;
   cobrancas=cobrancas.filter(c=>c.id!==id);
   cobrancasDatas=cobrancasDatas.filter(d=>d.cobrancaId!==id);
   lsave('slj_cobrancas',cobrancas);
@@ -3949,110 +3964,60 @@ function delClienteCobranca(id){
   renderCobrancas();
 }
 
-function salvarCampoCobranca(id,campo,valor){
+function salvarEmailCobranca(id,valor){
   const c=cobrancas.find(x=>x.id===id);
   if(!c)return;
-  c[campo]=valor;
+  c.email=valor;
   lsave('slj_cobrancas',cobrancas);
-  sbUps('cobrancas',[{id:c.id,cliente_id:c.clienteId,regra_nf:c.regraNf,contato:c.contato,prazo_cobranca:c.prazoCobranca,prazo_vencimento:c.prazoVencimento,ativo:true}]).catch(()=>{});
+  sbUps('cobrancas',[{id:c.id,nome:c.nome,email:c.email,ativo:true}]).catch(()=>{});
 }
 
-function addDataCobranca(cobrancaId){
-  const inp=document.getElementById('cob-nova-data-'+cobrancaId);
-  const data=inp?.value;
-  if(!data){toast('Selecione uma data.');return;}
-  if(cobrancasDatas.find(d=>d.cobrancaId===cobrancaId&&d.data===data)){toast('Esta data já foi adicionada.');return;}
-  const novaData={id:Date.now().toString(),cobrancaId,data,cobrado:false};
-  cobrancasDatas.push(novaData);
-  lsave('slj_cobrancas_datas',cobrancasDatas);
-  sbUps('cobrancas_datas',[{id:novaData.id,cobranca_id:cobrancaId,data,cobrado:false}]).catch(()=>{});
-  if(inp)inp.value='';
-  toast('✓ Data adicionada.');
-  renderCobrancas();
-}
-
-function toggleCobrado(dataId){
-  const d=cobrancasDatas.find(x=>x.id===dataId);
-  if(!d)return;
-  d.cobrado=!d.cobrado;
+function toggleCobradoMes(cobrancaId){
+  // Marca/desmarca o mês inteiro com data única no dia 1 do mês visível
+  const dataChave=cobMesVisivel+'-01';
+  let d=cobrancasDatas.find(x=>x.cobrancaId===cobrancaId&&x.data===dataChave);
+  if(!d){
+    d={id:Date.now().toString(),cobrancaId,data:dataChave,cobrado:true};
+    cobrancasDatas.push(d);
+  }else{
+    d.cobrado=!d.cobrado;
+  }
   lsave('slj_cobrancas_datas',cobrancasDatas);
   sbUps('cobrancas_datas',[{id:d.id,cobranca_id:d.cobrancaId,data:d.data,cobrado:d.cobrado}]).catch(()=>{});
   renderCobrancas();
 }
 
-function delDataCobranca(dataId){
-  cobrancasDatas=cobrancasDatas.filter(d=>d.id!==dataId);
-  lsave('slj_cobrancas_datas',cobrancasDatas);
-  sbDel('cobrancas_datas',`?id=eq.${dataId}`).catch(()=>{});
-  renderCobrancas();
-}
-
 function renderCobrancas(){
-  // Popular select de clientes (só os que ainda não estão na lista)
-  const sel=document.getElementById('cob-cliente-sel');
-  if(sel){
-    const jaAdicionados=cobrancas.map(c=>c.clienteId);
-    const disponiveis=clientes.filter(c=>!jaAdicionados.includes(c.id)).sort((a,b)=>a.nome.localeCompare(b.nome));
-    sel.innerHTML='<option value="">Selecione um cliente...</option>'+disponiveis.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
-  }
-
   const [ano,mesN]=cobMesVisivel.split('-').map(Number);
   const mesNome=new Date(ano,mesN-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const lbl=document.getElementById('cob-mes-label');
   if(lbl) lbl.textContent=mesNome;
+  const th=document.getElementById('cob-th-status');
+  if(th) th.textContent='Cobrado em '+mesNome;
 
-  const el=document.getElementById('cob-lista');
-  if(!el)return;
+  const tbody=document.getElementById('cob-tbody');
+  if(!tbody)return;
   if(!cobrancas.length){
-    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum cliente na lista de cobrança ainda.</p></div>';
+    tbody.innerHTML='<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum estabelecimento cadastrado ainda.</td></tr>';
     return;
   }
 
-  el.innerHTML=cobrancas.map(c=>{
-    const cliente=clientes.find(cl=>cl.id===c.clienteId);
-    const nome=cliente?cliente.nome:'(cliente removido)';
-    const datasDoMes=cobrancasDatas.filter(d=>d.cobrancaId===c.id&&d.data&&d.data.startsWith(cobMesVisivel)).sort((a,b)=>a.data.localeCompare(b.data));
-    const pendentes=datasDoMes.filter(d=>!d.cobrado).length;
-
-    return`<div class="card" style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:700;color:var(--text)">${nome}</div>
-          ${pendentes>0?`<div style="font-size:11px;color:#92400E;margin-top:2px">${pendentes} cobrança(s) pendente(s) este mês</div>`:datasDoMes.length>0?`<div style="font-size:11px;color:var(--green);margin-top:2px">✓ Tudo cobrado este mês</div>`:''}
-        </div>
-        <button onclick="delClienteCobranca('${c.id}')" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:3px 9px;font-size:11px;cursor:pointer;flex-shrink:0">✕ Remover</button>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
-        <div>
-          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Contato (email)</label>
-          <input type="text" value="${c.contato||''}" placeholder="email@..." onchange="salvarCampoCobranca('${c.id}','contato',this.value)" style="width:100%;height:30px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:11px">
-        </div>
-        <div>
-          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Regra Nota Fiscal</label>
-          <input type="text" value="${c.regraNf||''}" placeholder="Ex: toda segunda" onchange="salvarCampoCobranca('${c.id}','regraNf',this.value)" style="width:100%;height:30px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:11px">
-        </div>
-        <div>
-          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Vencimento</label>
-          <input type="text" value="${c.prazoVencimento||''}" placeholder="Ex: 7 dias" onchange="salvarCampoCobranca('${c.id}','prazoVencimento',this.value)" style="width:100%;height:30px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:11px">
-        </div>
-      </div>
-
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-        ${datasDoMes.map(d=>{
-          const dataFmt=new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-          return`<div style="display:flex;align-items:center;gap:4px;background:${d.cobrado?'var(--green-bg)':'#FEF3C7'};border:1px solid ${d.cobrado?'#B8DFC8':'#F5C9A0'};border-radius:5px;padding:4px 8px">
-            <button onclick="toggleCobrado('${d.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;font-weight:700;color:${d.cobrado?'var(--green)':'#92400E'}">${d.cobrado?'✓':'○'} ${dataFmt}</button>
-            <button onclick="delDataCobranca('${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:0 2px">✕</button>
-          </div>`;
-        }).join('')}
-      </div>
-
-      <div style="display:flex;gap:6px;align-items:center">
-        <input type="date" id="cob-nova-data-${c.id}" style="height:30px;font-size:12px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px">
-        <button class="fbtn" onclick="addDataCobranca('${c.id}')">+ Adicionar data</button>
-      </div>
-    </div>`;
+  const dataChave=cobMesVisivel+'-01';
+  tbody.innerHTML=cobrancas.map((c,i)=>{
+    const d=cobrancasDatas.find(x=>x.cobrancaId===c.id&&x.data===dataChave);
+    const cobrado=d?d.cobrado:false;
+    return`<tr style="background:${i%2===0?'var(--white)':'var(--bg)'};border-bottom:1px solid var(--border)">
+      <td style="padding:9px 12px;font-weight:600;color:var(--text)">${c.nome}</td>
+      <td style="padding:9px 12px">
+        <input type="text" value="${c.email||''}" placeholder="email@..." onchange="salvarEmailCobranca('${c.id}',this.value)" style="width:100%;border:none;background:none;font-size:12px;color:var(--text2)">
+      </td>
+      <td style="padding:9px 12px;text-align:center">
+        <button onclick="toggleCobradoMes('${c.id}')" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:5px;cursor:pointer;border:1px solid ${cobrado?'#B8DFC8':'#F5C9A0'};background:${cobrado?'var(--green-bg)':'#FEF3C7'};color:${cobrado?'var(--green)':'#92400E'};white-space:nowrap">${cobrado?'✓ Cobrado':'⏳ Pendente'}</button>
+      </td>
+      <td style="padding:9px;text-align:center">
+        <button onclick="delClienteCobranca('${c.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">✕</button>
+      </td>
+    </tr>`;
   }).join('');
 }
 
