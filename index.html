@@ -3817,18 +3817,15 @@ function selecionarColab(id){
 }
 
 function getSemanasDoMes(mesKey){
-  // Retorna array de domingos (início de semana) que caem dentro do mês mesKey (YYYY-MM)
+  // Retorna array de datas de início de semana, sempre dentro do mês mesKey (YYYY-MM)
   const [ano,mes]=mesKey.split('-').map(Number);
   const semanas=[];
   const primeiroDia=new Date(ano,mes-1,1);
   const ultimoDia=new Date(ano,mes,0);
-  let d=new Date(primeiroDia);
-  d.setDate(d.getDate()-d.getDay()); // volta para o domingo anterior ou igual
+  let d=new Date(primeiroDia); // sempre começa no dia 1 do mês, nunca antes
   while(d<=ultimoDia){
     const dk=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
-    // Só incluir se a semana tem pelo menos 1 dia dentro do mês
-    const fimSemana=new Date(d);fimSemana.setDate(fimSemana.getDate()+6);
-    if(fimSemana>=primeiroDia && d<=ultimoDia) semanas.push(dk);
+    semanas.push(dk);
     d.setDate(d.getDate()+7);
   }
   return semanas;
@@ -3899,26 +3896,26 @@ function renderColaboradores(){
     const pg=getPagamento(colabSelecionado,sk);
     totalBase+=pg.valorBase;totalDom+=pg.valorDomingo;totalRes+=pg.residuo;totalGeral+=pg.total;
     const dataFmt=new Date(sk+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-    return`<div class="card" style="margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    return`<div class="card" style="margin-bottom:5px;padding:10px 13px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <div style="font-size:12px;font-weight:700;color:var(--text)">Semana de ${dataFmt}</div>
-        <button onclick="togglePagoSemana('${colabSelecionado}','${sk}')" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;cursor:pointer;border:1px solid ${pg.pago?'#B8DFC8':'#F5C9A0'};background:${pg.pago?'var(--green-bg)':'#FEF3C7'};color:${pg.pago?'var(--green)':'#92400E'}">${pg.pago?'✓ Pago':'⏳ Aberto'}</button>
+        <button onclick="togglePagoSemana('${colabSelecionado}','${sk}')" style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:4px;cursor:pointer;border:1px solid ${pg.pago?'#B8DFC8':'#F5C9A0'};background:${pg.pago?'var(--green-bg)':'#FEF3C7'};color:${pg.pago?'var(--green)':'#92400E'}">${pg.pago?'✓ Pago':'⏳ Aberto'}</button>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:6px">
         <div>
-          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Valor base (R$)</label>
-          <input type="number" step="0.01" id="pg-base-${sk}" value="${pg.valorBase||''}" placeholder="0,00" onchange="salvarPagamentoSemana('${colabSelecionado}','${sk}')" style="width:100%;height:32px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:12px">
+          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:2px">Valor base (R$)</label>
+          <input type="number" step="0.01" id="pg-base-${sk}" value="${pg.valorBase||''}" placeholder="0,00" onchange="salvarPagamentoSemana('${colabSelecionado}','${sk}')" style="width:100%;height:28px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:12px">
         </div>
         <div>
-          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Domingo (R$)</label>
-          <input type="number" step="0.01" id="pg-dom-${sk}" value="${pg.valorDomingo||''}" placeholder="0,00" onchange="salvarPagamentoSemana('${colabSelecionado}','${sk}')" style="width:100%;height:32px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:12px">
+          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:2px">Domingo (R$)</label>
+          <input type="number" step="0.01" id="pg-dom-${sk}" value="${pg.valorDomingo||''}" placeholder="0,00" onchange="salvarPagamentoSemana('${colabSelecionado}','${sk}')" style="width:100%;height:28px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:12px">
         </div>
         <div>
-          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Resíduo (R$)</label>
-          <input type="number" step="0.01" id="pg-res-${sk}" value="${pg.residuo||''}" placeholder="0,00" onchange="salvarPagamentoSemana('${colabSelecionado}','${sk}')" style="width:100%;height:32px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:12px">
+          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:2px">Resíduo (R$)</label>
+          <input type="number" step="0.01" id="pg-res-${sk}" value="${pg.residuo||''}" placeholder="0,00" onchange="salvarPagamentoSemana('${colabSelecionado}','${sk}')" style="width:100%;height:28px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:12px">
         </div>
       </div>
-      <div style="text-align:right;font-size:14px;font-weight:700;color:var(--text)">Total: ${moeda(pg.total)}</div>
+      <div style="text-align:right;font-size:13px;font-weight:700;color:var(--text)">Total: ${moeda(pg.total)}</div>
     </div>`;
   }).join('');
 
@@ -3970,7 +3967,9 @@ function addClienteCobranca(){
   const cob={id:Date.now().toString(),nome,email:email||'',ativo:true};
   cobrancas.push(cob);
   lsave('slj_cobrancas',cobrancas);
-  sbUps('cobrancas',[{id:cob.id,nome:cob.nome,email:cob.email,ativo:true}]).catch(()=>{});
+  sbUps('cobrancas',[{id:cob.id,nome:cob.nome,email:cob.email,ativo:true}])
+    .then(()=>console.log('Cobrança salva no banco'))
+    .catch(e=>console.error('Erro ao salvar cobrança:',e));
   document.getElementById('cob-novo-nome').value='';
   document.getElementById('cob-novo-email').value='';
   toast('✓ Estabelecimento adicionado.');
@@ -4053,7 +4052,9 @@ function limparDatasMes(){
 }
 
 function salvarDatasMesNoBanco(){
-  sbUps('bling_tokens',[{id:3,access_token:JSON.stringify(cobrancasDatasMes),refresh_token:'cobrancas_datas_mes',expires_at:hojeKey,updated_at:new Date().toISOString()}]).catch(()=>{});
+  sbUps('bling_tokens',[{id:3,access_token:JSON.stringify(cobrancasDatasMes),refresh_token:'cobrancas_datas_mes',expires_at:Date.now(),updated_at:new Date().toISOString()}])
+    .then(()=>console.log('Datas do mês salvas no banco'))
+    .catch(e=>console.error('Erro ao salvar datas do mês:',e));
 }
 
 function toggleCobradoData(cobrancaId,data){
@@ -4065,7 +4066,9 @@ function toggleCobradoData(cobrancaId,data){
     m.cobrado=!m.cobrado;
   }
   lsave('slj_cobrancas_marcados',cobrancasMarcados);
-  sbUps('cobrancas_datas',[{id:m.id,cobranca_id:m.cobrancaId,data:m.data,cobrado:m.cobrado}]).catch(()=>{});
+  sbUps('cobrancas_datas',[{id:m.id,cobranca_id:m.cobrancaId,data:m.data,cobrado:m.cobrado}])
+    .then(()=>console.log('Marcação salva no banco'))
+    .catch(e=>console.error('Erro ao salvar marcação:',e));
   renderCobrancas();
 }
 
