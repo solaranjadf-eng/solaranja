@@ -1021,12 +1021,7 @@ a{color:var(--orange);text-decoration:none}
   <div style="overflow-x:auto;background:var(--white);border-radius:var(--radius);border:1px solid var(--border)">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
       <thead>
-        <tr style="background:var(--text);color:white">
-          <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600;position:sticky;left:0;background:var(--text)">Estabelecimento</th>
-          <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600">E-mail</th>
-          <th id="cob-thead-semanas"></th>
-          <th style="padding:9px;width:30px"></th>
-        </tr>
+        <tr id="cob-thead-row" style="background:var(--text);color:white"></tr>
       </thead>
       <tbody id="cob-tbody"></tbody>
     </table>
@@ -4084,17 +4079,21 @@ function renderCobrancas(){
   const infoEl=document.getElementById('cob-datas-info');
   if(infoEl) infoEl.textContent=datas.length?datas.length+' data(s) definida(s)':'Nenhuma data definida — clique no botão acima';
 
-  // Cabeçalho com as datas como colunas
-  const theadEl=document.getElementById('cob-thead-semanas');
-  if(theadEl){
+  // Cabeçalho com as datas como colunas — sempre reconstruído do zero
+  const theadRow=document.getElementById('cob-thead-row');
+  if(theadRow){
+    let headerHtml=`<th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600;position:sticky;left:0;background:var(--text)">Estabelecimento</th>`+
+                    `<th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600">E-mail</th>`;
     if(datas.length){
-      theadEl.outerHTML=datas.map(d=>{
+      headerHtml+=datas.map(d=>{
         const dataFmt=new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
         return`<th style="padding:9px 8px;text-align:center;font-size:11px;font-weight:600;white-space:nowrap">${dataFmt}</th>`;
-      }).join('')+'<th id="cob-thead-semanas" style="display:none"></th>';
+      }).join('');
     }else{
-      theadEl.outerHTML='<th id="cob-thead-semanas" style="padding:9px 12px;text-align:center;font-size:11px;font-weight:600">Sem datas definidas</th>';
+      headerHtml+=`<th style="padding:9px 12px;text-align:center;font-size:11px;font-weight:600">Sem datas definidas</th>`;
     }
+    headerHtml+=`<th style="padding:9px;width:30px"></th>`;
+    theadRow.innerHTML=headerHtml;
   }
 
   const tbody=document.getElementById('cob-tbody');
