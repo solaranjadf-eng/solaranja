@@ -407,6 +407,10 @@ a{color:var(--orange);text-decoration:none}
       <svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       <span>Financeiro</span>
     </button>
+    <button class="sidebar-item" onclick="setTab('cobrancas')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M9 16l2 2 4-4"/></svg>
+      <span>Cobranças</span>
+    </button>
     <button class="sidebar-item" onclick="setTab('resumo')">
       <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-6"/></svg>
       <span>Resumo</span>
@@ -418,6 +422,10 @@ a{color:var(--orange);text-decoration:none}
     <button class="sidebar-item" onclick="setTab('custos')">
       <svg viewBox="0 0 24 24"><path d="M9 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-3"/><path d="M9 15h3l8.5-8.5a1.5 1.5 0 0 0-3-3L9 12v3"/></svg>
       <span>Custos</span>
+    </button>
+    <button class="sidebar-item" onclick="setTab('colaboradores')">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span>Colaboradores</span>
     </button>
     <div class="sidebar-section-lbl">Análise</div>
     <button class="sidebar-item" onclick="setTab('ranking')">
@@ -988,6 +996,25 @@ a{color:var(--orange);text-decoration:none}
 
 </main>
 
+<!-- COBRANÇAS -->
+<main class="page" id="page-cobrancas">
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">+ Adicionar cliente à cobrança</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <select id="cob-cliente-sel" style="flex:1;min-width:180px;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px"></select>
+      <button class="btn btn-primary" onclick="addClienteCobranca()" style="height:36px">Adicionar</button>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <button class="fbtn" onclick="mudarMesCobranca(-1)">← Mês anterior</button>
+    <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:capitalize" id="cob-mes-label"></div>
+    <button class="fbtn" onclick="mudarMesCobranca(1)">Próximo mês →</button>
+  </div>
+
+  <div id="cob-lista"></div>
+</main>
+
 <!-- ESTOQUE -->
 <main class="page" id="page-estoque">
   <div class="alert-banner" id="est-alerta"><strong>⚠ Atenção — Estoque Baixo</strong><span id="est-alerta-txt"></span></div>
@@ -1109,6 +1136,23 @@ a{color:var(--orange);text-decoration:none}
   <!-- Lista de custos -->
   <p class="sec-label">Lançamentos</p>
   <div id="cop-lista"></div>
+</main>
+
+<!-- COLABORADORES -->
+<main class="page" id="page-colaboradores">
+  <!-- Cadastrar colaborador -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">👤 Adicionar Colaborador</div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="colab-novo-nome" placeholder="Nome do colaborador" style="flex:1;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px">
+      <button class="btn btn-primary" onclick="addColaborador()" style="height:36px">Adicionar</button>
+    </div>
+  </div>
+
+  <!-- Seletor de colaborador -->
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="colab-tabs"></div>
+
+  <div id="colab-conteudo"></div>
 </main>
 
 <!-- LARANJAS -->
@@ -1709,6 +1753,38 @@ async function sincronizar(){
         await sbUps('custos_op',custosOp.map(c=>({id:c.id,cat:c.cat,label:c.label||c.cat,valor:c.valor,data:c.data,descricao:c.desc||''})));
       }
 
+      // Cobranças
+      const dbCob=await sbGet('cobrancas','?order=created_at');
+      if(dbCob&&dbCob.length>0){
+        cobrancas=dbCob.map(c=>({id:c.id,clienteId:c.cliente_id,regraNf:c.regra_nf||'',contato:c.contato||'',prazoCobranca:c.prazo_cobranca||'',prazoVencimento:c.prazo_vencimento||'',ativo:c.ativo!==false}));
+        lsave('slj_cobrancas',cobrancas);
+      } else if(cobrancas.length>0){
+        await sbUps('cobrancas',cobrancas.map(c=>({id:c.id,cliente_id:c.clienteId,regra_nf:c.regraNf,contato:c.contato,prazo_cobranca:c.prazoCobranca,prazo_vencimento:c.prazoVencimento,ativo:true})));
+      }
+      const dbCobDatas=await sbGet('cobrancas_datas','?order=data&limit=2000');
+      if(dbCobDatas&&dbCobDatas.length>0){
+        cobrancasDatas=dbCobDatas.map(d=>({id:d.id,cobrancaId:d.cobranca_id,data:d.data,cobrado:d.cobrado||false}));
+        lsave('slj_cobrancas_datas',cobrancasDatas);
+      } else if(cobrancasDatas.length>0){
+        await sbUps('cobrancas_datas',cobrancasDatas.map(d=>({id:d.id,cobranca_id:d.cobrancaId,data:d.data,cobrado:d.cobrado})));
+      }
+
+      // Colaboradores
+      const dbColab=await sbGet('colaboradores','?order=nome');
+      if(dbColab&&dbColab.length>0){
+        colaboradores=dbColab.map(c=>({id:c.id,nome:c.nome,ativo:c.ativo!==false}));
+        lsave('slj_colaboradores',colaboradores);
+      } else if(colaboradores.length>0){
+        await sbUps('colaboradores',colaboradores.map(c=>({id:c.id,nome:c.nome,ativo:c.ativo!==false})));
+      }
+      const dbPagColab=await sbGet('pagamentos_colaborador','?order=data_semana.desc&limit=1000');
+      if(dbPagColab&&dbPagColab.length>0){
+        pagamentosColab=dbPagColab.map(p=>({id:p.id,colabId:p.colab_id,dataSemana:p.data_semana,valorBase:p.valor_base||0,valorDomingo:p.valor_domingo||0,residuo:p.residuo||0,total:p.total||0,pago:p.pago||false}));
+        lsave('slj_pagamentos_colab',pagamentosColab);
+      } else if(pagamentosColab.length>0){
+        await sbUps('pagamentos_colaborador',pagamentosColab.map(p=>({id:p.id,colab_id:p.colabId,data_semana:p.dataSemana,valor_base:p.valorBase,valor_domingo:p.valorDomingo,residuo:p.residuo,total:p.total,pago:p.pago})));
+      }
+
       const dbForn=await sbGet('fornecedores_laranja','?order=nome');      if(dbForn&&dbForn.length>0){
         fornecedores=dbForn.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',precoRef:f.preco_ref||0,obs:f.obs||''}));
         lsave('slj_fornecedores',fornecedores);
@@ -1778,6 +1854,8 @@ function setTab(t){
   }
   if(t==='estoque')  renderEstoque();
   if(t==='custos')   renderCustos();
+  if(t==='cobrancas') renderCobrancas();
+  if(t==='colaboradores') renderColaboradores();
   if(t==='laranjas') renderLaranjas();
   if(t==='historico')renderHistorico();
   if(t==='ranking')  renderRanking();
@@ -2045,10 +2123,10 @@ function renderGraficoDash(lista){
       const vals=TAMS.map(t=>lista.reduce((s,p)=>s+p.itens.filter(it=>it.tam===t).reduce((ss,it)=>ss+it.qtd,0),0));
       if(vals.some(v=>v>0)){
         const _coresTam={'200ml':'#E07A2F','300ml':'#2563EB','500ml':'#16A34A','1L':'#7C3AED','5L':'#DC2626'};
-      const _tamsAtivos=TAMS.filter((_,i)=>vals[i]>0);
+      const _tamsAtivos=TAMS.filter((t,i)=>vals[i]>0);
       const _labelsAtivos=_tamsAtivos.map(t=>TL[t]);
       const _valsAtivos=_tamsAtivos.map(t=>vals[TAMS.indexOf(t)]);
-      const _coresAtivos=_tamsAtivos.map(t=>_coresTam[t]);
+      const _coresAtivos=_tamsAtivos.map(t=>_coresTam[t]||'#999');
       chartEmb=new Chart(ctx3,{type:'doughnut',data:{labels:_labelsAtivos,datasets:[{data:_valsAtivos,backgroundColor:_coresAtivos,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
       }
     }
@@ -3658,6 +3736,324 @@ function delCusto(id){
   sbDel('custos_op',`?id=eq.${id}`).catch(()=>{});
   toast('Custo removido.');
   renderCustos();
+}
+
+// ── COLABORADORES ──────────────────────────────────────────────────────────
+let colaboradores=load('slj_colaboradores',[]);
+let pagamentosColab=load('slj_pagamentos_colab',[]);
+let colabSelecionado=null;
+
+function getSemanaKey(d){
+  // Retorna a data do domingo daquela semana (início da semana) como chave
+  const dt=new Date(d);
+  const diaSemana=dt.getDay(); // 0=domingo
+  dt.setDate(dt.getDate()-diaSemana);
+  return dt.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
+}
+
+async function addColaborador(){
+  const nome=document.getElementById('colab-novo-nome')?.value.trim();
+  if(!nome){toast('Informe o nome.');return;}
+  const colab={id:Date.now().toString(),nome,ativo:true};
+  colaboradores.push(colab);
+  lsave('slj_colaboradores',colaboradores);
+  sbUps('colaboradores',[{id:colab.id,nome:colab.nome,ativo:true}]).catch(()=>{});
+  document.getElementById('colab-novo-nome').value='';
+  colabSelecionado=colab.id;
+  toast('✓ Colaborador adicionado!');
+  renderColaboradores();
+}
+
+function delColaborador(id){
+  if(!confirm('Remover este colaborador? O histórico de pagamentos será mantido mas ficará oculto.'))return;
+  colaboradores=colaboradores.filter(c=>c.id!==id);
+  lsave('slj_colaboradores',colaboradores);
+  sbDel('colaboradores',`?id=eq.${id}`).catch(()=>{});
+  if(colabSelecionado===id) colabSelecionado=colaboradores[0]?.id||null;
+  toast('Colaborador removido.');
+  renderColaboradores();
+}
+
+function selecionarColab(id){
+  colabSelecionado=id;
+  renderColaboradores();
+}
+
+function getSemanasDoMes(mesKey){
+  // Retorna array de domingos (início de semana) que caem dentro do mês mesKey (YYYY-MM)
+  const [ano,mes]=mesKey.split('-').map(Number);
+  const semanas=[];
+  const primeiroDia=new Date(ano,mes-1,1);
+  const ultimoDia=new Date(ano,mes,0);
+  let d=new Date(primeiroDia);
+  d.setDate(d.getDate()-d.getDay()); // volta para o domingo anterior ou igual
+  while(d<=ultimoDia){
+    const dk=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
+    // Só incluir se a semana tem pelo menos 1 dia dentro do mês
+    const fimSemana=new Date(d);fimSemana.setDate(fimSemana.getDate()+6);
+    if(fimSemana>=primeiroDia && d<=ultimoDia) semanas.push(dk);
+    d.setDate(d.getDate()+7);
+  }
+  return semanas;
+}
+
+function getPagamento(colabId,semanaKey){
+  return pagamentosColab.find(p=>p.colabId===colabId&&p.dataSemana===semanaKey)||{
+    colabId,dataSemana:semanaKey,valorBase:0,valorDomingo:0,residuo:0,total:0,pago:false
+  };
+}
+
+async function salvarPagamentoSemana(colabId,semanaKey){
+  const base=parseFloat(document.getElementById(`pg-base-${semanaKey}`)?.value)||0;
+  const dom=parseFloat(document.getElementById(`pg-dom-${semanaKey}`)?.value)||0;
+  const res=parseFloat(document.getElementById(`pg-res-${semanaKey}`)?.value)||0;
+  const total=base+dom+res;
+  let pg=pagamentosColab.find(p=>p.colabId===colabId&&p.dataSemana===semanaKey);
+  if(!pg){
+    pg={id:Date.now().toString()+'_'+semanaKey,colabId,dataSemana:semanaKey,valorBase:base,valorDomingo:dom,residuo:res,total,pago:false};
+    pagamentosColab.push(pg);
+  }else{
+    pg.valorBase=base;pg.valorDomingo=dom;pg.residuo=res;pg.total=total;
+  }
+  lsave('slj_pagamentos_colab',pagamentosColab);
+  sbUps('pagamentos_colaborador',[{id:pg.id,colab_id:colabId,data_semana:semanaKey,valor_base:base,valor_domingo:dom,residuo:res,total,pago:pg.pago}]).catch(()=>{});
+  renderColaboradores();
+}
+
+function togglePagoSemana(colabId,semanaKey){
+  let pg=pagamentosColab.find(p=>p.colabId===colabId&&p.dataSemana===semanaKey);
+  if(!pg){toast('Preencha os valores primeiro.');return;}
+  pg.pago=!pg.pago;
+  lsave('slj_pagamentos_colab',pagamentosColab);
+  sbUps('pagamentos_colaborador',[{id:pg.id,colab_id:colabId,data_semana:semanaKey,valor_base:pg.valorBase,valor_domingo:pg.valorDomingo,residuo:pg.residuo,total:pg.total,pago:pg.pago}]).catch(()=>{});
+  toast(pg.pago?'✓ Marcado como pago':'Desmarcado.');
+  renderColaboradores();
+}
+
+let colabMesVisivel=hojeKey.slice(0,7);
+
+function mudarMesColab(delta){
+  const [a,m]=colabMesVisivel.split('-').map(Number);
+  const d=new Date(a,m-1+delta,1);
+  colabMesVisivel=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().slice(0,2).join('-');
+  renderColaboradores();
+}
+
+function renderColaboradores(){
+  const tabsEl=document.getElementById('colab-tabs');
+  if(!colabSelecionado&&colaboradores.length) colabSelecionado=colaboradores[0].id;
+  if(tabsEl){
+    tabsEl.innerHTML=colaboradores.map(c=>
+      `<button class="fbtn ${c.id===colabSelecionado?'active':''}" onclick="selecionarColab('${c.id}')">${c.nome}</button>`
+    ).join('')||'<div style="font-size:13px;color:var(--text3)">Nenhum colaborador cadastrado ainda.</div>';
+  }
+  const contEl=document.getElementById('colab-conteudo');
+  if(!contEl)return;
+  if(!colabSelecionado){contEl.innerHTML='';return;}
+  const colab=colaboradores.find(c=>c.id===colabSelecionado);
+  if(!colab){contEl.innerHTML='';return;}
+
+  const [ano,mesN]=colabMesVisivel.split('-').map(Number);
+  const mesNome=new Date(ano,mesN-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const semanas=getSemanasDoMes(colabMesVisivel);
+
+  let totalBase=0,totalDom=0,totalRes=0,totalGeral=0;
+  const linhasHtml=semanas.map(sk=>{
+    const pg=getPagamento(colabSelecionado,sk);
+    totalBase+=pg.valorBase;totalDom+=pg.valorDomingo;totalRes+=pg.residuo;totalGeral+=pg.total;
+    const dataFmt=new Date(sk+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    return`<div class="card" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">Semana de ${dataFmt}</div>
+        <button onclick="togglePagoSemana('${colabSelecionado}','${sk}')" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;cursor:pointer;border:1px solid ${pg.pago?'#B8DFC8':'#F5C9A0'};background:${pg.pago?'var(--green-bg)':'#FEF3C7'};color:${pg.pago?'var(--green)':'#92400E'}">${pg.pago?'✓ Pago':'⏳ Aberto'}</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Valor base (R$)</label>
+          <input type="number" step="0.01" id="pg-base-${sk}" value="${pg.valorBase||''}" placeholder="0,00" onchange="salvarPagamentoSemana('${colabSelecionado}','${sk}')" style="width:100%;height:32px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:12px">
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Domingo (R$)</label>
+          <input type="number" step="0.01" id="pg-dom-${sk}" value="${pg.valorDomingo||''}" placeholder="0,00" onchange="salvarPagamentoSemana('${colabSelecionado}','${sk}')" style="width:100%;height:32px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:12px">
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Resíduo (R$)</label>
+          <input type="number" step="0.01" id="pg-res-${sk}" value="${pg.residuo||''}" placeholder="0,00" onchange="salvarPagamentoSemana('${colabSelecionado}','${sk}')" style="width:100%;height:32px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:12px">
+        </div>
+      </div>
+      <div style="text-align:right;font-size:14px;font-weight:700;color:var(--text)">Total: ${moeda(pg.total)}</div>
+    </div>`;
+  }).join('');
+
+  contEl.innerHTML=`
+    <div class="card" style="margin-bottom:12px;background:var(--text);color:white">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:15px;font-weight:700">${colab.nome}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;text-transform:capitalize">${mesNome}</div>
+        </div>
+        <button onclick="delColaborador('${colab.id}')" style="background:rgba(255,255,255,.15);color:white;border:none;border-radius:4px;padding:5px 10px;font-size:11px;cursor:pointer">Remover</button>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <button class="fbtn" onclick="mudarMesColab(-1)">← Mês anterior</button>
+      <button class="fbtn" onclick="colabMesVisivel=hojeKey.slice(0,7);renderColaboradores()">Mês atual</button>
+      <button class="fbtn" onclick="mudarMesColab(1)">Próximo mês →</button>
+    </div>
+    ${linhasHtml||'<div class="empty"><span class="empty-icon">○</span><p>Nenhuma semana neste mês.</p></div>'}
+    <div class="card" style="background:var(--bg);margin-top:4px">
+      <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Total do mês</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center">
+        <div><div style="font-size:10px;color:var(--text3)">Base</div><div style="font-size:13px;font-weight:700">${moeda(totalBase)}</div></div>
+        <div><div style="font-size:10px;color:var(--text3)">Domingo</div><div style="font-size:13px;font-weight:700">${moeda(totalDom)}</div></div>
+        <div><div style="font-size:10px;color:var(--text3)">Resíduo</div><div style="font-size:13px;font-weight:700">${moeda(totalRes)}</div></div>
+        <div><div style="font-size:10px;color:var(--orange)">TOTAL</div><div style="font-size:15px;font-weight:700;color:var(--orange)">${moeda(totalGeral)}</div></div>
+      </div>
+    </div>
+  `;
+}
+
+// ── COBRANÇAS ──────────────────────────────────────────────────────────────
+let cobrancas=load('slj_cobrancas',[]); // [{id,clienteId,regraNf,contato,prazoCobranca,prazoVencimento,ativo}]
+let cobrancasDatas=load('slj_cobrancas_datas',[]); // [{id,cobrancaId,data,cobrado}]
+let cobMesVisivel=hojeKey.slice(0,7);
+
+function mudarMesCobranca(delta){
+  const [a,m]=cobMesVisivel.split('-').map(Number);
+  const d=new Date(a,m-1+delta,1);
+  cobMesVisivel=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().slice(0,2).join('-');
+  renderCobrancas();
+}
+
+function addClienteCobranca(){
+  const clienteId=document.getElementById('cob-cliente-sel')?.value;
+  if(!clienteId){toast('Selecione um cliente.');return;}
+  if(cobrancas.find(c=>c.clienteId===clienteId)){toast('Este cliente já está na lista de cobrança.');return;}
+  const cob={id:Date.now().toString(),clienteId,regraNf:'',contato:'',prazoCobranca:'',prazoVencimento:'',ativo:true};
+  cobrancas.push(cob);
+  lsave('slj_cobrancas',cobrancas);
+  sbUps('cobrancas',[{id:cob.id,cliente_id:clienteId,regra_nf:'',contato:'',prazo_cobranca:'',prazo_vencimento:'',ativo:true}]).catch(()=>{});
+  toast('✓ Cliente adicionado à cobrança.');
+  renderCobrancas();
+}
+
+function delClienteCobranca(id){
+  if(!confirm('Remover este cliente da lista de cobrança? O histórico de datas será perdido.'))return;
+  cobrancas=cobrancas.filter(c=>c.id!==id);
+  cobrancasDatas=cobrancasDatas.filter(d=>d.cobrancaId!==id);
+  lsave('slj_cobrancas',cobrancas);
+  lsave('slj_cobrancas_datas',cobrancasDatas);
+  sbDel('cobrancas',`?id=eq.${id}`).catch(()=>{});
+  sbDel('cobrancas_datas',`?cobranca_id=eq.${id}`).catch(()=>{});
+  toast('Removido.');
+  renderCobrancas();
+}
+
+function salvarCampoCobranca(id,campo,valor){
+  const c=cobrancas.find(x=>x.id===id);
+  if(!c)return;
+  c[campo]=valor;
+  lsave('slj_cobrancas',cobrancas);
+  sbUps('cobrancas',[{id:c.id,cliente_id:c.clienteId,regra_nf:c.regraNf,contato:c.contato,prazo_cobranca:c.prazoCobranca,prazo_vencimento:c.prazoVencimento,ativo:true}]).catch(()=>{});
+}
+
+function addDataCobranca(cobrancaId){
+  const inp=document.getElementById('cob-nova-data-'+cobrancaId);
+  const data=inp?.value;
+  if(!data){toast('Selecione uma data.');return;}
+  if(cobrancasDatas.find(d=>d.cobrancaId===cobrancaId&&d.data===data)){toast('Esta data já foi adicionada.');return;}
+  const novaData={id:Date.now().toString(),cobrancaId,data,cobrado:false};
+  cobrancasDatas.push(novaData);
+  lsave('slj_cobrancas_datas',cobrancasDatas);
+  sbUps('cobrancas_datas',[{id:novaData.id,cobranca_id:cobrancaId,data,cobrado:false}]).catch(()=>{});
+  if(inp)inp.value='';
+  toast('✓ Data adicionada.');
+  renderCobrancas();
+}
+
+function toggleCobrado(dataId){
+  const d=cobrancasDatas.find(x=>x.id===dataId);
+  if(!d)return;
+  d.cobrado=!d.cobrado;
+  lsave('slj_cobrancas_datas',cobrancasDatas);
+  sbUps('cobrancas_datas',[{id:d.id,cobranca_id:d.cobrancaId,data:d.data,cobrado:d.cobrado}]).catch(()=>{});
+  renderCobrancas();
+}
+
+function delDataCobranca(dataId){
+  cobrancasDatas=cobrancasDatas.filter(d=>d.id!==dataId);
+  lsave('slj_cobrancas_datas',cobrancasDatas);
+  sbDel('cobrancas_datas',`?id=eq.${dataId}`).catch(()=>{});
+  renderCobrancas();
+}
+
+function renderCobrancas(){
+  // Popular select de clientes (só os que ainda não estão na lista)
+  const sel=document.getElementById('cob-cliente-sel');
+  if(sel){
+    const jaAdicionados=cobrancas.map(c=>c.clienteId);
+    const disponiveis=clientes.filter(c=>!jaAdicionados.includes(c.id)).sort((a,b)=>a.nome.localeCompare(b.nome));
+    sel.innerHTML='<option value="">Selecione um cliente...</option>'+disponiveis.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  }
+
+  const [ano,mesN]=cobMesVisivel.split('-').map(Number);
+  const mesNome=new Date(ano,mesN-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const lbl=document.getElementById('cob-mes-label');
+  if(lbl) lbl.textContent=mesNome;
+
+  const el=document.getElementById('cob-lista');
+  if(!el)return;
+  if(!cobrancas.length){
+    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum cliente na lista de cobrança ainda.</p></div>';
+    return;
+  }
+
+  el.innerHTML=cobrancas.map(c=>{
+    const cliente=clientes.find(cl=>cl.id===c.clienteId);
+    const nome=cliente?cliente.nome:'(cliente removido)';
+    const datasDoMes=cobrancasDatas.filter(d=>d.cobrancaId===c.id&&d.data&&d.data.startsWith(cobMesVisivel)).sort((a,b)=>a.data.localeCompare(b.data));
+    const pendentes=datasDoMes.filter(d=>!d.cobrado).length;
+
+    return`<div class="card" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${nome}</div>
+          ${pendentes>0?`<div style="font-size:11px;color:#92400E;margin-top:2px">${pendentes} cobrança(s) pendente(s) este mês</div>`:datasDoMes.length>0?`<div style="font-size:11px;color:var(--green);margin-top:2px">✓ Tudo cobrado este mês</div>`:''}
+        </div>
+        <button onclick="delClienteCobranca('${c.id}')" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:3px 9px;font-size:11px;cursor:pointer;flex-shrink:0">✕ Remover</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div>
+          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Contato (email)</label>
+          <input type="text" value="${c.contato||''}" placeholder="email@..." onchange="salvarCampoCobranca('${c.id}','contato',this.value)" style="width:100%;height:30px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:11px">
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Regra Nota Fiscal</label>
+          <input type="text" value="${c.regraNf||''}" placeholder="Ex: toda segunda" onchange="salvarCampoCobranca('${c.id}','regraNf',this.value)" style="width:100%;height:30px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:11px">
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--text3);display:block;margin-bottom:3px">Vencimento</label>
+          <input type="text" value="${c.prazoVencimento||''}" placeholder="Ex: 7 dias" onchange="salvarCampoCobranca('${c.id}','prazoVencimento',this.value)" style="width:100%;height:30px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:11px">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        ${datasDoMes.map(d=>{
+          const dataFmt=new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+          return`<div style="display:flex;align-items:center;gap:4px;background:${d.cobrado?'var(--green-bg)':'#FEF3C7'};border:1px solid ${d.cobrado?'#B8DFC8':'#F5C9A0'};border-radius:5px;padding:4px 8px">
+            <button onclick="toggleCobrado('${d.id}')" style="background:none;border:none;cursor:pointer;font-size:12px;font-weight:700;color:${d.cobrado?'var(--green)':'#92400E'}">${d.cobrado?'✓':'○'} ${dataFmt}</button>
+            <button onclick="delDataCobranca('${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:11px;padding:0 2px">✕</button>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="date" id="cob-nova-data-${c.id}" style="height:30px;font-size:12px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px">
+        <button class="fbtn" onclick="addDataCobranca('${c.id}')">+ Adicionar data</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderCustos(){
