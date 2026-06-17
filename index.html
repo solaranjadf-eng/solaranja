@@ -1007,24 +1007,48 @@ a{color:var(--orange);text-decoration:none}
     </div>
   </div>
 
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap">
     <button class="fbtn" onclick="mudarMesCobranca(-1)">← Mês anterior</button>
     <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:capitalize" id="cob-mes-label"></div>
     <button class="fbtn" onclick="mudarMesCobranca(1)">Próximo mês →</button>
+  </div>
+
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <button class="btn btn-outline" onclick="abrirDatasManuais()" style="height:32px;font-size:12px">📅 Definir datas de cobrança do mês</button>
+    <span style="font-size:11px;color:var(--text3)" id="cob-datas-info"></span>
   </div>
 
   <div style="overflow-x:auto;background:var(--white);border-radius:var(--radius);border:1px solid var(--border)">
     <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
       <thead>
         <tr style="background:var(--text);color:white">
-          <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600">Estabelecimento</th>
+          <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600;position:sticky;left:0;background:var(--text)">Estabelecimento</th>
           <th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600">E-mail</th>
-          <th style="padding:9px 12px;text-align:center;font-size:11px;font-weight:600;white-space:nowrap" id="cob-th-status">Status do mês</th>
+          <th id="cob-thead-semanas"></th>
           <th style="padding:9px;width:30px"></th>
         </tr>
       </thead>
       <tbody id="cob-tbody"></tbody>
     </table>
+  </div>
+
+  <!-- Modal definir datas manuais -->
+  <div class="modal-bg" id="modal-datas-cob">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Datas de cobrança do mês</h3>
+        <button class="modal-close" onclick="fecharModal('datas-cob')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Defina as datas em que a cobrança deve ser feita neste mês. Essas datas valem para todos os estabelecimentos.</p>
+        <div id="cob-datas-lista" style="margin-bottom:12px"></div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="date" id="cob-nova-data-mes" style="flex:1;height:34px;font-size:13px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px">
+          <button class="btn btn-primary" onclick="addDataMes()" style="height:34px">+ Adicionar</button>
+        </div>
+        <button class="btn btn-outline btn-full" onclick="limparDatasMes()" style="margin-top:14px;color:var(--red)">🗑 Zerar todas as datas deste mês</button>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -1774,13 +1798,18 @@ async function sincronizar(){
       } else if(cobrancas.length>0){
         await sbUps('cobrancas',cobrancas.map(c=>({id:c.id,nome:c.nome,email:c.email,ativo:true})));
       }
-      const dbCobDatas=await sbGet('cobrancas_datas','?order=data&limit=2000');
-      if(dbCobDatas&&dbCobDatas.length>0){
-        cobrancasDatas=dbCobDatas.map(d=>({id:d.id,cobrancaId:d.cobranca_id,data:d.data,cobrado:d.cobrado||false}));
-        lsave('slj_cobrancas_datas',cobrancasDatas);
-      } else if(cobrancasDatas.length>0){
-        await sbUps('cobrancas_datas',cobrancasDatas.map(d=>({id:d.id,cobranca_id:d.cobrancaId,data:d.data,cobrado:d.cobrado})));
+      const dbCobMarcados=await sbGet('cobrancas_datas','?order=data&limit=2000');
+      if(dbCobMarcados&&dbCobMarcados.length>0){
+        cobrancasMarcados=dbCobMarcados.map(d=>({id:d.id,cobrancaId:d.cobranca_id,data:d.data,cobrado:d.cobrado||false}));
+        lsave('slj_cobrancas_marcados',cobrancasMarcados);
       }
+      try{
+        const dbDatasMes=await sbGet('bling_tokens','?id=eq.3&refresh_token=eq.cobrancas_datas_mes');
+        if(dbDatasMes&&dbDatasMes.length){
+          cobrancasDatasMes=JSON.parse(dbDatasMes[0].access_token||'{}');
+          lsave('slj_cobrancas_datas_mes',cobrancasDatasMes);
+        }
+      }catch(e){}
 
       // Colaboradores
       const dbColab=await sbGet('colaboradores','?order=nome');
@@ -3928,7 +3957,8 @@ function renderColaboradores(){
 
 // ── COBRANÇAS ──────────────────────────────────────────────────────────────
 let cobrancas=load('slj_cobrancas',[]); // [{id,nome,email,ativo}]
-let cobrancasDatas=load('slj_cobrancas_datas',[]); // [{id,cobrancaId,data,cobrado}]
+let cobrancasDatasMes=load('slj_cobrancas_datas_mes',{}); // {mesKey: [data1,data2,...]}
+let cobrancasMarcados=load('slj_cobrancas_marcados',[]); // [{id,cobrancaId,data,cobrado}]
 let cobMesVisivel=hojeKey.slice(0,7);
 
 function mudarMesCobranca(delta){
@@ -3955,11 +3985,10 @@ function addClienteCobranca(){
 function delClienteCobranca(id){
   if(!confirm('Remover este estabelecimento? O histórico será perdido.'))return;
   cobrancas=cobrancas.filter(c=>c.id!==id);
-  cobrancasDatas=cobrancasDatas.filter(d=>d.cobrancaId!==id);
+  cobrancasMarcados=cobrancasMarcados.filter(m=>m.cobrancaId!==id);
   lsave('slj_cobrancas',cobrancas);
-  lsave('slj_cobrancas_datas',cobrancasDatas);
+  lsave('slj_cobrancas_marcados',cobrancasMarcados);
   sbDel('cobrancas',`?id=eq.${id}`).catch(()=>{});
-  sbDel('cobrancas_datas',`?cobranca_id=eq.${id}`).catch(()=>{});
   toast('Removido.');
   renderCobrancas();
 }
@@ -3972,18 +4001,76 @@ function salvarEmailCobranca(id,valor){
   sbUps('cobrancas',[{id:c.id,nome:c.nome,email:c.email,ativo:true}]).catch(()=>{});
 }
 
-function toggleCobradoMes(cobrancaId){
-  // Marca/desmarca o mês inteiro com data única no dia 1 do mês visível
-  const dataChave=cobMesVisivel+'-01';
-  let d=cobrancasDatas.find(x=>x.cobrancaId===cobrancaId&&x.data===dataChave);
-  if(!d){
-    d={id:Date.now().toString(),cobrancaId,data:dataChave,cobrado:true};
-    cobrancasDatas.push(d);
-  }else{
-    d.cobrado=!d.cobrado;
+function getDatasDoMes(){
+  return (cobrancasDatasMes[cobMesVisivel]||[]).sort();
+}
+
+function abrirDatasManuais(){
+  renderDatasManuaisModal();
+  document.getElementById('modal-datas-cob').classList.add('open');
+}
+
+function renderDatasManuaisModal(){
+  const datas=getDatasDoMes();
+  const el=document.getElementById('cob-datas-lista');
+  if(el){
+    el.innerHTML=datas.length?datas.map(d=>{
+      const dataFmt=new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'});
+      return`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg);border-radius:5px;margin-bottom:5px">
+        <span style="font-size:12px;font-weight:600">${dataFmt}</span>
+        <button onclick="delDataMes('${d}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px">✕</button>
+      </div>`;
+    }).join(''):'<div style="font-size:12px;color:var(--text3)">Nenhuma data definida para este mês ainda.</div>';
   }
-  lsave('slj_cobrancas_datas',cobrancasDatas);
-  sbUps('cobrancas_datas',[{id:d.id,cobranca_id:d.cobrancaId,data:d.data,cobrado:d.cobrado}]).catch(()=>{});
+}
+
+function addDataMes(){
+  const inp=document.getElementById('cob-nova-data-mes');
+  const data=inp?.value;
+  if(!data){toast('Selecione uma data.');return;}
+  if(!cobrancasDatasMes[cobMesVisivel]) cobrancasDatasMes[cobMesVisivel]=[];
+  if(cobrancasDatasMes[cobMesVisivel].includes(data)){toast('Data já adicionada.');return;}
+  cobrancasDatasMes[cobMesVisivel].push(data);
+  lsave('slj_cobrancas_datas_mes',cobrancasDatasMes);
+  salvarDatasMesNoBanco();
+  inp.value='';
+  renderDatasManuaisModal();
+  renderCobrancas();
+  toast('✓ Data adicionada.');
+}
+
+function delDataMes(data){
+  cobrancasDatasMes[cobMesVisivel]=(cobrancasDatasMes[cobMesVisivel]||[]).filter(d=>d!==data);
+  lsave('slj_cobrancas_datas_mes',cobrancasDatasMes);
+  salvarDatasMesNoBanco();
+  renderDatasManuaisModal();
+  renderCobrancas();
+}
+
+function limparDatasMes(){
+  if(!confirm('Zerar todas as datas de cobrança deste mês? Os estabelecimentos continuam cadastrados, só as datas serão removidas.'))return;
+  cobrancasDatasMes[cobMesVisivel]=[];
+  lsave('slj_cobrancas_datas_mes',cobrancasDatasMes);
+  salvarDatasMesNoBanco();
+  renderDatasManuaisModal();
+  renderCobrancas();
+  toast('✓ Datas do mês zeradas.');
+}
+
+function salvarDatasMesNoBanco(){
+  sbUps('bling_tokens',[{id:3,access_token:JSON.stringify(cobrancasDatasMes),refresh_token:'cobrancas_datas_mes',expires_at:hojeKey,updated_at:new Date().toISOString()}]).catch(()=>{});
+}
+
+function toggleCobradoData(cobrancaId,data){
+  let m=cobrancasMarcados.find(x=>x.cobrancaId===cobrancaId&&x.data===data);
+  if(!m){
+    m={id:Date.now().toString()+'_'+data,cobrancaId,data,cobrado:true};
+    cobrancasMarcados.push(m);
+  }else{
+    m.cobrado=!m.cobrado;
+  }
+  lsave('slj_cobrancas_marcados',cobrancasMarcados);
+  sbUps('cobrancas_datas',[{id:m.id,cobranca_id:m.cobrancaId,data:m.data,cobrado:m.cobrado}]).catch(()=>{});
   renderCobrancas();
 }
 
@@ -3992,28 +4079,46 @@ function renderCobrancas(){
   const mesNome=new Date(ano,mesN-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const lbl=document.getElementById('cob-mes-label');
   if(lbl) lbl.textContent=mesNome;
-  const th=document.getElementById('cob-th-status');
-  if(th) th.textContent='Cobrado em '+mesNome;
+
+  const datas=getDatasDoMes();
+  const infoEl=document.getElementById('cob-datas-info');
+  if(infoEl) infoEl.textContent=datas.length?datas.length+' data(s) definida(s)':'Nenhuma data definida — clique no botão acima';
+
+  // Cabeçalho com as datas como colunas
+  const theadEl=document.getElementById('cob-thead-semanas');
+  if(theadEl){
+    if(datas.length){
+      theadEl.outerHTML=datas.map(d=>{
+        const dataFmt=new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+        return`<th style="padding:9px 8px;text-align:center;font-size:11px;font-weight:600;white-space:nowrap">${dataFmt}</th>`;
+      }).join('')+'<th id="cob-thead-semanas" style="display:none"></th>';
+    }else{
+      theadEl.outerHTML='<th id="cob-thead-semanas" style="padding:9px 12px;text-align:center;font-size:11px;font-weight:600">Sem datas definidas</th>';
+    }
+  }
 
   const tbody=document.getElementById('cob-tbody');
   if(!tbody)return;
   if(!cobrancas.length){
-    tbody.innerHTML='<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum estabelecimento cadastrado ainda.</td></tr>';
+    tbody.innerHTML=`<tr><td colspan="${datas.length+3}" style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum estabelecimento cadastrado ainda.</td></tr>`;
     return;
   }
 
-  const dataChave=cobMesVisivel+'-01';
   tbody.innerHTML=cobrancas.map((c,i)=>{
-    const d=cobrancasDatas.find(x=>x.cobrancaId===c.id&&x.data===dataChave);
-    const cobrado=d?d.cobrado:false;
+    const celulasDatas=datas.length?datas.map(d=>{
+      const m=cobrancasMarcados.find(x=>x.cobrancaId===c.id&&x.data===d);
+      const cobrado=m?m.cobrado:false;
+      return`<td style="padding:6px 8px;text-align:center">
+        <button onclick="toggleCobradoData('${c.id}','${d}')" style="width:26px;height:26px;border-radius:5px;cursor:pointer;border:1px solid ${cobrado?'#B8DFC8':'var(--border2)'};background:${cobrado?'var(--green)':'var(--white)'};color:${cobrado?'white':'transparent'};font-size:13px;font-weight:700">✓</button>
+      </td>`;
+    }).join(''):'<td style="padding:9px;text-align:center;color:var(--text3);font-size:11px">—</td>';
+
     return`<tr style="background:${i%2===0?'var(--white)':'var(--bg)'};border-bottom:1px solid var(--border)">
-      <td style="padding:9px 12px;font-weight:600;color:var(--text)">${c.nome}</td>
-      <td style="padding:9px 12px">
+      <td style="padding:9px 12px;font-weight:600;color:var(--text);white-space:nowrap;position:sticky;left:0;background:${i%2===0?'var(--white)':'var(--bg)'}">${c.nome}</td>
+      <td style="padding:9px 12px;min-width:160px">
         <input type="text" value="${c.email||''}" placeholder="email@..." onchange="salvarEmailCobranca('${c.id}',this.value)" style="width:100%;border:none;background:none;font-size:12px;color:var(--text2)">
       </td>
-      <td style="padding:9px 12px;text-align:center">
-        <button onclick="toggleCobradoMes('${c.id}')" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:5px;cursor:pointer;border:1px solid ${cobrado?'#B8DFC8':'#F5C9A0'};background:${cobrado?'var(--green-bg)':'#FEF3C7'};color:${cobrado?'var(--green)':'#92400E'};white-space:nowrap">${cobrado?'✓ Cobrado':'⏳ Pendente'}</button>
-      </td>
+      ${celulasDatas}
       <td style="padding:9px;text-align:center">
         <button onclick="delClienteCobranca('${c.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">✕</button>
       </td>
