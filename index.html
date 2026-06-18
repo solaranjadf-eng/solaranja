@@ -826,7 +826,7 @@ a{color:var(--orange);text-decoration:none}
       <button class="btn btn-outline" style="height:32px;font-size:11px" onclick="mostrarResumoViagens()">Ver resumo</button>
     </div>
   </div>
-  <p style="font-size:12px;color:var(--text3);margin-bottom:12px">💡 Toque no número do pedido e digite a posição desejada para reordenar.</p>
+  <p style="font-size:12px;color:var(--text3);margin-bottom:12px">💡 Toque no número do pedido para escolher a nova posição na rota.</p>
   <div id="rota-list"></div>
 </main>
 
@@ -1439,6 +1439,19 @@ a{color:var(--orange);text-decoration:none}
 </div>
 
 <!-- MODAL NÃO ENTREGUE -->
+<div class="modal-bg" id="modal-reordenar">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Mover para qual posição?</h3>
+      <button class="modal-close" onclick="fecharModal('reordenar')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text3);margin-bottom:14px" id="reordenar-cliente-nome"></p>
+      <div id="reordenar-lista" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center"></div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-nao-entregue">
   <div class="modal-box">
     <div class="modal-handle"></div>
@@ -3236,43 +3249,64 @@ function distKm(la1,ln1,la2,ln2){
 }
 
 
-function moverParaPosicao(pedidoId,novaPosStr,posAntiga){
-  const novaPos=parseInt(novaPosStr);
-  if(isNaN(novaPos)||novaPos===posAntiga){renderRota();return;} // valor inválido ou sem mudança, só re-renderiza
+let _reordenarPedidoId=null;
+
+function abrirModalReordenar(pedidoId){
+  _reordenarPedidoId=pedidoId;
+  const _dk=getRotaDataKey();
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const p=listaRota.find(x=>String(x.id)===String(pedidoId));
+  if(!p)return;
+
+  const idsHoje=listaRota.map(p=>p.id);
+  let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
+  idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
+  const pendentesIds=ordemDestaData.filter(id=>{
+    const pp=listaRota.find(x=>String(x.id)===String(id));
+    return pp&&!pp.entregue&&!pp.naoEntregue;
+  });
+
+  document.getElementById('reordenar-cliente-nome').textContent=p.clienteNome+' — escolha a nova posição na rota:';
+  const lista=document.getElementById('reordenar-lista');
+  lista.innerHTML=pendentesIds.map((id,i)=>{
+    const isAtual=String(id)===String(pedidoId);
+    return`<button onclick="confirmarReordenar(${i+1})" style="width:42px;height:42px;border-radius:8px;border:2px solid ${isAtual?'var(--orange)':'var(--border2)'};background:${isAtual?'var(--orange)':'var(--white)'};color:${isAtual?'white':'var(--text)'};font-size:15px;font-weight:700;cursor:pointer">${i+1}</button>`;
+  }).join('');
+
+  document.getElementById('modal-reordenar').classList.add('open');
+}
+
+function confirmarReordenar(novaPos){
+  const pedidoId=_reordenarPedidoId;
+  if(!pedidoId)return;
 
   const _dk=getRotaDataKey();
   const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
   const idsHoje=listaRota.map(p=>p.id);
-  // Isolar apenas a ordem desta data, e apenas os pendentes (que têm número editável)
   let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
   idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
 
-  // Pegar só os pendentes (entregues/não-entregues não participam da numeração)
   const pendentesIds=ordemDestaData.filter(id=>{
-    const p=listaRota.find(x=>String(x.id)===String(id));
-    return p&&!p.entregue&&!p.naoEntregue;
+    const pp=listaRota.find(x=>String(x.id)===String(id));
+    return pp&&!pp.entregue&&!pp.naoEntregue;
   });
 
   const idx=pendentesIds.findIndex(id=>String(id)===String(pedidoId));
-  if(idx===-1){renderRota();return;}
+  if(idx===-1){fecharModal('reordenar');return;}
 
-  // Posição desejada (1-indexed) -> índice 0-indexed, limitado aos limites válidos
-  let novoIdx=Math.max(1,Math.min(novaPos,pendentesIds.length))-1;
-
+  const novoIdx=Math.max(1,Math.min(novaPos,pendentesIds.length))-1;
   const [moved]=pendentesIds.splice(idx,1);
   pendentesIds.splice(novoIdx,0,moved);
 
-  // Reconstituir ordemDestaData: pendentes na nova ordem + entregues/não-entregues no final (mantendo posição relativa)
   const naoPendentesIds=ordemDestaData.filter(id=>!pendentesIds.some(x=>String(x)===String(id)));
   const novaOrdemDestaData=[...pendentesIds,...naoPendentesIds];
-
-  // Reconstituir rotaOrdem global
   const idsOutrasDatas=rotaOrdem.filter(id=>!idsHoje.some(x=>String(x)===String(id)));
   rotaOrdem=[...idsOutrasDatas,...novaOrdemDestaData];
 
   salvarRotaOrdemBanco();
+  fecharModal('reordenar');
   renderRota();
-  toast('✓ Movido para posição '+(novoIdx+1)+'.');
+  toast('✓ Ordem atualizada.');
 }
 
 function salvarRotaOrdemBanco(){
@@ -3443,12 +3477,9 @@ function renderRota(){
       <div style="width:32px;height:32px;border-radius:50%;background:${numBg};color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0">
         ${p.entregue?'✓':'✗'}
       </div>`:`
-      <input type="number" value="${num}" min="1" max="${pendentes.length}"
-        onfocus="this.select()"
-        onkeydown="if(event.key==='Enter'){event.target.blur();}"
-        onblur="moverParaPosicao(${p.id},this.value,${num})"
-        style="width:36px;height:36px;border-radius:50%;background:${numBg};color:white;text-align:center;font-size:14px;font-weight:700;flex-shrink:0;border:2px solid transparent;outline:none;cursor:pointer"
-        title="Toque e digite a posição desejada">`}
+      <div onclick="abrirModalReordenar(${p.id})" style="width:32px;height:32px;border-radius:50%;background:${numBg};color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;cursor:pointer" title="Toque para reordenar">
+        ${num}
+      </div>`}
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:700;color:${p.entregue?'var(--green)':'var(--text)'};text-decoration:${p.entregue?'line-through':'none'}">${p.clienteNome}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">📍 ${end}${dist!==null?` · ${dist.toFixed(1)} km`:''}</div>
