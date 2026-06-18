@@ -1863,7 +1863,7 @@ async function sincronizar(){
     if(perfilAtual==='entregador') renderRota();
   }catch(e){
     syncErros=(syncErros||0)+1;
-    console.error('Sync erro #'+syncErros+':', e?.message||e);
+    console.error('Sync erro #'+syncErros+':', e?.message||e, e);
     // Só mostrar erro após 5 falhas consecutivas
     if(syncErros>=5){
       setSyncStatus('err','Sem conexão — usando dados locais');
@@ -1873,6 +1873,7 @@ async function sincronizar(){
       setTimeout(sincronizar, 5000);
     }
   }
+  console.log('[SYNC] Função sincronizar() terminou. syncErros:',syncErros);
 }
 
 function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null};}
