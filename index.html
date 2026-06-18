@@ -826,7 +826,7 @@ a{color:var(--orange);text-decoration:none}
       <button class="btn btn-outline" style="height:32px;font-size:11px" onclick="mostrarResumoViagens()">Ver resumo</button>
     </div>
   </div>
-  <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Arraste os cartões para reordenar manualmente.</p>
+  <p style="font-size:12px;color:var(--text3);margin-bottom:12px">💡 Toque no número do pedido e digite a posição desejada para reordenar.</p>
   <div id="rota-list"></div>
 </main>
 
@@ -3236,27 +3236,43 @@ function distKm(la1,ln1,la2,ln2){
 }
 
 
-function moverPedidoRota(pedidoId,direcao){
+function moverParaPosicao(pedidoId,novaPosStr,posAntiga){
+  const novaPos=parseInt(novaPosStr);
+  if(isNaN(novaPos)||novaPos===posAntiga){renderRota();return;} // valor inválido ou sem mudança, só re-renderiza
+
   const _dk=getRotaDataKey();
   const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
   const idsHoje=listaRota.map(p=>p.id);
-  // Pegar só a ordem desta data
+  // Isolar apenas a ordem desta data, e apenas os pendentes (que têm número editável)
   let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
   idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
 
-  const idx=ordemDestaData.findIndex(id=>String(id)===String(pedidoId));
-  if(idx===-1){console.error('Pedido não encontrado:',pedidoId,ordemDestaData);toast('Erro ao mover. Tente recarregar a página.');return;}
-  const novoIdx=idx+direcao;
-  if(novoIdx<0||novoIdx>=ordemDestaData.length)return; // já está no limite
+  // Pegar só os pendentes (entregues/não-entregues não participam da numeração)
+  const pendentesIds=ordemDestaData.filter(id=>{
+    const p=listaRota.find(x=>String(x.id)===String(id));
+    return p&&!p.entregue&&!p.naoEntregue;
+  });
 
-  [ordemDestaData[idx],ordemDestaData[novoIdx]]=[ordemDestaData[novoIdx],ordemDestaData[idx]];
+  const idx=pendentesIds.findIndex(id=>String(id)===String(pedidoId));
+  if(idx===-1){renderRota();return;}
 
-  // Reconstituir rotaOrdem global: outras datas + nova ordem desta data
+  // Posição desejada (1-indexed) -> índice 0-indexed, limitado aos limites válidos
+  let novoIdx=Math.max(1,Math.min(novaPos,pendentesIds.length))-1;
+
+  const [moved]=pendentesIds.splice(idx,1);
+  pendentesIds.splice(novoIdx,0,moved);
+
+  // Reconstituir ordemDestaData: pendentes na nova ordem + entregues/não-entregues no final (mantendo posição relativa)
+  const naoPendentesIds=ordemDestaData.filter(id=>!pendentesIds.some(x=>String(x)===String(id)));
+  const novaOrdemDestaData=[...pendentesIds,...naoPendentesIds];
+
+  // Reconstituir rotaOrdem global
   const idsOutrasDatas=rotaOrdem.filter(id=>!idsHoje.some(x=>String(x)===String(id)));
-  rotaOrdem=[...idsOutrasDatas,...ordemDestaData];
+  rotaOrdem=[...idsOutrasDatas,...novaOrdemDestaData];
 
   salvarRotaOrdemBanco();
   renderRota();
+  toast('✓ Movido para posição '+(novoIdx+1)+'.');
 }
 
 function salvarRotaOrdemBanco(){
@@ -3422,14 +3438,17 @@ function renderRota(){
       ?'background:#FFF0F0;border:1.5px solid #FFAAAA'
       :'background:var(--white);border:1.5px solid var(--border)';
     const numBg=p.entregue?'var(--green)':p.naoEntregue?'var(--red)':'var(--orange)';
-    return `<div style="${bgCard};border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none"
-      draggable="true" data-id="${p.id}"
-      ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)"
-      ontouchstart="touchStart(event)" ontouchmove="touchMove(event)" ontouchend="touchEnd(event)"
-      oncontextmenu="return false">
-      <div style="width:32px;height:32px;border-radius:50%;background:${numBg};color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;cursor:grab">
-        ${p.entregue?'✓':num}
-      </div>
+    return `<div style="${bgCard};border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px">
+      ${p.entregue||p.naoEntregue?`
+      <div style="width:32px;height:32px;border-radius:50%;background:${numBg};color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0">
+        ${p.entregue?'✓':'✗'}
+      </div>`:`
+      <input type="number" value="${num}" min="1" max="${pendentes.length}"
+        onfocus="this.select()"
+        onkeydown="if(event.key==='Enter'){event.target.blur();}"
+        onblur="moverParaPosicao(${p.id},this.value,${num})"
+        style="width:36px;height:36px;border-radius:50%;background:${numBg};color:white;text-align:center;font-size:14px;font-weight:700;flex-shrink:0;border:2px solid transparent;outline:none;cursor:pointer"
+        title="Toque e digite a posição desejada">`}
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:700;color:${p.entregue?'var(--green)':'var(--text)'};text-decoration:${p.entregue?'line-through':'none'}">${p.clienteNome}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">📍 ${end}${dist!==null?` · ${dist.toFixed(1)} km`:''}</div>
@@ -3451,11 +3470,6 @@ function renderRota(){
         </div>
       </div><!-- fim coluna conteudo -->
       <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-        <!-- Botões subir/descer — forma confiável de reordenar -->
-        ${!p.entregue&&!p.naoEntregue?`<div style="display:flex;gap:3px">
-          <button onclick="moverPedidoRota(${p.id},-1)" title="Mover para cima" style="width:26px;height:26px;border-radius:5px;border:1px solid var(--border2);background:var(--white);cursor:pointer;font-size:12px;color:var(--text2);display:flex;align-items:center;justify-content:center">▲</button>
-          <button onclick="moverPedidoRota(${p.id},1)" title="Mover para baixo" style="width:26px;height:26px;border-radius:5px;border:1px solid var(--border2);background:var(--white);cursor:pointer;font-size:12px;color:var(--text2);display:flex;align-items:center;justify-content:center">▼</button>
-        </div>`:''}
         <!-- Botão entregue / desfazer entregue -->
         <div onclick="toggleRotaCheck(${p.id})"
           title="${p.entregue?'Desfazer entrega':'Confirmar entrega'}"
@@ -3582,16 +3596,19 @@ function touchEnd(e){
   if(targetId&&targetId!==dragId){
     const _dk=getRotaDataKey();
     const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
-    const allIds=listaRota.map(p=>p.id);
-    if(!rotaOrdem.length)rotaOrdem=[...allIds];
-    allIds.forEach(id=>{if(!rotaOrdem.some(x=>String(x)===String(id)))rotaOrdem.push(id);});
-    const arr=[...rotaOrdem];
-    const fi=arr.indexOf(parseInt(dragId));
-    const ti=arr.indexOf(parseInt(targetId));
+    const idsHoje=listaRota.map(p=>p.id);
+    // Isolar apenas a ordem desta data
+    let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
+    idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
+
+    const fi=ordemDestaData.findIndex(id=>String(id)===String(dragId));
+    const ti=ordemDestaData.findIndex(id=>String(id)===String(targetId));
     if(fi!==-1&&ti!==-1){
-      const [moved]=arr.splice(fi,1);
-      arr.splice(ti,0,moved);
-      rotaOrdem=arr;
+      const [moved]=ordemDestaData.splice(fi,1);
+      ordemDestaData.splice(ti,0,moved);
+      // Reconstituir rotaOrdem: outras datas preservadas + nova ordem desta data
+      const idsOutrasDatas=rotaOrdem.filter(id=>!idsHoje.some(x=>String(x)===String(id)));
+      rotaOrdem=[...idsOutrasDatas,...ordemDestaData];
       salvarRotaOrdemBanco();
       renderRota();
       toast('✓ Ordem atualizada.');
@@ -3609,16 +3626,19 @@ function dragDrop(e){
   // Full rota list
   const _dk=getRotaDataKey();
   const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
-  const allIds=listaRota.map(p=>p.id);
-  if(!rotaOrdem.length) rotaOrdem=[...allIds];
-  allIds.forEach(id=>{if(!rotaOrdem.some(x=>String(x)===String(id)))rotaOrdem.push(id);});
-  const arr=[...rotaOrdem];
-  const fi=arr.findIndex(x=>String(x)===String(dragId));
-  const ti=arr.findIndex(x=>String(x)===String(targetId));
+  const idsHoje=listaRota.map(p=>p.id);
+  // Isolar apenas a ordem desta data
+  let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
+  idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
+
+  const fi=ordemDestaData.findIndex(id=>String(id)===String(dragId));
+  const ti=ordemDestaData.findIndex(id=>String(id)===String(targetId));
   if(fi===-1||ti===-1)return;
-  const [moved]=arr.splice(fi,1);
-  arr.splice(ti,0,moved);
-  rotaOrdem=arr;
+  const [moved]=ordemDestaData.splice(fi,1);
+  ordemDestaData.splice(ti,0,moved);
+  // Reconstituir rotaOrdem: outras datas preservadas + nova ordem desta data
+  const idsOutrasDatas=rotaOrdem.filter(id=>!idsHoje.some(x=>String(x)===String(id)));
+  rotaOrdem=[...idsOutrasDatas,...ordemDestaData];
   salvarRotaOrdemBanco();
   renderRota();
   toast('✓ Ordem atualizada.');
