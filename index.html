@@ -1785,7 +1785,7 @@ async function sincronizar(){
     if(!rotaOrdem.length) rotaOrdem=[...listaRotaIds];
     else{
       listaRotaIds.forEach(id=>{if(!rotaOrdem.some(x=>String(x)===String(id)))rotaOrdem.push(id);});
-      rotaOrdem=rotaOrdem.filter(id=>listaRotaIds.some(x=>String(x)===String(id)));
+      // NÃO remover ids de outras datas — apenas garantir que os de hoje estão presentes
     }
     // Migrar dados locais para o banco se existirem e banco estiver vazio
     try{
@@ -3286,6 +3286,8 @@ function confirmarReordenar(novaPos){
   let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
   idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
 
+  console.log('[ROTA] Antes de reordenar:',ordemDestaData);
+
   const pendentesIds=ordemDestaData.filter(id=>{
     const pp=listaRota.find(x=>String(x.id)===String(id));
     return pp&&!pp.entregue&&!pp.naoEntregue;
@@ -3303,6 +3305,8 @@ function confirmarReordenar(novaPos){
   const idsOutrasDatas=rotaOrdem.filter(id=>!idsHoje.some(x=>String(x)===String(id)));
   rotaOrdem=[...idsOutrasDatas,...novaOrdemDestaData];
 
+  console.log('[ROTA] Depois de reordenar:',novaOrdemDestaData);
+
   salvarRotaOrdemBanco();
   fecharModal('reordenar');
   renderRota();
@@ -3313,6 +3317,7 @@ function salvarRotaOrdemBanco(){
   lsave('slj_rota_ordem',rotaOrdem);
   const ts=Date.now();
   localStorage.setItem('slj_rota_ts',ts.toString());
+  console.log('[ROTA] Salvando ordem:',rotaOrdem,'ts:',ts);
   // Salvar no Supabase usando bling_tokens (suporta upsert por id)
   sbUps('bling_tokens',[{
     id:2,
@@ -3321,8 +3326,8 @@ function salvarRotaOrdemBanco(){
     expires_at:ts,
     updated_at:new Date().toISOString()
   }])
-    .then(()=>console.log('Ordem da rota salva no banco'))
-    .catch(e=>console.error('Erro ao salvar ordem da rota:',e));
+    .then(r=>console.log('[ROTA] Salvo no banco com sucesso:',r))
+    .catch(e=>console.error('[ROTA] ERRO ao salvar no banco:',e));
 }
 
 
@@ -3447,6 +3452,7 @@ function renderRota(){
   let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
   // Adicionar quem ainda não está na ordem (pedido novo)
   idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
+  console.log('[ROTA] renderRota — ordem usada para exibir:',ordemDestaData);
   // Reconstituir rotaOrdem: ids de outras datas (preservados) + ordem desta data
   const idsOutrasDatas=rotaOrdem.filter(id=>!idsHoje.some(x=>String(x)===String(id)));
   rotaOrdem=[...idsOutrasDatas,...ordemDestaData];
