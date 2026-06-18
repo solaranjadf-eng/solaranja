@@ -3237,15 +3237,24 @@ function distKm(la1,ln1,la2,ln2){
 
 
 function moverPedidoRota(pedidoId,direcao){
-  const arr=[...rotaOrdem];
-  // Comparação tolerante a tipo (string vs number)
-  const idx=arr.findIndex(id=>String(id)===String(pedidoId));
-  if(idx===-1){console.error('Pedido não encontrado na rotaOrdem:',pedidoId,arr);toast('Erro ao mover. Tente recarregar a página.');return;}
+  const _dk=getRotaDataKey();
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const idsHoje=listaRota.map(p=>p.id);
+  // Pegar só a ordem desta data
+  let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
+  idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
+
+  const idx=ordemDestaData.findIndex(id=>String(id)===String(pedidoId));
+  if(idx===-1){console.error('Pedido não encontrado:',pedidoId,ordemDestaData);toast('Erro ao mover. Tente recarregar a página.');return;}
   const novoIdx=idx+direcao;
-  if(novoIdx<0||novoIdx>=arr.length)return; // já está no limite
-  // Trocar posições
-  [arr[idx],arr[novoIdx]]=[arr[novoIdx],arr[idx]];
-  rotaOrdem=arr;
+  if(novoIdx<0||novoIdx>=ordemDestaData.length)return; // já está no limite
+
+  [ordemDestaData[idx],ordemDestaData[novoIdx]]=[ordemDestaData[novoIdx],ordemDestaData[idx]];
+
+  // Reconstituir rotaOrdem global: outras datas + nova ordem desta data
+  const idsOutrasDatas=rotaOrdem.filter(id=>!idsHoje.some(x=>String(x)===String(id)));
+  rotaOrdem=[...idsOutrasDatas,...ordemDestaData];
+
   salvarRotaOrdemBanco();
   renderRota();
 }
@@ -3382,11 +3391,17 @@ function renderRota(){
   // Filtrar por viagem se selecionada
   const viagemFiltro=parseInt(document.getElementById('rota-num-sel')?.value||'0');
   const listaFiltrada=viagemFiltro>0?listaRota.filter(p=>viagens[p.id]===viagemFiltro):listaRota;
-  // Inicializar rotaOrdem se vazio
-  if(!rotaOrdem.length){rotaOrdem=listaRota.map(p=>p.id);}
-  listaRota.forEach(p=>{if(!rotaOrdem.some(x=>String(x)===String(p.id)))rotaOrdem.push(p.id);});
-  // Ordenar pela rotaOrdem
-  const listaOrdenada=rotaOrdem.map(id=>listaFiltrada.find(p=>String(p.id)===String(id))).filter(Boolean);
+  // rotaOrdem deve conter SOMENTE os ids da data atual, na ordem certa
+  const idsHoje=listaRota.map(p=>p.id);
+  // Pegar a subsequência de rotaOrdem que pertence a essa data, preservando ordem salva
+  let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
+  // Adicionar quem ainda não está na ordem (pedido novo)
+  idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
+  // Reconstituir rotaOrdem: ids de outras datas (preservados) + ordem desta data
+  const idsOutrasDatas=rotaOrdem.filter(id=>!idsHoje.some(x=>String(x)===String(id)));
+  rotaOrdem=[...idsOutrasDatas,...ordemDestaData];
+  // Ordenar pela ordem desta data
+  const listaOrdenada=ordemDestaData.map(id=>listaFiltrada.find(p=>String(p.id)===String(id))).filter(Boolean);
   const pendentes=listaOrdenada.filter(p=>!p.entregue&&!p.naoEntregue);
   const entreguesList=listaFiltrada.filter(p=>p.entregue);
   const naoEntreguesList=listaFiltrada.filter(p=>p.naoEntregue&&!p.entregue);
