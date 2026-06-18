@@ -3235,6 +3235,19 @@ function distKm(la1,ln1,la2,ln2){
 }
 
 
+function moverPedidoRota(pedidoId,direcao){
+  const arr=[...rotaOrdem];
+  const idx=arr.indexOf(pedidoId);
+  if(idx===-1)return;
+  const novoIdx=idx+direcao;
+  if(novoIdx<0||novoIdx>=arr.length)return; // já está no limite
+  // Trocar posições
+  [arr[idx],arr[novoIdx]]=[arr[novoIdx],arr[idx]];
+  rotaOrdem=arr;
+  salvarRotaOrdemBanco();
+  renderRota();
+}
+
 function salvarRotaOrdemBanco(){
   lsave('slj_rota_ordem',rotaOrdem);
   const ts=Date.now();
@@ -3244,9 +3257,11 @@ function salvarRotaOrdemBanco(){
     id:2,
     access_token:JSON.stringify({ordem:rotaOrdem,ts}),
     refresh_token:'rota_ordem',
-    expires_at:hojeKey,
+    expires_at:ts,
     updated_at:new Date().toISOString()
-  }]).catch(()=>{});
+  }])
+    .then(()=>console.log('Ordem da rota salva no banco'))
+    .catch(e=>console.error('Erro ao salvar ordem da rota:',e));
 }
 
 
@@ -3419,6 +3434,11 @@ function renderRota(){
         </div>
       </div><!-- fim coluna conteudo -->
       <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+        <!-- Botões subir/descer — forma confiável de reordenar -->
+        ${!p.entregue&&!p.naoEntregue?`<div style="display:flex;gap:3px">
+          <button onclick="moverPedidoRota(${p.id},-1)" title="Mover para cima" style="width:26px;height:26px;border-radius:5px;border:1px solid var(--border2);background:var(--white);cursor:pointer;font-size:12px;color:var(--text2);display:flex;align-items:center;justify-content:center">▲</button>
+          <button onclick="moverPedidoRota(${p.id},1)" title="Mover para baixo" style="width:26px;height:26px;border-radius:5px;border:1px solid var(--border2);background:var(--white);cursor:pointer;font-size:12px;color:var(--text2);display:flex;align-items:center;justify-content:center">▼</button>
+        </div>`:''}
         <!-- Botão entregue / desfazer entregue -->
         <div onclick="toggleRotaCheck(${p.id})"
           title="${p.entregue?'Desfazer entrega':'Confirmar entrega'}"
