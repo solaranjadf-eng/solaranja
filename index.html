@@ -1704,8 +1704,8 @@ async function sincronizar(){
       clientes=[...CLIENTES_PADRAO];
       lsave('slj_cli_bk',clientes);
     }
-    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id`);
-    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id`);
+    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
+    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
     // Capturar estado local ANTES de sobrescrever — timestamp para saber qual é mais recente
     const localState={};
     const agora=Date.now();
@@ -1746,7 +1746,7 @@ async function sincronizar(){
     const d90=new Date(hoje);d90.setDate(d90.getDate()-90);
     const noventaDiasAtras=d90.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
     if(primeiraVez||agora2-ultimaHistSync>600000){
-      const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000`);
+      const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
       localStorage.setItem('slj_hist_sync',agora2.toString());
       if(dbH!==null&&dbH.length>0){
         const novoHist={};
@@ -1755,6 +1755,8 @@ async function sincronizar(){
         // Salvar no localStorage para disponibilidade imediata no próximo carregamento
         lsave('slj_hist_bk',historico);
       }
+      // Limpeza de fotos antigas — roda só 1x por dia, junto com a sync de histórico (economiza egress)
+      limparFotosAntigas();
     }
     const dbE=await sbGet('estoque','');
     if(dbE&&dbE.length)dbE.forEach(e=>estoque[e.tam]=e.qty||0);
@@ -2800,7 +2802,7 @@ function renderDia(){
     });
     // Se não encontrou nada no cache, buscar do banco
     if(!lista.length){
-      sbGet('pedidos',`?data=eq.${dataSel}&order=id`).then(dbP=>{
+      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`).then(dbP=>{
         if(dbP&&dbP.length){
           if(!historico[dataSel]) historico[dataSel]=[];
           historico[dataSel]=(dbP||[]).map(mapPedido);
@@ -2970,10 +2972,23 @@ function abrirEntregues(){
   document.getElementById('modal-entregues').classList.add('open');
 }
 
-function verFotoEntrega(pedidoId){
-  let ped=pedidos.find(p=>p.id===pedidoId);
+async function verFotoEntrega(pedidoId){
+  let ped=pedidos.find(p=>p.id===pedidoId)||pedidosOntem.find(p=>p.id===pedidoId);
   if(!ped) Object.values(historico).forEach(d=>d.forEach(p=>{if(p.id===pedidoId)ped=p;}));
-  if(!ped||!ped.foto){toast('Nenhuma foto registrada para este pedido.');return;}
+  if(!ped){toast('Pedido não encontrado.');return;}
+  // Se a foto não está em memória (histórico não carrega fotos por economia de dados), buscar do banco
+  if(!ped.foto){
+    toast('Carregando foto...');
+    try{
+      const dbP=await sbGet('pedidos',`?id=eq.${pedidoId}&select=foto`);
+      if(dbP&&dbP.length&&dbP[0].foto){
+        ped.foto=dbP[0].foto;
+      }else{
+        toast('Nenhuma foto registrada para este pedido.');
+        return;
+      }
+    }catch(e){toast('Erro ao buscar foto.');return;}
+  }
   document.getElementById('ver-foto-nome').textContent=ped.clienteNome+' — '+ped.hora+(ped.horaEntrega?' · Entregue '+ped.horaEntrega:'');
   document.getElementById('ver-foto-img').src=ped.foto;
   document.getElementById('modal-ver-foto').classList.add('open');
@@ -3428,7 +3443,7 @@ function renderRota(){
     listaRota=[...(historico[dataSel]||[])];
     // Se não tem, buscar do banco
     if(!listaRota.length){
-      sbGet('pedidos',`?data=eq.${dataSel}&order=id`).then(dbP=>{
+      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`).then(dbP=>{
         if(dbP&&dbP.length){
           if(!historico[dataSel]) historico[dataSel]=[];
           historico[dataSel]=(dbP||[]).map(mapPedido);
@@ -5825,6 +5840,29 @@ function fazerLogout(){
   chartEmb=destroyChart(chartEmb);
 }
 
+async function limparFotosAntigas(){
+  // Roda no máximo 1x por dia para não gastar egress/requests extras
+  const ultimaLimpeza=parseInt(localStorage.getItem('slj_limpeza_fotos')||'0');
+  const agora=Date.now();
+  if(agora-ultimaLimpeza<86400000) return; // já rodou nas últimas 24h
+  try{
+    const d60=new Date(hoje);d60.setDate(d60.getDate()-60);
+    const sessentaDiasAtras=d60.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
+    // Busca só os IDs de pedidos antigos que ainda têm foto (select mínimo, sem baixar a foto)
+    const comFoto=await sbGet('pedidos',`?data=lt.${sessentaDiasAtras}&foto=not.is.null&select=id`);
+    if(comFoto&&comFoto.length>0){
+      // PATCH em lote: setar foto=null para cada um (não precisa baixar a foto pra isso)
+      for(const p of comFoto){
+        await sbPatch('pedidos',`?id=eq.${p.id}`,{foto:null}).catch(()=>{});
+      }
+      console.log(`[LIMPEZA] ${comFoto.length} foto(s) com mais de 60 dias removida(s) do banco.`);
+    }
+    localStorage.setItem('slj_limpeza_fotos',agora.toString());
+  }catch(e){
+    console.error('[LIMPEZA] Erro ao limpar fotos antigas:',e);
+  }
+}
+
 function iniciarSistema(){
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
   pedidos=load('slj_ped_bk',[]).filter(p=>p.data===hojeKey);
@@ -5841,7 +5879,7 @@ function iniciarSistema(){
     // Ir direto para a aba que estava ativa
     setTab(abaAtiva);
   });
-  setInterval(sincronizar,120000);
+  setInterval(sincronizar,300000); // 5 minutos — equilíbrio entre atualização e economia de egress
 }
 
 function iniciarSistemaEntregador(){
@@ -5854,7 +5892,7 @@ function iniciarSistemaEntregador(){
     setTab('rota');
     renderRota();
   });
-  setInterval(sincronizar,120000);
+  setInterval(sincronizar,300000); // 5 minutos — equilíbrio entre atualização e economia de egress
 }
 
 function renderEntregador(){
@@ -5902,10 +5940,7 @@ async function entregadorConfirmarEntrega(i){
 }
 
 // INIT — abre imediatamente, sincroniza em segundo plano
-// Auto-sync a cada 30 segundos
-setInterval(()=>{
-  if(perfilAtual) sincronizar();
-}, 15000);
+// (sync automática já configurada nos blocos de login/restauração de sessão acima, a cada 5 minutos)
 (function(){
   const sessao=localStorage.getItem('slj_perfil_sessao');
   if(sessao==='admin'){
