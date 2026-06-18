@@ -1757,10 +1757,11 @@ async function sincronizar(){
       if(dbRota&&dbRota.length){
         const parsed=JSON.parse(dbRota[0].access_token||'{}');
         const ordemBanco=Array.isArray(parsed)?parsed:(parsed.ordem||[]);
+        const ordemBancoNum=ordemBanco.map(id=>typeof id==='string'?parseInt(id):id);
         const bancoTs=parsed.ts||0;
         const localTs=parseInt(localStorage.getItem('slj_rota_ts')||'0');
-        if(ordemBanco.length>0&&bancoTs>=localTs){
-          rotaOrdem=ordemBanco;
+        if(ordemBancoNum.length>0&&bancoTs>=localTs){
+          rotaOrdem=ordemBancoNum;
           lsave('slj_rota_ordem',rotaOrdem);
           localStorage.setItem('slj_rota_ts',bancoTs.toString());
         }
@@ -1770,8 +1771,8 @@ async function sincronizar(){
     }
     if(!rotaOrdem.length) rotaOrdem=[...listaRotaIds];
     else{
-      listaRotaIds.forEach(id=>{if(!rotaOrdem.includes(id))rotaOrdem.push(id);});
-      rotaOrdem=rotaOrdem.filter(id=>listaRotaIds.includes(id));
+      listaRotaIds.forEach(id=>{if(!rotaOrdem.some(x=>String(x)===String(id)))rotaOrdem.push(id);});
+      rotaOrdem=rotaOrdem.filter(id=>listaRotaIds.some(x=>String(x)===String(id)));
     }
     // Migrar dados locais para o banco se existirem e banco estiver vazio
     try{
@@ -3237,8 +3238,9 @@ function distKm(la1,ln1,la2,ln2){
 
 function moverPedidoRota(pedidoId,direcao){
   const arr=[...rotaOrdem];
-  const idx=arr.indexOf(pedidoId);
-  if(idx===-1)return;
+  // Comparação tolerante a tipo (string vs number)
+  const idx=arr.findIndex(id=>String(id)===String(pedidoId));
+  if(idx===-1){console.error('Pedido não encontrado na rotaOrdem:',pedidoId,arr);toast('Erro ao mover. Tente recarregar a página.');return;}
   const novoIdx=idx+direcao;
   if(novoIdx<0||novoIdx>=arr.length)return; // já está no limite
   // Trocar posições
@@ -3382,9 +3384,9 @@ function renderRota(){
   const listaFiltrada=viagemFiltro>0?listaRota.filter(p=>viagens[p.id]===viagemFiltro):listaRota;
   // Inicializar rotaOrdem se vazio
   if(!rotaOrdem.length){rotaOrdem=listaRota.map(p=>p.id);}
-  listaRota.forEach(p=>{if(!rotaOrdem.includes(p.id))rotaOrdem.push(p.id);});
+  listaRota.forEach(p=>{if(!rotaOrdem.some(x=>String(x)===String(p.id)))rotaOrdem.push(p.id);});
   // Ordenar pela rotaOrdem
-  const listaOrdenada=rotaOrdem.map(id=>listaFiltrada.find(p=>p.id===id)).filter(Boolean);
+  const listaOrdenada=rotaOrdem.map(id=>listaFiltrada.find(p=>String(p.id)===String(id))).filter(Boolean);
   const pendentes=listaOrdenada.filter(p=>!p.entregue&&!p.naoEntregue);
   const entreguesList=listaFiltrada.filter(p=>p.entregue);
   const naoEntreguesList=listaFiltrada.filter(p=>p.naoEntregue&&!p.entregue);
@@ -3567,7 +3569,7 @@ function touchEnd(e){
     const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
     const allIds=listaRota.map(p=>p.id);
     if(!rotaOrdem.length)rotaOrdem=[...allIds];
-    allIds.forEach(id=>{if(!rotaOrdem.includes(id))rotaOrdem.push(id);});
+    allIds.forEach(id=>{if(!rotaOrdem.some(x=>String(x)===String(id)))rotaOrdem.push(id);});
     const arr=[...rotaOrdem];
     const fi=arr.indexOf(parseInt(dragId));
     const ti=arr.indexOf(parseInt(targetId));
@@ -3594,18 +3596,17 @@ function dragDrop(e){
   const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
   const allIds=listaRota.map(p=>p.id);
   if(!rotaOrdem.length) rotaOrdem=[...allIds];
-  allIds.forEach(id=>{if(!rotaOrdem.includes(id))rotaOrdem.push(id);});
+  allIds.forEach(id=>{if(!rotaOrdem.some(x=>String(x)===String(id)))rotaOrdem.push(id);});
   const arr=[...rotaOrdem];
-  const fi=arr.indexOf(parseInt(dragId));
-  const ti=arr.indexOf(parseInt(targetId));
+  const fi=arr.findIndex(x=>String(x)===String(dragId));
+  const ti=arr.findIndex(x=>String(x)===String(targetId));
   if(fi===-1||ti===-1)return;
   const [moved]=arr.splice(fi,1);
   arr.splice(ti,0,moved);
   rotaOrdem=arr;
-  lsave('slj_rota_ordem',rotaOrdem);
-  // Salvar no banco para sincronizar entre dispositivos
-  
+  salvarRotaOrdemBanco();
   renderRota();
+  toast('✓ Ordem atualizada.');
 }
 function toggleRotaCheck(id){
   const _dk=getRotaDataKey();
@@ -3639,7 +3640,7 @@ function imprimirRota(){
   if(!lista.length){toast('Nenhum pedido nesta data.');return;}
 
   // Ordenar conforme rotaOrdem
-  const pendentes=rotaOrdem.map(id=>lista.find(p=>p.id===id)).filter(p=>p&&!p.entregue&&!p.naoEntregue);
+  const pendentes=rotaOrdem.map(id=>lista.find(p=>String(p.id)===String(id))).filter(p=>p&&!p.entregue&&!p.naoEntregue);
   const entregues=lista.filter(p=>p.entregue);
   const naoEnt=lista.filter(p=>p.naoEntregue&&!p.entregue);
   const listaOrdenada=[...pendentes,...entregues,...naoEnt];
@@ -5791,8 +5792,8 @@ function renderEntregador(){
     el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido lançado hoje.</p></div>';
     return;
   }
-  const ordered=rotaOrdem.map(id=>pedidos.find(p=>p.id===id)).filter(Boolean);
-  const unordered=pedidos.filter(p=>!rotaOrdem.includes(p.id));
+  const ordered=rotaOrdem.map(id=>pedidos.find(p=>String(p.id)===String(id))).filter(Boolean);
+  const unordered=pedidos.filter(p=>!rotaOrdem.some(x=>String(x)===String(p.id)));
   const lista=[...ordered,...unordered];
   el.innerHTML=lista.map((p,i)=>{
     const c=clientes.find(x=>x.id===p.clienteId)||{};
