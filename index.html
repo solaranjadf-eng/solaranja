@@ -641,7 +641,10 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- GRÁFICO: Volume mensal do ano -->
   <div class="card" style="margin-bottom:12px">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">📊 Faturamento mensal — <span id="chart-ano-label"></span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">📊 Faturamento mensal — <span id="chart-ano-label"></span></div>
+      <div id="dash-crescimento-badge" style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:5px"></div>
+    </div>
     <div style="position:relative;height:180px">
       <canvas id="chart-fat-mensal"></canvas>
     </div>
@@ -689,13 +692,24 @@ a{color:var(--orange);text-decoration:none}
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
           <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">👤 Colaboradores</div>
           <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-colab">R$ 0</div>
+          <div style="font-size:10px;color:var(--text3)" id="dash-custo-fabio-sub"></div>
         </div>
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
           <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">🚚 Entregador</div>
           <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-entregador">R$ 0</div>
         </div>
+        <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
+          <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">💰 Gastos Aleatórios</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-aleatorio">R$ 0</div>
+        </div>
       </div>
     </div>
+  </div>
+
+  <!-- GRÁFICO: Margem de lucro por embalagem -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">📐 Margem de lucro por embalagem — <span id="dash-margem-periodo"></span></div>
+    <div id="dash-margem-lista"></div>
   </div>
 
   <!-- GRÁFICO: Garrafas por embalagem hoje -->
@@ -2038,6 +2052,12 @@ function renderDash(){
   const gastoGas=opMes.filter(c=>c.cat.startsWith('gasolina')).reduce((s,c)=>s+(c.valor||0),0);
   const gastoColab=opMes.filter(c=>c.cat.startsWith('colaborador')).reduce((s,c)=>s+(c.valor||0),0);
   const gastoEntregador=opMes.filter(c=>c.cat==='entregador').reduce((s,c)=>s+(c.valor||0),0);
+  // Gastos aleatórios = tudo que não é gasolina, colaborador ou entregador (energia, manutenção, diverso, etc)
+  const catsConhecidas=['gasolina','gasolina-visita','gasolina-entrega','entregador'];
+  const gastoAleatorio=opMes.filter(c=>!catsConhecidas.includes(c.cat)&&!c.cat.startsWith('colaborador')&&!c.cat.startsWith('gasolina')).reduce((s,c)=>s+(c.valor||0),0);
+  // Pagamento do Fábio (colaborador entregador) — soma das semanas do mês
+  const fabio=colaboradores.find(c=>c.nome.toLowerCase().includes('fábio')||c.nome.toLowerCase().includes('fabio'));
+  const gastoFabio=fabio?pagamentosColab.filter(p=>p.colabId===fabio.id&&p.dataSemana&&p.dataSemana.startsWith(mesAtual)).reduce((s,p)=>s+(p.total||0),0):0;
 
   // Custo de produção (custo unitário × qtd vendida)
   const todosM=[...pedidos,...pedidosOntem,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
@@ -2047,12 +2067,12 @@ function renderDash(){
   const custoProdMes=TAMS.reduce((s,t)=>s+getCustoTotal(t)*qtdMes[t],0);
 
   const fatMes=pedidosMes.reduce((s,p)=>s+p.total,0);
-  // Lucro líquido = Faturamento − Custo produção − Custos operacionais (sem embalagem, já no prod)
-  const lucroLiquido=fatMes-custoProdMes-custoOpMes;
+  // Lucro líquido = Faturamento − Custo produção − Custos operacionais − Pagamento Fábio (sem embalagem, já no prod)
+  const lucroLiquido=fatMes-custoProdMes-custoOpMes-gastoFabio;
 
   if(el('dash-fat-mes'))       el('dash-fat-mes').textContent=moeda(fatMes);
   if(el('dash-custo-prod'))    el('dash-custo-prod').textContent=moeda(custoProdMes);
-  if(el('dash-custo-mes'))     el('dash-custo-mes').textContent=moeda(custoOpMes);
+  if(el('dash-custo-mes'))     el('dash-custo-mes').textContent=moeda(custoOpMes+gastoFabio);
   if(el('dash-lucro-mes')){
     el('dash-lucro-mes').textContent=moeda(lucroLiquido);
     el('dash-lucro-mes').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
@@ -2066,8 +2086,43 @@ function renderDash(){
   if(el('dash-custo-laranja'))     el('dash-custo-laranja').textContent=moeda(gastoLar);
   if(el('dash-custo-laranja-sub')) el('dash-custo-laranja-sub').textContent=sacosMes+' saco(s)';
   if(el('dash-custo-gas'))         el('dash-custo-gas').textContent=moeda(gastoGas);
-  if(el('dash-custo-colab'))       el('dash-custo-colab').textContent=moeda(gastoColab);
+  if(el('dash-custo-colab'))       el('dash-custo-colab').textContent=moeda(gastoColab+gastoFabio);
   if(el('dash-custo-entregador'))  el('dash-custo-entregador').textContent=moeda(gastoEntregador);
+  if(el('dash-custo-aleatorio'))   el('dash-custo-aleatorio').textContent=moeda(gastoAleatorio);
+  if(el('dash-custo-fabio-sub'))   el('dash-custo-fabio-sub').textContent=gastoFabio>0?'(inclui Fábio: '+moeda(gastoFabio)+')':'';
+
+  // Margem de lucro por embalagem — usa preço real de cada pedido (varia por cliente)
+  if(el('dash-margem-lista')){
+    const receitaPorTam={},qtdPorTam={};
+    TAMS.forEach(t=>{receitaPorTam[t]=0;qtdPorTam[t]=0;});
+    lista.forEach(p=>p.itens.forEach(it=>{
+      const preco=(p.precos||{})[it.tam]||0;
+      receitaPorTam[it.tam]+=preco*it.qtd;
+      qtdPorTam[it.tam]+=it.qtd;
+    }));
+    const periodoLbl=el('dash-margem-periodo');
+    const labelsM={'hoje':'Hoje','mes':'Este mês','ano':'Ano todo'};
+    if(periodoLbl) periodoLbl.textContent=labelsM[dashPeriodo]||'Período selecionado';
+    const ativosMargem=TAMS.filter(t=>qtdPorTam[t]>0);
+    el('dash-margem-lista').innerHTML=ativosMargem.length?ativosMargem.map(t=>{
+      const custoUnit=getCustoTotal(t);
+      const precoMedio=receitaPorTam[t]/qtdPorTam[t];
+      const margemUnit=precoMedio-custoUnit;
+      const margemPct=precoMedio>0?(margemUnit/precoMedio*100):0;
+      const margemTotal=margemUnit*qtdPorTam[t];
+      const cor=margemPct>=30?'var(--green)':margemPct>=15?'var(--orange)':'var(--red)';
+      return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--text)">${TL[t]}</div>
+          <div style="font-size:10px;color:var(--text3)">Custo ${moeda(custoUnit)} · Venda média ${moeda(precoMedio)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:14px;font-weight:700;color:${cor}">${margemPct.toFixed(0)}%</div>
+          <div style="font-size:10px;color:var(--text3)">${moeda(margemTotal)} total</div>
+        </div>
+      </div>`;
+    }).join(''):'<div style="font-size:13px;color:var(--text3)">Sem vendas no período</div>';
+  }
 
   // Mix embalagens
   const mixEmb={};TAMS.forEach(t=>mixEmb[t]=0);
@@ -2161,6 +2216,32 @@ function renderGraficoDash(lista){
       const cores=meses.map((_,i)=>i===mesAtualIdx?'rgba(224,122,47,.95)':'rgba(224,122,47,.4)');
       const lbl=document.getElementById('chart-ano-label');
       if(lbl) lbl.textContent=anoAtual;
+
+      // Crescimento % — compara faturamento do mês atual (até hoje) vs mesmo período do mês anterior
+      const diaAtual=parseInt(hojeKey.slice(8,10));
+      const dataMesAnterior=new Date(hoje);dataMesAnterior.setMonth(dataMesAnterior.getMonth()-1);
+      const anoMesAnt=dataMesAnterior.getFullYear();
+      const mesMesAnt=String(dataMesAnterior.getMonth()+1).padStart(2,'0');
+      const prefixMesAnt=`${anoMesAnt}-${mesMesAnt}`;
+      const fatMesAnteriorAteHoje=todos.filter(p=>{
+        if(!p.data||!p.data.startsWith(prefixMesAnt))return false;
+        const diaP=parseInt(p.data.slice(8,10));
+        return diaP<=diaAtual;
+      }).reduce((s,p)=>s+p.total,0);
+      const fatMesAtualAteHoje=fatsMes[mesAtualIdx];
+      const badgeEl=document.getElementById('dash-crescimento-badge');
+      if(badgeEl){
+        if(fatMesAnteriorAteHoje>0){
+          const pct=((fatMesAtualAteHoje-fatMesAnteriorAteHoje)/fatMesAnteriorAteHoje*100);
+          const positivo=pct>=0;
+          badgeEl.textContent=(positivo?'▲ +':'▼ ')+Math.abs(pct).toFixed(1)+'% vs mês anterior';
+          badgeEl.style.background=positivo?'var(--green-bg)':'var(--red-bg)';
+          badgeEl.style.color=positivo?'var(--green)':'var(--red)';
+        }else{
+          badgeEl.textContent='';
+        }
+      }
+
       window._chartFatMensal=new Chart(ctx2,{
         type:'bar',
         data:{labels:meses,datasets:[{label:'Faturamento',data:fatsMes,backgroundColor:cores,borderRadius:4}]},
