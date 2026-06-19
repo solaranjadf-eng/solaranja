@@ -2833,9 +2833,16 @@ async function confirmar(){
     const obj=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
     pedidos.push(obj);rotaOrdem.push(obj.id);
     lsave('slj_ped_bk',pedidos);
+    lsave('slj_rota_ordem',rotaOrdem);
     pedidoSalvo=true;
+    registrarAtividadePedido(); // Ativa sync a cada 5s por 20 minutos
     setSyncStatus('ok','Sincronizado — nuvem ativa');
     toast('✓ Pedido de '+sel.nome+' confirmado.');
+    atualizarBadges();verificarAlertasEstoque();
+    // Atualizar Rota imediatamente sem precisar esperar sync
+    if(document.getElementById('page-rota')?.classList.contains('active')) renderRota();
+    // Salvar ordem no banco para outros dispositivos verem imediatamente
+    salvarRotaOrdemBanco();
     atualizarBadges();verificarAlertasEstoque();
     // Reset data entrega para amanhã
     dataEntregaSel='amanha';
@@ -3194,6 +3201,7 @@ function confirmarEntrega(){
   // Salvar no localStorage imediatamente
   lsave('slj_ped_bk',pedidos);
   lsave('slj_ped_ontem_bk',pedidosOntem);
+  registrarAtividadePedido(); // Ativa sync a cada 5s
 
   // Limpar estado e fechar modal
   fotoEntregaIdx=null;
@@ -6033,7 +6041,11 @@ function iniciarSistema(){
     // Ir direto para a aba que estava ativa
     setTab(abaAtiva);
   });
-  setInterval(sincronizar,300000); // 5 minutos — equilíbrio entre atualização e economia de egress
+  setInterval(sincronizar,300000); // 5 minutos — sync completa
+  // Sync adaptativa: começa em modo inativo (30s), acelera para 5s quando há atividade
+  _syncRapidoTimer=setInterval(sincronizarRapido,30000);
+  // Se já há pedidos hoje, inicia em modo ativo imediatamente
+  if(pedidos.length>0) registrarAtividadePedido();
 }
 
 function iniciarSistemaEntregador(){
@@ -6046,7 +6058,9 @@ function iniciarSistemaEntregador(){
     setTab('rota');
     renderRota();
   });
-  setInterval(sincronizar,300000); // 5 minutos — equilíbrio entre atualização e economia de egress
+  setInterval(sincronizar,300000); // 5 minutos — sync completa
+  // Entregador: sync adaptativa igual, mas começa ativa se já houver pedidos
+  _syncRapidoTimer=setInterval(sincronizarRapido,30000);
 }
 
 function renderEntregador(){
@@ -6093,8 +6107,70 @@ async function entregadorConfirmarEntrega(i){
   const orig=window._origConfirmar;
 }
 
-// INIT — abre imediatamente, sincroniza em segundo plano
-// (sync automática já configurada nos blocos de login/restauração de sessão acima, a cada 5 minutos)
+// ── SYNC ADAPTATIVA ────────────────────────────────────────────────────────
+// 5s quando há pedidos recentes (últimos 20min), 30s quando inativo
+let _ultimoPedidoCriado=0;
+let _syncRapidoTimer=null;
+
+function registrarAtividadePedido(){
+  _ultimoPedidoCriado=Date.now();
+  iniciarSyncAdaptativa();
+}
+
+function iniciarSyncAdaptativa(){
+  if(_syncRapidoTimer) clearInterval(_syncRapidoTimer);
+  // Começa em 5 segundos
+  _syncRapidoTimer=setInterval(()=>{
+    const inativo=Date.now()-_ultimoPedidoCriado>20*60*1000; // 20 minutos sem novo pedido
+    if(inativo){
+      // Desacelera para 30 segundos
+      clearInterval(_syncRapidoTimer);
+      _syncRapidoTimer=setInterval(sincronizarRapido,30000);
+      console.log('[SYNC] Modo inativo — sync a cada 30s');
+    }
+    sincronizarRapido();
+  },5000);
+  console.log('[SYNC] Modo ativo — sync a cada 5s');
+}
+
+// Sync rápida — só pedidos de hoje e ontem (sem histórico, sem fotos, sem outros dados)
+async function sincronizarRapido(){
+  if(!perfilAtual)return;
+  try{
+    const [dbP,dbPOntem]=await Promise.all([
+      sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`),
+      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`)
+    ]);
+    let atualizado=false;
+    if(dbP&&dbP.length>=0){
+      const novos=dbP.map(mapPedido);
+      const mudou=novos.length!==pedidos.length||novos.some(n=>{
+        const local=pedidos.find(p=>String(p.id)===String(n.id));
+        return !local||local.entregue!==n.entregue||local.pago!==n.pago;
+      });
+      if(mudou){
+        novos.forEach(n=>{const local=pedidos.find(p=>String(p.id)===String(n.id));if(local?.foto)n.foto=local.foto;});
+        pedidos=novos;lsave('slj_ped_bk',pedidos);atualizado=true;
+      }
+    }
+    if(dbPOntem&&dbPOntem.length>=0){
+      const novosOntem=dbPOntem.map(mapPedido);
+      const mudouOntem=novosOntem.length!==pedidosOntem.length||novosOntem.some(n=>{
+        const local=pedidosOntem.find(p=>String(p.id)===String(n.id));
+        return !local||local.entregue!==n.entregue||local.pago!==n.pago;
+      });
+      if(mudouOntem){
+        novosOntem.forEach(n=>{const local=pedidosOntem.find(p=>String(p.id)===String(n.id));if(local?.foto)n.foto=local.foto;});
+        pedidosOntem=novosOntem;lsave('slj_ped_ontem_bk',pedidosOntem);atualizado=true;
+      }
+    }
+    if(atualizado){
+      atualizarBadges();
+      if(document.getElementById('page-rota')?.classList.contains('active')) renderRota();
+      if(document.getElementById('page-dia')?.classList.contains('active')) renderDia();
+    }
+  }catch(e){}
+}
 (function(){
   const sessao=localStorage.getItem('slj_perfil_sessao');
   if(sessao==='admin'){
