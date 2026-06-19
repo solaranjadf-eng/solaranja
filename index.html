@@ -676,6 +676,16 @@ a{color:var(--orange);text-decoration:none}
         <div style="font-size:15px;font-weight:700" id="dash-lucro-mes">R$ 0</div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px" id="dash-lucro-sub"></div>
       </div>
+      <div style="text-align:center;background:var(--green-bg);border-radius:var(--radius);padding:10px;border:1px solid #B8DFC8">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Lucro após Imposto</div>
+        <div style="font-size:15px;font-weight:700;color:var(--green)" id="dash-lucro-pos-imposto">R$ 0</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px;display:flex;align-items:center;justify-content:center;gap:4px">
+          <input type="number" id="dash-aliquota" step="0.1" min="0" max="100" placeholder="%" 
+            style="width:44px;height:20px;font-size:11px;border:1px solid var(--border2);border-radius:3px;padding:0 4px;text-align:center"
+            onchange="recalcularImpostoLucro()" value="">
+          <span>% Simples</span>
+        </div>
+      </div>
     </div>
     <div style="border-top:1px solid var(--border);padding-top:10px">
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Detalhamento</div>
@@ -2012,6 +2022,20 @@ function verificarAniversarios(){
   alertasEl.prepend(aviso);
 }
 
+function recalcularImpostoLucro(){
+  const aliquota=parseFloat(document.getElementById('dash-aliquota')?.value)||0;
+  lsave('slj_aliquota_simples',aliquota);
+  const lucro=parseFloat(document.getElementById('dash-lucro-mes')?.dataset.valor)||0;
+  const fatMesEl=parseFloat(document.getElementById('dash-fat-mes')?.dataset.valor)||0;
+  const imposto=fatMesEl*(aliquota/100);
+  const lucroPos=lucro-imposto;
+  const el2=document.getElementById('dash-lucro-pos-imposto');
+  if(el2){
+    el2.textContent=moeda(lucroPos);
+    el2.style.color=lucroPos>=0?'var(--green)':'var(--red)';
+  }
+}
+
 function renderDash(){
   const h=hoje.getHours();
   const sd=document.getElementById('dash-saudacao');if(sd)sd.textContent=(h<12?'Bom dia':h<18?'Boa tarde':'Boa noite')+'!';
@@ -2110,11 +2134,24 @@ function renderDash(){
   if(el('dash-lucro-mes')){
     el('dash-lucro-mes').textContent=moeda(lucroLiquido);
     el('dash-lucro-mes').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
+    el('dash-lucro-mes').dataset.valor=lucroLiquido;
   }
   if(el('dash-lucro-sub'))     el('dash-lucro-sub').textContent=lucroLiquido>=0?'✓ Lucro':'⚠ Prejuízo';
   if(el('dash-lucro-badge')){
     el('dash-lucro-badge').textContent=moeda(lucroLiquido);
     el('dash-lucro-badge').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
+  }
+  // Lucro após imposto
+  const aliquota=load('slj_aliquota_simples',0);
+  const aliqInp=document.getElementById('dash-aliquota');
+  if(aliqInp&&!aliqInp.value&&aliquota>0) aliqInp.value=aliquota;
+  const fatMesEl2=document.getElementById('dash-fat-mes');
+  if(fatMesEl2) fatMesEl2.dataset.valor=fatMes;
+  const imposto=fatMes*(aliquota/100);
+  const lucroPos=lucroLiquido-imposto;
+  if(el('dash-lucro-pos-imposto')){
+    el('dash-lucro-pos-imposto').textContent=moeda(lucroPos);
+    el('dash-lucro-pos-imposto').style.color=lucroPos>=0?'var(--green)':'var(--red)';
   }
   // Detalhamento
   if(el('dash-custo-laranja'))     el('dash-custo-laranja').textContent=moeda(gastoLar);
