@@ -1496,6 +1496,22 @@ a{color:var(--orange);text-decoration:none}
   </div>
 </div>
 
+<!-- MODAL INSERIR FOTO DEPOIS -->
+<div class="modal-bg" id="modal-inserir-foto">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📷 Inserir Foto da Entrega</div>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:12px" id="inserir-foto-nome"></p>
+    <input type="file" id="inserir-foto-input" accept="image/*" capture="environment" style="display:none" onchange="inserirFotoSelecionada()">
+    <button class="btn btn-outline btn-full" onclick="document.getElementById('inserir-foto-input').click()" style="margin-bottom:10px">📷 Escolher Foto</button>
+    <img id="inserir-foto-preview" class="foto-preview">
+    <div class="action-row" style="margin-top:12px">
+      <button class="btn btn-outline" onclick="fecharModal('inserir-foto')" style="flex:1">Cancelar</button>
+      <button class="btn btn-green" onclick="salvarFotoInserida()" style="flex:2" id="btn-salvar-foto-inserida" disabled>✓ Salvar Foto</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL VER FOTO ENTREGA -->
 <div class="modal-bg" id="modal-ver-foto">
   <div class="modal-box" style="text-align:center">
@@ -2931,7 +2947,7 @@ function renderDia(){
             (!p.entregue?`<button class="psm psm-entrega" onclick="abrirFoto(${i})">Entregue</button>`:`<button class="psm psm-entregue">✓</button>`)
             +(p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPago(${i})">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
-            +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:'')
+            +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:(p.entregue?`<button class="psm" style="background:var(--bg);color:var(--text3);border:1px dashed var(--border2)" onclick="abrirInserirFoto(${p.id})">+📷</button>`:''))
             +(['admin','gerente'].includes(perfilAtual)?`<button class="psm psm-edit" onclick="abrirModalEdit(${i})">Editar</button>`:'')
             +`<button class="psm psm-wpp" onclick="enviarWhats(${i})">WPP</button>`
             +(perfilAtual==='admin'?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="emitirNFe(${i})">NF-e</button>`:'')
@@ -2939,7 +2955,7 @@ function renderDia(){
           ):(
             (p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPagoHistorico(${p.id},'${dataSel}')">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
-            +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:'')
+            +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:(p.entregue?`<button class="psm" style="background:var(--bg);color:var(--text3);border:1px dashed var(--border2)" onclick="abrirInserirFoto(${p.id})">+📷</button>`:''))
             +(['admin','gerente'].includes(perfilAtual)?`<button class="psm psm-edit" onclick="abrirModalEditHist(${p.id},'${dataSel}')">Editar</button>`:'')
             +`<button class="psm psm-wpp" onclick="enviarWhats(-1,'${dataSel}',${p.id})">WPP</button>`
             +`<button class="psm psm-del" onclick="delPedidoUniversal(${p.id},'${dataSel}')">✕</button>`
@@ -3014,10 +3030,16 @@ async function delPedidoRota(id){
   try{
     await sbDel('pedidos',`?id=eq.${id}`);
     // Remover dos arrays locais
-    const io=pedidosOntem.findIndex(x=>x.id===id);
+    const io=pedidosOntem.findIndex(x=>String(x.id)===String(id));
     if(io!==-1) pedidosOntem.splice(io,1);
-    const ip=pedidos.findIndex(x=>x.id===id);
-    if(ip!==-1){pedidos.splice(ip,1);rotaOrdem=rotaOrdem.filter(rid=>rid!==id);}
+    const ip=pedidos.findIndex(x=>String(x.id)===String(id));
+    if(ip!==-1){pedidos.splice(ip,1);}
+    rotaOrdem=rotaOrdem.filter(rid=>String(rid)!==String(id));
+    // Remover do historico se for pedido de data anterior
+    Object.values(historico).forEach(arr=>{
+      const ih=arr.findIndex(x=>String(x.id)===String(id));
+      if(ih!==-1) arr.splice(ih,1);
+    });
     lsave('slj_ped_bk',pedidos);
     lsave('slj_ped_ontem_bk',pedidosOntem);
     setSyncStatus('ok','Sincronizado — nuvem ativa');
@@ -3047,7 +3069,7 @@ function abrirEntregues(){
             <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.hora} · Entregue às ${p.horaEntrega||'—'}</div>
             <div style="font-size:12px;color:var(--text2);margin-top:4px">${p.itens.map(it=>TL[it.tam]+' × '+it.qtd).join(' · ')} · ${moeda(p.total)}</div>
           </div>
-          ${p.foto?`<button class="psm" style="background:var(--blue-light);color:var(--blue);margin-left:8px;flex-shrink:0" onclick="verFotoEntrega(${p.id})">📷 Foto</button>`:'<span style="font-size:11px;color:var(--text3);margin-left:8px;flex-shrink:0">Sem foto</span>'}
+          ${p.foto?`<button class="psm" style="background:var(--blue-light);color:var(--blue);margin-left:8px;flex-shrink:0" onclick="verFotoEntrega(${p.id})">📷 Foto</button>`:`<button class="psm" style="background:var(--bg);color:var(--text3);border:1px dashed var(--border2);margin-left:8px;flex-shrink:0" onclick="abrirInserirFoto(${p.id})">+ Foto</button>`}
         </div>
       </div>`).join('');
   }
@@ -3083,6 +3105,56 @@ function abrirFoto(i){
   document.getElementById('btn-confirmar-entrega').disabled=false;
   document.getElementById('modal-foto').classList.add('open');
 }
+// ── INSERIR FOTO DEPOIS (quando entregador esqueceu) ───────────────────────
+let _inserirFotoPedidoId=null;
+let _inserirFotoBase64=null;
+
+function abrirInserirFoto(pedidoId){
+  _inserirFotoPedidoId=pedidoId;
+  _inserirFotoBase64=null;
+  let ped=pedidos.find(p=>p.id===pedidoId)||pedidosOntem.find(p=>p.id===pedidoId);
+  if(!ped) Object.values(historico).forEach(d=>d.forEach(p=>{if(p.id===pedidoId)ped=p;}));
+  document.getElementById('inserir-foto-nome').textContent=ped?ped.clienteNome+' — entregue '+(ped.horaEntrega||''):'';
+  const img=document.getElementById('inserir-foto-preview');
+  img.style.display='none';img.src='';
+  document.getElementById('btn-salvar-foto-inserida').disabled=true;
+  document.getElementById('modal-inserir-foto').classList.add('open');
+}
+
+function inserirFotoSelecionada(){
+  const file=document.getElementById('inserir-foto-input').files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    _inserirFotoBase64=e.target.result;
+    const img=document.getElementById('inserir-foto-preview');
+    img.src=_inserirFotoBase64;img.style.display='block';
+    document.getElementById('btn-salvar-foto-inserida').disabled=false;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function salvarFotoInserida(){
+  if(!_inserirFotoPedidoId||!_inserirFotoBase64){toast('Selecione uma foto primeiro.');return;}
+  let ped=pedidos.find(p=>p.id===_inserirFotoPedidoId)||pedidosOntem.find(p=>p.id===_inserirFotoPedidoId);
+  if(!ped) Object.values(historico).forEach(d=>d.forEach(p=>{if(p.id===_inserirFotoPedidoId)ped=p;}));
+  if(!ped){toast('Pedido não encontrado.');return;}
+
+  ped.foto=_inserirFotoBase64;
+  lsave('slj_ped_bk',pedidos);
+  lsave('slj_ped_ontem_bk',pedidosOntem);
+
+  try{
+    await sbPatch('pedidos',`?id=eq.${_inserirFotoPedidoId}`,{foto:_inserirFotoBase64});
+    toast('✓ Foto adicionada com sucesso.');
+  }catch(e){
+    toast('Foto salva localmente, mas houve erro ao sincronizar.');
+  }
+
+  fecharModal('inserir-foto');
+  renderDia();
+}
+
 function fotoSelecionada(){
   const file=document.getElementById('foto-input').files[0];
   if(!file)return;
@@ -3616,8 +3688,8 @@ function renderRota(){
           style="width:36px;height:36px;border-radius:50%;border:2px solid ${p.naoEntregue?'var(--red)':'var(--border2)'};background:${p.naoEntregue?'var(--red)':'var(--white)'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;font-weight:700;color:${p.naoEntregue?'white':'var(--text3)'}">
           ✗
         </div>`:''}
-        <!-- Botão remover — só admin -->
-        ${perfilAtual==='admin'?`<div onclick="delPedidoRota(${p.id})"
+        <!-- Botão remover — admin e gerente -->
+        ${['admin','gerente'].includes(perfilAtual)?`<div onclick="delPedidoRota(${p.id})"
           title="Remover pedido"
           style="width:36px;height:36px;border-radius:50%;border:2px solid var(--border2);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:var(--text3)">
           🗑
