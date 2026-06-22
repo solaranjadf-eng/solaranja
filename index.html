@@ -3981,15 +3981,16 @@ function abrirExtrato(){
   const pendentes=ordemDestaData.map(id=>listaRota.find(p=>String(p.id)===String(id))).filter(p=>p&&!p.entregue&&!p.naoEntregue);
 
   const data=new Date(_dk+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
-  let texto=`🍊 *SÓ LARANJA — ROTA DO DIA*\n`;
+  let texto=`🍊 SÓ LARANJA — ROTA DO DIA\n`;
   texto+=`📅 ${data}\n\n`;
 
   pendentes.forEach((p,i)=>{
     const cliente=clientes.find(c=>c.id===p.clienteId);
     const nome=cliente?.apelido||cliente?.nome||p.clienteNome;
+    const TL_CURTO={'200ml':'200ml','300ml':'300ml','500ml':'500ml','1L':'1L','5L':'5L'};
     const itensOrdenados=[...p.itens].sort((a,b)=>TAMS.indexOf(a.tam)-TAMS.indexOf(b.tam));
-    const itens=itensOrdenados.map(it=>`${it.qtd} (${TL[it.tam]})`).join(', ');
-    texto+=`${i+1}. ${nome}: ${itens}\n`;
+    const itens=itensOrdenados.map(it=>`${it.qtd}(${TL_CURTO[it.tam]||it.tam})`).join(',');
+    texto+=`📍${nome}: ${itens}\n`;
   });
 
   texto+=`\n📦 Total: ${pendentes.length} entregas`;
