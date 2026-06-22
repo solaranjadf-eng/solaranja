@@ -2920,7 +2920,7 @@ async function confirmar(){
   setSyncStatus('loading','Salvando...');
   let pedidoSalvo=false;
   try{
-    const numeroPedido = getNextNumeroPedido();
+    const numeroPedido = await getNextNumeroPedido();
     const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido}]);
     const ped=Array.isArray(res)?res[0]:res;
     const obj=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
@@ -5064,11 +5064,21 @@ function renderFinItem(p,dataKey){
 
 
 // ── NÚMERO DO PEDIDO ───────────────────────────────────────────────────────
-function getNextNumeroPedido(){
-  const atual = parseInt(localStorage.getItem('slj_num_pedido')||'5000');
-  const proximo = atual + 1;
-  localStorage.setItem('slj_num_pedido', proximo);
-  return proximo;
+async function getNextNumeroPedido(){
+  try{
+    // Busca o maior numero_pedido já usado no banco — fonte de verdade única
+    const res=await sbGet('pedidos','?select=numero_pedido&order=numero_pedido.desc&limit=1');
+    const ultimo=res&&res.length&&res[0].numero_pedido?parseInt(res[0].numero_pedido):5000;
+    const proximo=ultimo+1;
+    localStorage.setItem('slj_num_pedido',proximo);
+    return proximo;
+  }catch(e){
+    // Fallback para localStorage se banco falhar
+    const atual=parseInt(localStorage.getItem('slj_num_pedido')||'5000');
+    const proximo=atual+1;
+    localStorage.setItem('slj_num_pedido',proximo);
+    return proximo;
+  }
 }
 
 // ── FINANCEIRO — ABAS ──────────────────────────────────────────────────────
@@ -5552,7 +5562,7 @@ async function salvarPedidoRetroativo(){
   if(!itens.length){toast('Adicione ao menos um item.');return;}
   const total = itens.reduce((s,i)=>s+i.preco*i.qtd,0);
   const hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  const numeroPedido = getNextNumeroPedido();
+  const numeroPedido = await getNextNumeroPedido();
   try{
     const res = await sbPost('pedidos',[{
       cliente_id:novoFinCliSelecionado.id,
