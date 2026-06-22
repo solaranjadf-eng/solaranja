@@ -5389,6 +5389,14 @@ function gerarPDFCliente(){
   doc.text('Pedidos',M,y);
   y+=2;
 
+  // Total por embalagem para rodapé
+  const totaisEmb={};
+  pedsCli.forEach(p=>p.itens.forEach(it=>{totaisEmb[it.tam]=(totaisEmb[it.tam]||0)+it.qtd;}));
+  const embResumo=TAMS.filter(t=>totaisEmb[t]>0).map(t=>{
+    const nomeEmb=t==='5L'?'Galão':t==='1L'?'1L':t;
+    return nomeEmb+': '+totaisEmb[t]+' un';
+  }).join(' | ');
+
   doc.autoTable({
     startY: y,
     margin:{left:M, right:M},
@@ -5404,6 +5412,7 @@ function gerarPDFCliente(){
     }),
     foot:[
       ['','','Total de pedidos: '+pedsCli.length, moeda(totalGeral),''],
+      embResumo?['','',embResumo,'','']:null,
       debito>0?['','','A receber',moeda(debito),'']:null
     ].filter(Boolean),
     headStyles:{
