@@ -846,6 +846,24 @@ a{color:var(--orange);text-decoration:none}
     <button class="btn btn-green" onclick="abrirEntregues()" style="flex:1">✅ Entregues</button>
     <button class="btn btn-outline" onclick="imprimirRota()" style="flex:1">Imprimir</button>
   </div>
+  <button id="btn-extrato-rota" class="btn btn-outline btn-full" onclick="abrirExtrato()" style="margin-bottom:12px;display:none">📋 Extrato para WhatsApp</button>
+
+  <!-- Modal extrato whatsapp -->
+  <div class="modal-bg" id="modal-extrato-rota">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>📋 Extrato da Rota</h3>
+        <button class="modal-close" onclick="fecharModal('extrato-rota')">✕</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="extrato-texto" rows="18" readonly style="width:100%;font-size:13px;font-family:monospace;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px;resize:none;background:var(--bg);color:var(--text)"></textarea>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-outline" onclick="copiarExtrato()" style="flex:1">📋 Copiar</button>
+          <button class="btn btn-green" onclick="enviarWhatsApp()" style="flex:2">📱 Enviar WhatsApp</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- Separação por rota -->
   <div class="card" style="margin-bottom:12px">
     <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">🚚 Separar por Viagem</div>
@@ -3694,6 +3712,10 @@ function renderRota(){
   const idsOutrasDatas=rotaOrdem.filter(id=>!idsHoje.some(x=>String(x)===String(id)));
   rotaOrdem=[...idsOutrasDatas,...ordemDestaData];
   // Ordenar pela ordem desta data
+  // Mostrar botão extrato só para admin e gerente
+  const btnExtrato=document.getElementById('btn-extrato-rota');
+  if(btnExtrato) btnExtrato.style.display=['admin','gerente'].includes(perfilAtual)?'':'none';
+
   const listaOrdenada=ordemDestaData.map(id=>listaFiltrada.find(p=>String(p.id)===String(id))).filter(Boolean);
   const pendentes=listaOrdenada.filter(p=>!p.entregue&&!p.naoEntregue);
   const entreguesList=listaFiltrada.filter(p=>p.entregue);
@@ -3940,6 +3962,43 @@ function toggleRotaCheck(id){
     document.getElementById('modal-foto').classList.add('open');
   }
 }
+function abrirExtrato(){
+  const _dk=getRotaDataKey();
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const idsHoje=listaRota.map(p=>p.id);
+  let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
+  idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
+  const pendentes=ordemDestaData.map(id=>listaRota.find(p=>String(p.id)===String(id))).filter(p=>p&&!p.entregue&&!p.naoEntregue);
+
+  const data=new Date(_dk+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  let texto=`🍊 *SÓ LARANJA — ROTA DO DIA*\n`;
+  texto+=`📅 ${data}\n\n`;
+
+  pendentes.forEach((p,i)=>{
+    const itensOrdenados=[...p.itens].sort((a,b)=>TAMS.indexOf(a.tam)-TAMS.indexOf(b.tam));
+    const itens=itensOrdenados.map(it=>`${it.qtd} (${TL[it.tam]})`).join(', ');
+    texto+=`${i+1}. ${p.clienteNome}: ${itens}\n`;
+  });
+
+  texto+=`\n📦 Total: ${pendentes.length} entregas`;
+
+  document.getElementById('extrato-texto').value=texto;
+  document.getElementById('modal-extrato-rota').classList.add('open');
+}
+
+function copiarExtrato(){
+  const txt=document.getElementById('extrato-texto');
+  txt.select();
+  document.execCommand('copy');
+  toast('✓ Copiado!');
+}
+
+function enviarWhatsApp(){
+  const texto=document.getElementById('extrato-texto').value;
+  const encoded=encodeURIComponent(texto);
+  window.open(`https://wa.me/?text=${encoded}`,'_blank');
+}
+
 function imprimirRota(){
   const dataSel=getRotaDataKey();
   let lista=[];
