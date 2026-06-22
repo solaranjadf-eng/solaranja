@@ -1783,6 +1783,8 @@ async function sincronizar(){
     }
     const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
     const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
+    // Buscar quais pedidos têm foto (só id — não baixa a foto em si)
+    const dbFotos=await sbGet('pedidos',`?data=gte.${ontemKey}&entregue=eq.true&select=id,foto&foto=not.is.null`).catch(()=>[]);
     // Capturar estado local ANTES de sobrescrever — timestamp para saber qual é mais recente
     const localState={};
     const agora=Date.now();
@@ -1814,6 +1816,13 @@ async function sincronizar(){
 
     pedidosOntem=(dbPOntem||[]).map(mesclar).filter(p=>p.data===ontemKey);
     pedidos=(dbP||[]).map(mesclar).filter(p=>p.data===hojeKey);
+    // Marcar pedidos que têm foto no banco (sem baixar a imagem)
+    if(dbFotos&&dbFotos.length){
+      dbFotos.forEach(f=>{
+        const p=pedidos.find(x=>String(x.id)===String(f.id))||pedidosOntem.find(x=>String(x.id)===String(f.id));
+        if(p&&!p.foto) p.foto='__tem_foto__'; // marcador leve — foto real baixada só ao clicar
+      });
+    }
     lsave('slj_ped_bk',pedidos);
     lsave('slj_ped_ontem_bk',pedidosOntem);
     // Buscar histórico — sempre na primeira carga, depois a cada 10 minutos
@@ -1956,7 +1965,6 @@ async function sincronizar(){
       setTimeout(sincronizar, 5000);
     }
   }
-  console.log('[SYNC] Função sincronizar() terminou. syncErros:',syncErros);
 }
 
 function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null};}
@@ -3180,8 +3188,8 @@ async function verFotoEntrega(pedidoId){
   let ped=pedidos.find(p=>p.id===pedidoId)||pedidosOntem.find(p=>p.id===pedidoId);
   if(!ped) Object.values(historico).forEach(d=>d.forEach(p=>{if(p.id===pedidoId)ped=p;}));
   if(!ped){toast('Pedido não encontrado.');return;}
-  // Se a foto não está em memória (histórico não carrega fotos por economia de dados), buscar do banco
-  if(!ped.foto){
+  // Se a foto não está em memória ou é só o marcador, buscar do banco
+  if(!ped.foto||ped.foto==='__tem_foto__'){
     toast('Carregando foto...');
     try{
       const dbP=await sbGet('pedidos',`?id=eq.${pedidoId}&select=foto`);
@@ -3556,8 +3564,6 @@ function confirmarReordenar(novaPos){
   let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
   idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
 
-  console.log('[ROTA] Antes de reordenar:',ordemDestaData);
-
   const pendentesIds=ordemDestaData.filter(id=>{
     const pp=listaRota.find(x=>String(x.id)===String(id));
     return pp&&!pp.entregue&&!pp.naoEntregue;
@@ -3575,8 +3581,6 @@ function confirmarReordenar(novaPos){
   const idsOutrasDatas=rotaOrdem.filter(id=>!idsHoje.some(x=>String(x)===String(id)));
   rotaOrdem=[...idsOutrasDatas,...novaOrdemDestaData];
 
-  console.log('[ROTA] Depois de reordenar:',novaOrdemDestaData);
-
   salvarRotaOrdemBanco();
   fecharModal('reordenar');
   renderRota();
@@ -3587,7 +3591,6 @@ function salvarRotaOrdemBanco(){
   lsave('slj_rota_ordem',rotaOrdem);
   const ts=Date.now();
   localStorage.setItem('slj_rota_ts',ts.toString());
-  console.log('[ROTA] Salvando ordem:',rotaOrdem,'ts:',ts);
   // Salvar no Supabase usando bling_tokens (suporta upsert por id)
   sbUps('bling_tokens',[{
     id:2,
@@ -3596,8 +3599,7 @@ function salvarRotaOrdemBanco(){
     expires_at:ts,
     updated_at:new Date().toISOString()
   }])
-    .then(r=>console.log('[ROTA] Salvo no banco com sucesso:',r))
-    .catch(e=>console.error('[ROTA] ERRO ao salvar no banco:',e));
+    .catch(()=>{});
 }
 
 
@@ -3722,7 +3724,6 @@ function renderRota(){
   let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
   // Adicionar quem ainda não está na ordem (pedido novo)
   idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
-  console.log('[ROTA] renderRota — ordem usada para exibir:',ordemDestaData);
   // Reconstituir rotaOrdem: ids de outras datas (preservados) + ordem desta data
   const idsOutrasDatas=rotaOrdem.filter(id=>!idsHoje.some(x=>String(x)===String(id)));
   rotaOrdem=[...idsOutrasDatas,...ordemDestaData];
@@ -4375,8 +4376,7 @@ function addClienteCobranca(){
   cobrancas.push(cob);
   lsave('slj_cobrancas',cobrancas);
   sbUps('cobrancas',[{id:cob.id,nome:cob.nome,email:cob.email,ativo:true}])
-    .then(()=>console.log('Cobrança salva no banco'))
-    .catch(e=>console.error('Erro ao salvar cobrança:',e));
+    .catch(()=>{});
   document.getElementById('cob-novo-nome').value='';
   document.getElementById('cob-novo-email').value='';
   toast('✓ Estabelecimento adicionado.');
@@ -4460,8 +4460,7 @@ function limparDatasMes(){
 
 function salvarDatasMesNoBanco(){
   sbUps('bling_tokens',[{id:3,access_token:JSON.stringify(cobrancasDatasMes),refresh_token:'cobrancas_datas_mes',expires_at:Date.now(),updated_at:new Date().toISOString()}])
-    .then(()=>console.log('Datas do mês salvas no banco'))
-    .catch(e=>console.error('Erro ao salvar datas do mês:',e));
+    .catch(()=>{});
 }
 
 function toggleCobradoData(cobrancaId,data){
@@ -4474,8 +4473,7 @@ function toggleCobradoData(cobrancaId,data){
   }
   lsave('slj_cobrancas_marcados',cobrancasMarcados);
   sbUps('cobrancas_datas',[{id:m.id,cobranca_id:m.cobrancaId,data:m.data,cobrado:m.cobrado}])
-    .then(()=>console.log('Marcação salva no banco'))
-    .catch(e=>console.error('Erro ao salvar marcação:',e));
+    .catch(()=>{});
   renderCobrancas();
 }
 
@@ -6179,11 +6177,10 @@ async function limparFotosAntigas(){
       for(const p of comFoto){
         await sbPatch('pedidos',`?id=eq.${p.id}`,{foto:null}).catch(()=>{});
       }
-      console.log(`[LIMPEZA] ${comFoto.length} foto(s) com mais de 60 dias removida(s) do banco.`);
     }
     localStorage.setItem('slj_limpeza_fotos',agora.toString());
   }catch(e){
-    console.error('[LIMPEZA] Erro ao limpar fotos antigas:',e);
+
   }
 }
 
@@ -6221,8 +6218,9 @@ function iniciarSistemaEntregador(){
     renderRota();
   });
   setInterval(sincronizar,300000); // 5 minutos — sync completa
-  // Entregador: sync adaptativa igual, mas começa ativa se já houver pedidos
+  // Sync adaptativa para entregador
   _syncRapidoTimer=setInterval(sincronizarRapido,30000);
+  if(pedidos.length>0) registrarAtividadePedido();
 }
 
 function renderEntregador(){
@@ -6288,11 +6286,9 @@ function iniciarSyncAdaptativa(){
       // Desacelera para 30 segundos
       clearInterval(_syncRapidoTimer);
       _syncRapidoTimer=setInterval(sincronizarRapido,30000);
-      console.log('[SYNC] Modo inativo — sync a cada 30s');
     }
     sincronizarRapido();
   },5000);
-  console.log('[SYNC] Modo ativo — sync a cada 5s');
 }
 
 // Sync rápida — só pedidos de hoje e ontem (sem histórico, sem fotos, sem outros dados)
