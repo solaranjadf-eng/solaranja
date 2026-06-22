@@ -1784,7 +1784,7 @@ async function sincronizar(){
     const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
     const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
     // Buscar quais pedidos têm foto (só id — não baixa a foto em si)
-    const dbFotos=await sbGet('pedidos',`?data=gte.${ontemKey}&entregue=eq.true&select=id,foto&foto=not.is.null`).catch(()=>[]);
+    const dbFotos=await sbGet('pedidos',`?entregue=eq.true&select=id,foto&foto=not.is.null`).catch(()=>[]);
     // Capturar estado local ANTES de sobrescrever — timestamp para saber qual é mais recente
     const localState={};
     const agora=Date.now();
@@ -1818,10 +1818,11 @@ async function sincronizar(){
     pedidos=(dbP||[]).map(mesclar).filter(p=>p.data===hojeKey);
     // Marcar pedidos que têm foto no banco (sem baixar a imagem)
     if(dbFotos&&dbFotos.length){
-      dbFotos.forEach(f=>{
-        const p=pedidos.find(x=>String(x.id)===String(f.id))||pedidosOntem.find(x=>String(x.id)===String(f.id));
-        if(p&&!p.foto) p.foto='__tem_foto__'; // marcador leve — foto real baixada só ao clicar
-      });
+      const fotosIds=new Set(dbFotos.map(f=>String(f.id)));
+      const marcarFoto=(p)=>{if(fotosIds.has(String(p.id))&&!p.foto) p.foto='__tem_foto__';};
+      pedidos.forEach(marcarFoto);
+      pedidosOntem.forEach(marcarFoto);
+      Object.values(historico).forEach(arr=>arr.forEach(marcarFoto));
     }
     lsave('slj_ped_bk',pedidos);
     lsave('slj_ped_ontem_bk',pedidosOntem);
