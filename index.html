@@ -710,7 +710,6 @@ a{color:var(--orange);text-decoration:none}
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
           <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">🚚 Entregador</div>
           <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-entregador">R$ 0</div>
-          <div style="font-size:10px;color:var(--text3)" id="dash-custo-entregador-sub"></div>
         </div>
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
           <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">🏠 Aluguel</div>
@@ -1898,6 +1897,12 @@ async function sincronizar(){
           cobrancasDatasMes=JSON.parse(dbDatasMes[0].access_token||'{}');
           lsave('slj_cobrancas_datas_mes',cobrancasDatasMes);
         }
+        // Carregar custos de produção do banco
+        const dbCustosProd=await sbGet('bling_tokens','?id=eq.4&refresh_token=eq.custos_producao');
+        if(dbCustosProd&&dbCustosProd.length){
+          custos=JSON.parse(dbCustosProd[0].access_token||'{}');
+          lsave('slj_custos',custos);
+        }
       }catch(e){}
 
       // Colaboradores
@@ -2188,7 +2193,7 @@ function renderDash(){
   if(el('dash-custo-colab'))       el('dash-custo-colab').textContent=moeda(gastoColab);
   if(el('dash-custo-fabio-sub'))   el('dash-custo-fabio-sub').textContent='';
   if(el('dash-custo-entregador'))  el('dash-custo-entregador').textContent=moeda(totalEntregador);
-  if(el('dash-custo-entregador-sub')) el('dash-custo-entregador-sub').textContent=gastoFabio>0?'(inclui Fábio: '+moeda(gastoFabio)+')':'';
+  if(el('dash-custo-entregador-sub')) el('dash-custo-entregador-sub').textContent='';
   if(el('dash-custo-fabio'))       el('dash-custo-fabio').textContent=moeda(gastoFabio);
   if(el('dash-custo-aluguel'))     el('dash-custo-aluguel').textContent=moeda(gastoAluguel);
   if(el('dash-custo-energia'))     el('dash-custo-energia').textContent=moeda(gastoEnergia);
@@ -4753,7 +4758,10 @@ function salvarCustos(){
       venda:parseFloat(document.getElementById('cvenda-'+t)?.value)||0
     };
   });
-  lsave('slj_custos',custos);renderProducao();toast('Custos salvos.');
+  lsave('slj_custos',custos);
+  // Salvar no banco para sincronizar entre dispositivos
+  sbUps('bling_tokens',[{id:4,access_token:JSON.stringify(custos),refresh_token:'custos_producao',expires_at:Date.now(),updated_at:new Date().toISOString()}]).catch(()=>{});
+  renderProducao();toast('Custos salvos.');
 }
 
 let prodDataSel='amanha'; // padrão: produzir hoje para entregar amanhã
