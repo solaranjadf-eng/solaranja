@@ -3975,9 +3975,11 @@ function abrirExtrato(){
   texto+=`📅 ${data}\n\n`;
 
   pendentes.forEach((p,i)=>{
+    const cliente=clientes.find(c=>c.id===p.clienteId);
+    const nome=cliente?.nome||p.clienteNome;
     const itensOrdenados=[...p.itens].sort((a,b)=>TAMS.indexOf(a.tam)-TAMS.indexOf(b.tam));
     const itens=itensOrdenados.map(it=>`${it.qtd} (${TL[it.tam]})`).join(', ');
-    texto+=`${i+1}. ${p.clienteNome}: ${itens}\n`;
+    texto+=`${i+1}. ${nome}: ${itens}\n`;
   });
 
   texto+=`\n📦 Total: ${pendentes.length} entregas`;
