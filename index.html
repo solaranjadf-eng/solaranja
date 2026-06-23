@@ -2929,23 +2929,58 @@ async function confirmar(){
   setSyncStatus('loading','Salvando...');
   let pedidoSalvo=false;
   try{
-    const numeroPedido = await getNextNumeroPedido();
-    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido}]);
-    const ped=Array.isArray(res)?res[0]:res;
-    const obj=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
-    pedidos.push(obj);rotaOrdem.push(obj.id);
+    // Gerar número localmente como estimativa rápida (corrigido pelo banco depois se necessário)
+    const numLocal=parseInt(localStorage.getItem('slj_num_pedido')||'5000')+1;
+    localStorage.setItem('slj_num_pedido',numLocal);
+
+    // Criar objeto local IMEDIATAMENTE — aparece na rota sem esperar o banco
+    const objLocal={
+      id: Date.now(), // ID temporário
+      clienteId:sel.id, clienteNome:sel.nome, cnpj:sel.cnpj, tel:sel.tel||'',
+      hora, obs:document.getElementById('obs').value.trim(),
+      itens, total, precos:sel.precos, entregue:false, horaEntrega:null,
+      data:getDataEntregaKey(), pago:false, foto:null, numeroPedido:numLocal
+    };
+    pedidos.push(objLocal);
+    rotaOrdem.push(objLocal.id);
     lsave('slj_ped_bk',pedidos);
     lsave('slj_rota_ordem',rotaOrdem);
     pedidoSalvo=true;
-    registrarAtividadePedido(); // Ativa sync a cada 5s por 20 minutos
+    registrarAtividadePedido();
     setSyncStatus('ok','Sincronizado — nuvem ativa');
     toast('✓ Pedido de '+sel.nome+' confirmado.');
     atualizarBadges();verificarAlertasEstoque();
-    // Atualizar Rota imediatamente sem precisar esperar sync
-    if(document.getElementById('page-rota')?.classList.contains('active')) renderRota();
-    // Salvar ordem no banco para outros dispositivos verem imediatamente
-    salvarRotaOrdemBanco();
-    atualizarBadges();verificarAlertasEstoque();
+    // Rota e Do Dia atualizam IMEDIATAMENTE
+    renderRota();
+    renderDia();
+
+    // Salvar no banco em segundo plano (não bloqueia a UI)
+    getNextNumeroPedido().then(numeroPedido=>{
+      objLocal.numeroPedido=numeroPedido;
+      return sbPost('pedidos',[{
+        cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',
+        hora,obs:document.getElementById('obs')?.value.trim()||'',
+        itens,total,precos:sel.precos,entregue:false,hora_entrega:null,
+        data:getDataEntregaKey()||objLocal.data,pago:false,foto:null,numero_pedido:numeroPedido
+      }]);
+    }).then(res=>{
+      const ped=Array.isArray(res)?res[0]:res;
+      if(ped?.id){
+        // Substituir ID temporário pelo ID real do banco
+        const idx=pedidos.findIndex(p=>p.id===objLocal.id);
+        if(idx!==-1){
+          const idReal=ped.id;
+          const rotaIdx=rotaOrdem.indexOf(objLocal.id);
+          pedidos[idx]=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
+          if(rotaIdx!==-1) rotaOrdem[rotaIdx]=idReal;
+          lsave('slj_ped_bk',pedidos);
+          lsave('slj_rota_ordem',rotaOrdem);
+          salvarRotaOrdemBanco();
+        }
+      }
+    }).catch(()=>{
+      setSyncStatus('err','Erro ao sincronizar com o banco');
+    });
     // Reset data entrega para amanhã
     dataEntregaSel='amanha';
     document.getElementById('btn-entrega-hoje').className='btn btn-outline';
