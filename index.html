@@ -1448,7 +1448,7 @@ a{color:var(--orange);text-decoration:none}
       </div>
     </div>
     <div class="form-group"><label>Valor mínimo de pedido (R$)</label><input type="number" id="np-minimo" placeholder="—" step="0.01" min="0" inputmode="decimal"></div>
-    <button class="btn btn-primary btn-full" onclick="addCliente()">Adicionar Cliente</button>
+    <button class="btn btn-primary btn-full" id="btn-add-cliente" onclick="addCliente()">Adicionar Cliente</button>
   </div>
   <div class="action-row" style="margin-bottom:14px;gap:8px">
     <button class="btn btn-outline" onclick="exportarClientes()" style="flex:1">Exportar (.csv)</button>
@@ -2779,7 +2779,7 @@ function renderClienteList(q=''){
   if(sel){
     const c=sel;
     const deb=clienteDebitoTotal(c.id);
-    el.innerHTML=`<div class="client-item selected" onclick="escolher(${c.id})">
+    el.innerHTML=`<div class="client-item selected" onclick="escolher('${c.id}')">
       <div style="flex:1;min-width:0">
         <div class="c-name">${c.nome}</div>
         <div class="c-cnpj">CNPJ ${c.cnpj}${c.tel?' · '+c.tel:''}</div>
@@ -2792,15 +2792,15 @@ function renderClienteList(q=''){
     <button class="btn btn-outline btn-full" style="margin-top:8px;height:36px;font-size:13px" onclick="trocarCliente()">↩ Trocar cliente</button>`;
     return;
   }
-  const f=q?clientes.filter(c=>c.nome.toLowerCase().includes(q)||c.cnpj.includes(q)):clientes;
+  const f=q?clientes.filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.cnpj||'').includes(q)||(c.apelido||'').toLowerCase().includes(q)):clientes;
   if(!f.length){el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum resultado.</p></div>';return;}
   el.innerHTML=f.map(c=>{
     const deb=clienteDebitoTotal(c.id);
     const inativo=isInativo(c.id);
-    return`<div class="client-item${inativo?' inativo':''}" onclick="escolher(${c.id})">
+    return`<div class="client-item${inativo?' inativo':''}" onclick="escolher('${c.id}')">
       <div style="flex:1;min-width:0">
         <div class="c-name">${c.nome}${inativo?'<span class="status-badge debito" style="margin-left:6px">Inativo</span>':''}</div>
-        <div class="c-cnpj">CNPJ ${c.cnpj}${c.tel?' · '+c.tel:''}</div>
+        <div class="c-cnpj">CNPJ ${c.cnpj||'—'}${c.tel?' · '+c.tel:''}</div>
         ${c.bairro?`<div class="c-cnpj">📍 ${c.bairro}${c.regiao?' — '+c.regiao:''}</div>`:''}
         <div class="c-precos">${precosLabel(c)}</div>
         ${c.minimo>0?`<div class="c-minimo">Mínimo: ${moeda(c.minimo)}</div>`:''}
@@ -2826,7 +2826,7 @@ function trocarCliente(){
 }
 
 function escolher(id){
-  sel=clientes.find(c=>c.id===id);
+  sel=clientes.find(c=>String(c.id)===String(id));
   TAMS.forEach(t=>qtds[t]=0);
   document.getElementById('obs').value='';
   renderClienteList(document.getElementById('busca').value.toLowerCase());
@@ -6001,18 +6001,31 @@ function renderClientes(){
 }
 
 async function addCliente(){
+  const btn=document.getElementById('btn-add-cliente');
+  if(btn?.disabled)return;
+  if(btn) btn.disabled=true;
   const nome=document.getElementById('new-nome').value.trim();const cnpj=document.getElementById('new-cnpj').value.trim();
-  if(!nome){toast('Informe o nome.');return;}if(!cnpj){toast('Informe o CNPJ.');return;}
+  if(!nome){toast('Informe o nome.');if(btn)btn.disabled=false;return;}
+  if(!cnpj){toast('Informe o CNPJ.');if(btn)btn.disabled=false;return;}
   const apelido=document.getElementById('new-apelido')?.value.trim()||'';
   const precos={};TAMS.forEach(t=>{const v=parseFloat(document.getElementById('np-'+t).value);precos[t]=isNaN(v)||v<=0?null:v;});
   const vm=parseFloat(document.getElementById('np-minimo').value);
   const novoId=Date.now();
   const novo={id:novoId,nome,cnpj,apelido,tel:document.getElementById('new-tel').value.trim(),bairro:document.getElementById('new-bairro').value.trim(),regiao:document.getElementById('new-regiao').value.trim(),endereco:document.getElementById('new-endereco').value.trim(),maps:document.getElementById('new-maps').value.trim(),aniver:document.getElementById('new-aniver').value,minimo:isNaN(vm)||vm<=0?null:vm,precos};
-  try{await sbUps('clientes',[{id:novoId,nome:novo.nome,cnpj:novo.cnpj,apelido:novo.apelido,tel:novo.tel,bairro:novo.bairro,regiao:novo.regiao,endereco:novo.endereco,maps:novo.maps,aniver:novo.aniver,minimo:novo.minimo,precos:novo.precos}]);clientes.push(novo);lsave('slj_cli_bk',clientes);setSyncStatus('ok','Sincronizado — nuvem ativa');}
-  catch(e){setSyncStatus('err','Erro ao sincronizar');}
-  ['new-nome','new-apelido','new-cnpj','new-tel','new-bairro','new-regiao','new-endereco','new-maps','new-aniver','np-minimo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  TAMS.forEach(t=>document.getElementById('np-'+t).value='');
-  renderClientes();renderClienteList();toast('Cliente adicionado.');
+  try{
+    await sbUps('clientes',[{id:novoId,nome:novo.nome,cnpj:novo.cnpj,apelido:novo.apelido,tel:novo.tel,bairro:novo.bairro,regiao:novo.regiao,endereco:novo.endereco,maps:novo.maps,aniver:novo.aniver,minimo:novo.minimo,precos:novo.precos}]);
+    clientes.push(novo);
+    lsave('slj_cli_bk',clientes);
+    setSyncStatus('ok','Sincronizado — nuvem ativa');
+    ['new-nome','new-apelido','new-cnpj','new-tel','new-bairro','new-regiao','new-endereco','new-maps','new-aniver','np-minimo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    TAMS.forEach(t=>document.getElementById('np-'+t).value='');
+    if(btn) btn.disabled=false;
+    renderClientes();renderClienteList();toast('✓ Cliente adicionado.');
+  }catch(e){
+    setSyncStatus('err','Erro ao sincronizar');
+    if(btn) btn.disabled=false;
+    toast('Erro ao salvar cliente. Verifique a conexão.');
+  }
 }
 
 async function delCliente(id){
