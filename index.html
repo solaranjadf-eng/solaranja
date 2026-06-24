@@ -2929,20 +2929,11 @@ async function confirmar(){
   setSyncStatus('loading','Salvando...');
   let pedidoSalvo=false;
   try{
-    // Gerar número localmente como estimativa rápida (corrigido pelo banco depois se necessário)
-    const numLocal=parseInt(localStorage.getItem('slj_num_pedido')||'5000')+1;
-    localStorage.setItem('slj_num_pedido',numLocal);
-
-    // Criar objeto local IMEDIATAMENTE — aparece na rota sem esperar o banco
-    const objLocal={
-      id: Date.now(), // ID temporário
-      clienteId:sel.id, clienteNome:sel.nome, cnpj:sel.cnpj, tel:sel.tel||'',
-      hora, obs:document.getElementById('obs').value.trim(),
-      itens, total, precos:sel.precos, entregue:false, horaEntrega:null,
-      data:getDataEntregaKey(), pago:false, foto:null, numeroPedido:numLocal
-    };
-    pedidos.push(objLocal);
-    rotaOrdem.push(objLocal.id);
+    const numeroPedido = await getNextNumeroPedido();
+    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido}]);
+    const ped=Array.isArray(res)?res[0]:res;
+    const obj=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
+    pedidos.push(obj);rotaOrdem.push(obj.id);
     lsave('slj_ped_bk',pedidos);
     lsave('slj_rota_ordem',rotaOrdem);
     pedidoSalvo=true;
@@ -2950,37 +2941,9 @@ async function confirmar(){
     setSyncStatus('ok','Sincronizado — nuvem ativa');
     toast('✓ Pedido de '+sel.nome+' confirmado.');
     atualizarBadges();verificarAlertasEstoque();
-    // Rota e Do Dia atualizam IMEDIATAMENTE
     renderRota();
     renderDia();
-
-    // Salvar no banco em segundo plano (não bloqueia a UI)
-    getNextNumeroPedido().then(numeroPedido=>{
-      objLocal.numeroPedido=numeroPedido;
-      return sbPost('pedidos',[{
-        cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',
-        hora,obs:document.getElementById('obs')?.value.trim()||'',
-        itens,total,precos:sel.precos,entregue:false,hora_entrega:null,
-        data:getDataEntregaKey()||objLocal.data,pago:false,foto:null,numero_pedido:numeroPedido
-      }]);
-    }).then(res=>{
-      const ped=Array.isArray(res)?res[0]:res;
-      if(ped?.id){
-        // Substituir ID temporário pelo ID real do banco
-        const idx=pedidos.findIndex(p=>p.id===objLocal.id);
-        if(idx!==-1){
-          const idReal=ped.id;
-          const rotaIdx=rotaOrdem.indexOf(objLocal.id);
-          pedidos[idx]=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
-          if(rotaIdx!==-1) rotaOrdem[rotaIdx]=idReal;
-          lsave('slj_ped_bk',pedidos);
-          lsave('slj_rota_ordem',rotaOrdem);
-          salvarRotaOrdemBanco();
-        }
-      }
-    }).catch(()=>{
-      setSyncStatus('err','Erro ao sincronizar com o banco');
-    });
+    salvarRotaOrdemBanco();
     // Reset data entrega para amanhã
     dataEntregaSel='amanha';
     document.getElementById('btn-entrega-hoje').className='btn btn-outline';
@@ -5120,20 +5083,17 @@ function renderFinItem(p,dataKey){
 
 // ── NÚMERO DO PEDIDO ───────────────────────────────────────────────────────
 async function getNextNumeroPedido(){
-  try{
-    // Busca o maior numero_pedido já usado no banco — fonte de verdade única
-    const res=await sbGet('pedidos','?select=numero_pedido&order=numero_pedido.desc&limit=1');
-    const ultimo=res&&res.length&&res[0].numero_pedido?parseInt(res[0].numero_pedido):5000;
-    const proximo=ultimo+1;
-    localStorage.setItem('slj_num_pedido',proximo);
-    return proximo;
-  }catch(e){
-    // Fallback para localStorage se banco falhar
-    const atual=parseInt(localStorage.getItem('slj_num_pedido')||'5000');
-    const proximo=atual+1;
-    localStorage.setItem('slj_num_pedido',proximo);
-    return proximo;
-  }
+  // Usar localStorage como fonte rápida
+  const local=parseInt(localStorage.getItem('slj_num_pedido')||'5000');
+  const proximo=local+1;
+  localStorage.setItem('slj_num_pedido',proximo);
+  // Verificar com o banco em segundo plano (sem bloquear)
+  sbGet('pedidos','?select=numero_pedido&order=numero_pedido.desc&limit=1')
+    .then(res=>{
+      const ultimo=res&&res.length&&res[0].numero_pedido?parseInt(res[0].numero_pedido):0;
+      if(ultimo>=proximo) localStorage.setItem('slj_num_pedido',ultimo);
+    }).catch(()=>{});
+  return proximo;
 }
 
 // ── FINANCEIRO — ABAS ──────────────────────────────────────────────────────
