@@ -1109,9 +1109,12 @@ a{color:var(--orange);text-decoration:none}
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
-      <div style="display:flex;gap:8px">
-        <select id="acomp-cliente-sel" style="flex:1;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px"></select>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="acomp-cliente-sel" style="flex:1;min-width:150px;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px"></select>
         <button class="btn btn-primary" onclick="addAcompanhamento()" style="height:36px">Adicionar</button>
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn btn-outline btn-full" onclick="importarDevedores()" style="height:34px;font-size:12px">📥 Importar clientes com débito em aberto</button>
       </div>
     </div>
 
@@ -4591,6 +4594,36 @@ function toggleAcompCobrado(acompId,semana){
   lsave('slj_acomp_marcados',acompMarcados);
   sbUps('acompanhamento_marcados',[{id:m.id,acomp_id:m.acompId,semana:m.semana,cobrado:m.cobrado}]).catch(()=>{});
   renderAcompanhamento();
+}
+
+function importarDevedores(){
+  // Buscar todos os pedidos entregues e não pagos
+  const todos=[...pedidos,...pedidosOntem,...Object.values(historico).flat()]
+    .filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const devedores=new Set(
+    todos.filter(p=>p.entregue&&!p.pago).map(p=>p.clienteId)
+  );
+  if(!devedores.size){toast('Nenhum cliente com débito em aberto.');return;}
+
+  let adicionados=0;
+  devedores.forEach(clienteId=>{
+    if(acompanhamentos.find(a=>String(a.clienteId)===String(clienteId))) return; // já está
+    const cliente=clientes.find(c=>String(c.id)===String(clienteId));
+    if(!cliente)return;
+    const nome=cliente.apelido||cliente.nome;
+    const novo={id:Date.now().toString()+Math.random().toString(36).slice(2),clienteId:String(clienteId),nome,ativo:true};
+    acompanhamentos.push(novo);
+    sbUps('acompanhamento_semanal',[{id:novo.id,nome:novo.nome,ativo:true}]).catch(()=>{});
+    adicionados++;
+  });
+
+  if(adicionados>0){
+    lsave('slj_acomp',acompanhamentos);
+    toast(`✓ ${adicionados} cliente(s) com débito importado(s).`);
+    renderAcompanhamento();
+  }else{
+    toast('Todos os devedores já estão na lista.');
+  }
 }
 
 function renderAcompanhamento(){
