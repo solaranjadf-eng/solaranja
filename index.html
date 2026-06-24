@@ -1102,6 +1102,34 @@ a{color:var(--orange);text-decoration:none}
       </div>
     </div>
   </div>
+
+  <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
+  <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança</div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
+      <div style="display:flex;gap:8px">
+        <select id="acomp-cliente-sel" style="flex:1;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px"></select>
+        <button class="btn btn-primary" onclick="addAcompanhamento()" style="height:36px">Adicionar</button>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+      <button class="fbtn" onclick="mudarMesAcomp(-1)">← Mês anterior</button>
+      <div style="font-size:13px;font-weight:700;color:var(--text);text-transform:capitalize" id="acomp-mes-label"></div>
+      <button class="fbtn" onclick="mudarMesAcomp(1)">Próximo mês →</button>
+    </div>
+
+    <div style="overflow-x:auto;background:var(--white);border-radius:var(--radius);border:1px solid var(--border)">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px">
+        <thead>
+          <tr id="acomp-thead-row" style="background:var(--text);color:white"></tr>
+        </thead>
+        <tbody id="acomp-tbody"></tbody>
+      </table>
+    </div>
+  </div>
 </main>
 
 <!-- ESTOQUE -->
@@ -1888,6 +1916,23 @@ async function sincronizar(){
         await sbUps('custos_op',custosOp.map(c=>({id:c.id,cat:c.cat,label:c.label||c.cat,valor:c.valor,data:c.data,descricao:c.desc||''})));
       }
 
+      // Acompanhamento semanal
+      const dbAcomp=await sbGet('acompanhamento_semanal','?order=created_at');
+      if(dbAcomp&&dbAcomp.length>0){
+        // Preservar clienteId do localStorage (não está no banco)
+        dbAcomp.forEach(a=>{
+          const local=acompanhamentos.find(x=>x.id===a.id);
+          if(!local) acompanhamentos.push({id:a.id,nome:a.nome,clienteId:'',ativo:a.ativo!==false});
+          else{local.nome=a.nome;}
+        });
+        lsave('slj_acomp',acompanhamentos);
+      }
+      const dbAcompMarcados=await sbGet('acompanhamento_marcados','?order=semana&limit=1000');
+      if(dbAcompMarcados&&dbAcompMarcados.length>0){
+        acompMarcados=dbAcompMarcados.map(m=>({id:m.id,acompId:m.acomp_id,semana:m.semana,cobrado:m.cobrado||false}));
+        lsave('slj_acomp_marcados',acompMarcados);
+      }
+
       // Cobranças
       const dbCob=await sbGet('cobrancas','?order=created_at');
       if(dbCob&&dbCob.length>0){
@@ -2000,7 +2045,7 @@ function setTab(t){
   }
   if(t==='estoque')  renderEstoque();
   if(t==='custos')   renderCustos();
-  if(t==='cobrancas') renderCobrancas();
+  if(t==='cobrancas') {renderCobrancas();renderAcompanhamento();}
   if(t==='colaboradores') renderColaboradores();
   if(t==='laranjas') renderLaranjas();
   if(t==='historico')renderHistorico();
@@ -4495,6 +4540,110 @@ function toggleCobradoData(cobrancaId,data){
   sbUps('cobrancas_datas',[{id:m.id,cobranca_id:m.cobrancaId,data:m.data,cobrado:m.cobrado}])
     .catch(()=>{});
   renderCobrancas();
+}
+
+// ── ACOMPANHAMENTO SEMANAL ─────────────────────────────────────────────────
+let acompanhamentos=load('slj_acomp',[]);       // [{id,nome,ativo}]
+let acompMarcados=load('slj_acomp_marcados',[]); // [{id,acompId,semana,cobrado}]
+let acompMesVisivel=hojeKey.slice(0,7);
+
+function mudarMesAcomp(delta){
+  const [a,m]=acompMesVisivel.split('-').map(Number);
+  const d=new Date(a,m-1+delta,1);
+  acompMesVisivel=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().slice(0,2).join('-');
+  renderAcompanhamento();
+}
+
+function addAcompanhamento(){
+  const sel=document.getElementById('acomp-cliente-sel');
+  const clienteId=sel?.value;
+  if(!clienteId){toast('Selecione um cliente.');return;}
+  if(acompanhamentos.find(a=>a.clienteId===clienteId)){toast('Cliente já está na lista.');return;}
+  const cliente=clientes.find(c=>String(c.id)===String(clienteId));
+  const nome=cliente?.apelido||cliente?.nome||'';
+  const novo={id:Date.now().toString(),clienteId,nome,ativo:true};
+  acompanhamentos.push(novo);
+  lsave('slj_acomp',acompanhamentos);
+  sbUps('acompanhamento_semanal',[{id:novo.id,nome:novo.nome,ativo:true}]).catch(()=>{});
+  toast('✓ Cliente adicionado.');
+  renderAcompanhamento();
+}
+
+function delAcompanhamento(id){
+  if(!confirm('Remover este cliente do acompanhamento?'))return;
+  acompanhamentos=acompanhamentos.filter(a=>a.id!==id);
+  acompMarcados=acompMarcados.filter(m=>m.acompId!==id);
+  lsave('slj_acomp',acompanhamentos);
+  lsave('slj_acomp_marcados',acompMarcados);
+  sbDel('acompanhamento_semanal',`?id=eq.${id}`).catch(()=>{});
+  sbDel('acompanhamento_marcados',`?acomp_id=eq.${id}`).catch(()=>{});
+  renderAcompanhamento();
+}
+
+function toggleAcompCobrado(acompId,semana){
+  let m=acompMarcados.find(x=>x.acompId===acompId&&x.semana===semana);
+  if(!m){
+    m={id:Date.now().toString(),acompId,semana,cobrado:true};
+    acompMarcados.push(m);
+  }else{
+    m.cobrado=!m.cobrado;
+  }
+  lsave('slj_acomp_marcados',acompMarcados);
+  sbUps('acompanhamento_marcados',[{id:m.id,acomp_id:m.acompId,semana:m.semana,cobrado:m.cobrado}]).catch(()=>{});
+  renderAcompanhamento();
+}
+
+function renderAcompanhamento(){
+  // Popular select com clientes ainda não adicionados
+  const sel=document.getElementById('acomp-cliente-sel');
+  if(sel){
+    const jaAdicionados=new Set(acompanhamentos.map(a=>String(a.clienteId)));
+    const disponiveis=clientes.filter(c=>!jaAdicionados.has(String(c.id))).sort((a,b)=>(a.apelido||a.nome).localeCompare(b.apelido||b.nome));
+    sel.innerHTML='<option value="">Selecione um cliente...</option>'+disponiveis.map(c=>`<option value="${c.id}">${c.apelido||c.nome}</option>`).join('');
+  }
+
+  const [ano,mesN]=acompMesVisivel.split('-').map(Number);
+  const mesNome=new Date(ano,mesN-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  const lbl=document.getElementById('acomp-mes-label');
+  if(lbl) lbl.textContent=mesNome;
+
+  // Gerar semanas do mês (seg a dom, mostra só o dia/mês da segunda)
+  const semanas=getSemanasDoMes(acompMesVisivel);
+
+  // Cabeçalho
+  const thead=document.getElementById('acomp-thead-row');
+  if(thead){
+    thead.innerHTML=`<th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600;position:sticky;left:0;background:var(--text)">Cliente</th>`+
+      semanas.map(s=>{
+        const dataFmt=new Date(s+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+        return`<th style="padding:9px 8px;text-align:center;font-size:11px;font-weight:600">${dataFmt}</th>`;
+      }).join('')+
+      `<th style="padding:9px;width:30px"></th>`;
+  }
+
+  const tbody=document.getElementById('acomp-tbody');
+  if(!tbody)return;
+  if(!acompanhamentos.length){
+    tbody.innerHTML=`<tr><td colspan="${semanas.length+2}" style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum cliente adicionado ainda.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML=acompanhamentos.map((a,i)=>{
+    const celulasSemanas=semanas.map(s=>{
+      const marcado=acompMarcados.find(m=>m.acompId===a.id&&m.semana===s);
+      const cobrado=marcado?marcado.cobrado:false;
+      return`<td style="padding:6px 8px;text-align:center">
+        <button onclick="toggleAcompCobrado('${a.id}','${s}')" style="width:26px;height:26px;border-radius:5px;cursor:pointer;border:1px solid ${cobrado?'#B8DFC8':'var(--border2)'};background:${cobrado?'var(--green)':'var(--white)'};color:${cobrado?'white':'transparent'};font-size:13px;font-weight:700">✓</button>
+      </td>`;
+    }).join('');
+    return`<tr style="background:${i%2===0?'var(--white)':'var(--bg)'};border-bottom:1px solid var(--border)">
+      <td style="padding:9px 12px;font-weight:600;color:var(--text);position:sticky;left:0;background:${i%2===0?'var(--white)':'var(--bg)'}">${a.nome}</td>
+      ${celulasSemanas}
+      <td style="padding:9px;text-align:center">
+        <button onclick="delAcompanhamento('${a.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 function renderCobrancas(){
