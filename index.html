@@ -3388,9 +3388,12 @@ function confirmarEntrega(){
 
   // Salvar no banco — sem setTimeout, chamada direta
   sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:true,hora_entrega:hora,foto:foto})
-    .then(()=>setSyncStatus('ok','✓ Conectado — dados sincronizados'))
+    .then(()=>{
+      setSyncStatus('ok','✓ Conectado — dados sincronizados');
+      // Forçar sync imediata para atualizar outros dispositivos agora
+      sincronizarRapido();
+    })
     .catch(()=>{
-      // Falhou mas está salvo no localStorage — vai sincronizar na próxima
       setSyncStatus('err','Erro ao sincronizar — dado salvo localmente');
     });
 }
