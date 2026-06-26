@@ -1695,13 +1695,15 @@ const hoje=new Date();
 const hojeKey=hoje.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
 const ontem=new Date(hoje);ontem.setDate(ontem.getDate()-1);
 const ontemKey=ontem.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
+const amanha=new Date(hoje);amanha.setDate(amanha.getDate()+1);
+const amanhaKey=amanha.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
 // Pedidos da rota = lançados ontem (entregues hoje)
 // Pedidos do dia admin = lançados hoje
 const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}};
 const lsave=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
 
 // ── STATE ──────────────────────────────────────────────────────────────────
-let clientes=[], pedidos=[], pedidosOntem=[], historico={}, syncErros=0;
+let clientes=[], pedidos=[], pedidosOntem=[], pedidosAmanha=[], historico={}, syncErros=0;
 let estoque={'200ml':0,'300ml':0,'500ml':0,'1L':0,'5L':0};
 let estMinimos={'200ml':0,'300ml':0,'500ml':0,'1L':0,'5L':0};
 let movimentos=[];
@@ -1814,6 +1816,7 @@ async function sincronizar(){
     }
     const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
     const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
+    const dbPAmanha=await sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
     // Buscar quais pedidos têm foto (só id — não baixa a foto em si)
     const dbFotos=await sbGet('pedidos',`?entregue=eq.true&select=id,foto&foto=not.is.null`).catch(()=>[]);
     // Capturar estado local ANTES de sobrescrever — timestamp para saber qual é mais recente
@@ -1821,6 +1824,7 @@ async function sincronizar(){
     const agora=Date.now();
     pedidos.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto,naoEntregue:p.naoEntregue,motivoNaoEntregue:p.motivoNaoEntregue,ts:agora};});
     pedidosOntem.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto,naoEntregue:p.naoEntregue,motivoNaoEntregue:p.motivoNaoEntregue,ts:agora};});
+    pedidosAmanha.forEach(p=>{localState[p.id]={entregue:p.entregue,horaEntrega:p.horaEntrega,pago:p.pago,foto:p.foto,naoEntregue:p.naoEntregue,motivoNaoEntregue:p.motivoNaoEntregue,ts:agora};});
 
     function mesclar(p){
       const mapped=mapPedido(p);
@@ -1847,15 +1851,19 @@ async function sincronizar(){
 
     pedidosOntem=(dbPOntem||[]).map(mesclar).filter(p=>p.data===ontemKey);
     pedidos=(dbP||[]).map(mesclar).filter(p=>p.data===hojeKey);
+    pedidosAmanha=(dbPAmanha||[]).map(mesclar).filter(p=>p.data===amanhaKey);
     // Marcar pedidos que têm foto no banco (sem baixar a imagem)
     if(dbFotos&&dbFotos.length){
       const fotosIds=new Set(dbFotos.map(f=>String(f.id)));
       const marcarFoto=(p)=>{if(fotosIds.has(String(p.id))&&!p.foto) p.foto='__tem_foto__';};
       pedidos.forEach(marcarFoto);
       pedidosOntem.forEach(marcarFoto);
+      pedidosAmanha.forEach(marcarFoto);
       Object.values(historico).forEach(arr=>arr.forEach(marcarFoto));
     }
     lsave('slj_ped_bk',pedidos);
+    lsave('slj_ped_ontem_bk',pedidosOntem);
+    lsave('slj_ped_amanha_bk',pedidosAmanha);
     lsave('slj_ped_ontem_bk',pedidosOntem);
     // Buscar histórico — sempre na primeira carga, depois a cada 10 minutos
     const agora2=Date.now();
@@ -2071,7 +2079,7 @@ function setDashPeriodo(p,btn){
 }
 
 function getDashPedidos(){
-  const todos=[...pedidos,...pedidosOntem,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const mesAtual=hojeKey.slice(0,7);
   const anoAtual=hojeKey.slice(0,4);
   const d=new Date(hoje);d.setMonth(d.getMonth()-1);
@@ -2155,7 +2163,7 @@ function renderDash(){
   const metaMes=load('slj_meta_mes',0);
   const metaMesInp=document.getElementById('meta-mes-input');
   if(metaMesInp&&!metaMesInp.value&&metaMes>0) metaMesInp.value=metaMes;
-  const todosM2=[...pedidos,...pedidosOntem,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const todosM2=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const fatMesAtual=todosM2.filter(p=>p.data&&p.data.startsWith(mesAtual)).reduce((s,p)=>s+p.total,0);
   const pctMeta=metaMes>0?Math.min(100,Math.round(fatMesAtual/metaMes*100)):0;
   const faltaMeta=metaMes>0?Math.max(0,metaMes-fatMesAtual):0;
@@ -2208,7 +2216,7 @@ function renderDash(){
   const totalEntregador=gastoEntregador+gastoFabio;
 
   // Custo de produção (custo unitário × qtd vendida)
-  const todosM=[...pedidos,...pedidosOntem,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const todosM=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const pedidosMes=todosM.filter(p=>p.data&&p.data.startsWith(mesAtual));
   const qtdMes={};TAMS.forEach(t=>qtdMes[t]=0);
   pedidosMes.forEach(p=>p.itens.forEach(it=>{qtdMes[it.tam]=(qtdMes[it.tam]||0)+it.qtd;}));
@@ -2349,7 +2357,7 @@ function renderDash(){
 }
 
 function renderGraficoDash(lista){
-  const todos=[...pedidos,...pedidosOntem,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
 
   // Gráfico 1: Faturamento últimos 7 dias
   try{
@@ -2666,7 +2674,7 @@ function renderHistorico(){
   const el=document.getElementById('hist-list');
   if(!el)return;
   const q=(document.getElementById('hist-busca')?.value||'').toLowerCase();
-  const todos=[...pedidos,...pedidosOntem];
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha];
   Object.values(historico).forEach(d=>d.forEach(p=>{if(!todos.find(x=>x.id===p.id))todos.push(p);}));
   // Pedidos que não são de hoje
   const hist=todos.filter(p=>p.data&&p.data!==hojeKey);
@@ -2760,7 +2768,7 @@ function clienteDebitoTotal(id){
   return todos.filter(p=>p.clienteId===id&&p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
 }
 function ultimoPedidoData(id){
-  const todos=[...pedidos,...pedidosOntem];
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha];
   Object.values(historico).forEach(d=>d.forEach(p=>{if(!todos.find(x=>x.id===p.id))todos.push(p);}));
   const doPedido=todos.filter(p=>p.clienteId===id&&p.data).sort((a,b)=>b.data.localeCompare(a.data));
   return doPedido[0]?doPedido[0].data:null;
@@ -2812,7 +2820,7 @@ function renderClienteList(q=''){
 
 // ── PEDIDO ─────────────────────────────────────────────────────────────────
 function ultimoPedidoCliente(id){
-  const todos=[...pedidos,...pedidosOntem];
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha];
   Object.values(historico).forEach(d=>d.forEach(p=>{if(!todos.find(x=>x.id===p.id))todos.push(p);}));
   return todos.filter(p=>p.clienteId===id&&p.data).sort((a,b)=>b.data.localeCompare(a.data))[0]||null;
 }
@@ -2981,8 +2989,16 @@ async function confirmar(){
     const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido}]);
     const ped=Array.isArray(res)?res[0]:res;
     const obj=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
-    pedidos.push(obj);rotaOrdem.push(obj.id);
-    lsave('slj_ped_bk',pedidos);
+    // Adicionar ao array correto baseado na data de entrega
+    const dataEntregaObj=getDataEntregaKey();
+    if(dataEntregaObj===amanhaKey){
+      pedidosAmanha.push(obj);
+      lsave('slj_ped_amanha_bk',pedidosAmanha);
+    } else {
+      pedidos.push(obj);
+      lsave('slj_ped_bk',pedidos);
+    }
+    rotaOrdem.push(obj.id);
     lsave('slj_rota_ordem',rotaOrdem);
     pedidoSalvo=true;
     registrarAtividadePedido();
@@ -3528,7 +3544,7 @@ function gerarPDFMensal(){
   doc.setDrawColor(220,220,220);doc.line(14,26,196,26);
 
   // Juntar todos os pedidos do mês
-  const todos=[...pedidos,...pedidosOntem];
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha];
   Object.values(historico).forEach(d=>d.forEach(p=>{if(!todos.find(x=>x.id===p.id))todos.push(p);}));
   const doMes=todos.filter(p=>p.data&&p.data.startsWith(mesAtual));
 
@@ -4601,7 +4617,7 @@ function toggleAcompCobrado(acompId,semana){
 
 function importarDevedores(){
   // Buscar todos os pedidos entregues e não pagos
-  const todos=[...pedidos,...pedidosOntem,...Object.values(historico).flat()]
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()]
     .filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const devedores=new Set(
     todos.filter(p=>p.entregue&&!p.pago).map(p=>p.clienteId)
@@ -4990,7 +5006,7 @@ function getProdDataKey(){
 }
 
 function getPedidosParaProducao(dataKey){
-  const todos=[...pedidos,...pedidosOntem,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   if(prodDataSel==='todos'){
     // Combina: entrega hoje + entrega amanhã
     const amanha=new Date(hoje);amanha.setDate(amanha.getDate()+1);
@@ -5124,7 +5140,7 @@ function setFinPeriodo(p,btn){
 }
 
 function getPedidosPeriodo(){
-  const todos=[...pedidos,...pedidosOntem];
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha];
   Object.values(historico).forEach(d=>d.forEach(p=>{if(!todos.find(x=>x.id===p.id))todos.push(p);}));
   const mesAtual=hojeKey.slice(0,7);
   const anoAtual=hojeKey.slice(0,4);
@@ -5332,7 +5348,7 @@ function limparClienteFin(){
 
 function renderExtratocliente(){
   if(!finCliSelecionado) return;
-  const todos=[...pedidos,...pedidosOntem];
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha];
   Object.values(historico).forEach(d=>d.forEach(p=>{if(!todos.find(x=>x.id===p.id))todos.push(p);}));
   const pedsCli = todos.filter(p=>p.clienteId===finCliSelecionado.id).sort((a,b)=>b.data.localeCompare(a.data));
 
@@ -5418,7 +5434,7 @@ function renderExtratocliente(){
 }
 
 function delPedidoFin(pedidoId, dataKey){
-  const todos=[...pedidos,...pedidosOntem];
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha];
   Object.values(historico).forEach(d=>d.forEach(p=>{if(!todos.find(x=>x.id===p.id))todos.push(p);}));
   const p=todos.find(x=>x.id===pedidoId);
   const nome=p?.clienteNome||'este pedido';
@@ -5497,7 +5513,7 @@ function gerarPDFCliente(){
   const {jsPDF} = window.jspdf;
   const cli = finCliSelecionado;
   const cliCad = clientes.find(c=>c.id===cli.id)||{};
-  const todos=[...pedidos,...pedidosOntem];
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha];
   Object.values(historico).forEach(d=>d.forEach(p=>{if(!todos.find(x=>x.id===p.id))todos.push(p);}));
   const todosCli = todos.filter(p=>p.clienteId===cli.id).sort((a,b)=>b.data.localeCompare(a.data));
 
@@ -6404,6 +6420,7 @@ function iniciarSistema(){
   pedidos=load('slj_ped_bk',[]).filter(p=>p.data===hojeKey);
   const cacheOntem=load('slj_ped_ontem_bk',[]);
   pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
+  pedidosAmanha=load('slj_ped_amanha_bk',[]).filter(p=>p.data===amanhaKey);
   // Carregar histórico do cache local — dados ficam disponíveis imediatamente
   const histCache=load('slj_hist_bk',{});
   if(Object.keys(histCache).length>0) historico=histCache;
@@ -6510,9 +6527,10 @@ function iniciarSyncAdaptativa(){
 async function sincronizarRapido(){
   if(!perfilAtual)return;
   try{
-    const [dbP,dbPOntem]=await Promise.all([
+    const [dbP,dbPOntem,dbPAmanha]=await Promise.all([
       sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`),
-      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`)
+      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`),
+      sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`)
     ]);
     let atualizado=false;
     if(dbP&&dbP.length>=0){
@@ -6535,6 +6553,16 @@ async function sincronizarRapido(){
       if(mudouOntem){
         novosOntem.forEach(n=>{const local=pedidosOntem.find(p=>String(p.id)===String(n.id));if(local?.foto)n.foto=local.foto;});
         pedidosOntem=novosOntem;lsave('slj_ped_ontem_bk',pedidosOntem);atualizado=true;
+      }
+    }
+    if(dbPAmanha&&dbPAmanha.length>=0){
+      const novosAmanha=dbPAmanha.map(mapPedido);
+      const mudouAmanha=novosAmanha.length!==pedidosAmanha.length||novosAmanha.some(n=>{
+        const local=pedidosAmanha.find(p=>String(p.id)===String(n.id));
+        return !local||local.entregue!==n.entregue||local.pago!==n.pago;
+      });
+      if(mudouAmanha){
+        pedidosAmanha=novosAmanha;lsave('slj_ped_amanha_bk',pedidosAmanha);atualizado=true;
       }
     }
     if(atualizado){
