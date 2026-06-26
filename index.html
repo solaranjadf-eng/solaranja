@@ -3146,7 +3146,7 @@ let naoEntregePedido=null;
 
 function abrirNaoEntregue(id){
   const _dk=getRotaDataKey();
-  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):_dk===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[_dk]||[]);
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   naoEntregePedido=p;
@@ -3180,7 +3180,7 @@ function confirmarNaoEntregue(){
 
 function desfazerNaoEntregue(id){
   const _dk=getRotaDataKey();
-  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):_dk===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[_dk]||[]);
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   if(!confirm('Desfazer "não entregue" de '+p.clienteNome+'?'))return;
@@ -3194,7 +3194,7 @@ function desfazerNaoEntregue(id){
 
 async function delPedidoRota(id){
   const _dk=getRotaDataKey();
-  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):_dk===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[_dk]||[]);
   const p=listaRota.find(x=>x.id===id)||pedidos.find(x=>x.id===id);
   if(!p)return;
   if(!confirm('Remover pedido de '+p.clienteNome+' da rota?\nEsta ação não pode ser desfeita.'))return;
@@ -3226,7 +3226,7 @@ async function delPedidoRota(id){
 
 function abrirEntregues(){
   const _dk=getRotaDataKey();
-  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):_dk===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[_dk]||[]);
   const entregues=listaRota.filter(p=>p.entregue);
   const el=document.getElementById('modal-entregues-list');
   if(!entregues.length){
@@ -3619,7 +3619,7 @@ let _reordenarPedidoId=null;
 function abrirModalReordenar(pedidoId){
   _reordenarPedidoId=pedidoId;
   const _dk=getRotaDataKey();
-  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):_dk===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[_dk]||[]);
   const p=listaRota.find(x=>String(x.id)===String(pedidoId));
   if(!p)return;
 
@@ -3646,7 +3646,7 @@ function confirmarReordenar(novaPos){
   if(!pedidoId)return;
 
   const _dk=getRotaDataKey();
-  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):_dk===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[_dk]||[]);
   const idsHoje=listaRota.map(p=>p.id);
   let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
   idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
@@ -3700,6 +3700,7 @@ function ordenarRota(){
   let listaRota=[];
   if(dataSel===hojeKey) listaRota=pedidos.filter(p=>p.data===hojeKey);
   else if(dataSel===ontemKey) listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
+  else if(dataSel===amanhaKey) listaRota=pedidosAmanha.filter(p=>p.data===amanhaKey);
   else listaRota=historico[dataSel]||[];
   // Ordenar somente os pendentes por distância; entregues e não entregues ficam no fim
   const pendentes=listaRota.filter(p=>!p.entregue&&!p.naoEntregue);
@@ -3737,7 +3738,7 @@ function setViagemPedido(pedidoId, num){
 
 function mostrarResumoViagens(){
   const dataSel=getRotaDataKey();
-  let lista=dataSel===hojeKey?pedidos.filter(p=>p.data===hojeKey):dataSel===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[dataSel]||[]);
+  let lista=dataSel===hojeKey?pedidos.filter(p=>p.data===hojeKey):dataSel===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):dataSel===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[dataSel]||[]);
   const grupos={};
   lista.forEach(p=>{
     const v=viagens[p.id]||0;
@@ -3782,6 +3783,8 @@ function renderRota(){
     listaRota=pedidos.filter(p=>p.data===hojeKey);
   } else if(dataSel===ontemKey){
     listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
+  } else if(dataSel===amanhaKey){
+    listaRota=pedidosAmanha.filter(p=>p.data===amanhaKey);
   } else {
     // Buscar no histórico
     listaRota=[...(historico[dataSel]||[])];
@@ -3994,7 +3997,7 @@ function touchEnd(e){
   const targetId=card?.dataset.id;
   if(targetId&&targetId!==dragId){
     const _dk=getRotaDataKey();
-    const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+    const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):_dk===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[_dk]||[]);
     const idsHoje=listaRota.map(p=>p.id);
     // Isolar apenas a ordem desta data
     let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
@@ -4024,7 +4027,7 @@ function dragDrop(e){
   if(!dragId||dragId===targetId)return;
   // Full rota list
   const _dk=getRotaDataKey();
-  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):_dk===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[_dk]||[]);
   const idsHoje=listaRota.map(p=>p.id);
   // Isolar apenas a ordem desta data
   let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
@@ -4044,7 +4047,7 @@ function dragDrop(e){
 }
 function toggleRotaCheck(id){
   const _dk=getRotaDataKey();
-  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):_dk===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[_dk]||[]);
   const p=listaRota.find(x=>x.id===id);
   if(!p)return;
   if(p.entregue){
@@ -4067,7 +4070,7 @@ function toggleRotaCheck(id){
 }
 function abrirExtrato(){
   const _dk=getRotaDataKey();
-  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):(historico[_dk]||[]);
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):_dk===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[_dk]||[]);
   const idsHoje=listaRota.map(p=>p.id);
   let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
   idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
@@ -4110,6 +4113,7 @@ function imprimirRota(){
   let lista=[];
   if(dataSel===hojeKey) lista=pedidos.filter(p=>p.data===hojeKey);
   else if(dataSel===ontemKey) lista=pedidosOntem.filter(p=>p.data===ontemKey);
+  else if(dataSel===amanhaKey) lista=pedidosAmanha.filter(p=>p.data===amanhaKey);
   else lista=historico[dataSel]||[];
   if(!lista.length){toast('Nenhum pedido nesta data.');return;}
 
@@ -6431,12 +6435,15 @@ function iniciarSistema(){
     atualizarBadges();
     // Ir direto para a aba que estava ativa
     setTab(abaAtiva);
+    // Re-renderizar rota/dia após sync completa (pode ter novos pedidos de amanhã)
+    if(document.getElementById('page-rota')?.classList.contains('active')) renderRota();
+    if(document.getElementById('page-dia')?.classList.contains('active')) renderDia();
   });
   setInterval(sincronizar,300000); // 5 minutos — sync completa
   // Sync adaptativa: começa em modo inativo (30s), acelera para 5s quando há atividade
   _syncRapidoTimer=setInterval(sincronizarRapido,30000);
-  // Se já há pedidos hoje, inicia em modo ativo imediatamente
-  if(pedidos.length>0) registrarAtividadePedido();
+  // Se já há pedidos hoje ou amanhã, inicia em modo ativo imediatamente
+  if(pedidos.length>0||pedidosAmanha.length>0) registrarAtividadePedido();
 }
 
 function iniciarSistemaEntregador(){
