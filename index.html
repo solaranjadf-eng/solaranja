@@ -1877,7 +1877,7 @@ async function sincronizar(){
     const d90=new Date(hoje);d90.setDate(d90.getDate()-90);
     const noventaDiasAtras=d90.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
     if(primeiraVez||agora2-ultimaHistSync>600000){
-      const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
+      const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
       localStorage.setItem('slj_hist_sync',agora2.toString());
       if(dbH!==null&&dbH.length>0){
         const novoHist={};
@@ -6436,16 +6436,9 @@ function iniciarSistema(){
   // Carregar histórico do cache local — dados ficam disponíveis imediatamente
   const histCache=load('slj_hist_bk',{});
   if(Object.keys(histCache).length>0){
-    // Se o cache não tem fotos (versão antiga), invalidar para rebuscar do banco
-    const semFoto=Object.values(histCache).flat().some(p=>p.entregue&&p.foto===null);
-    const temMarcador=Object.values(histCache).flat().some(p=>p.foto==='__tem_foto__');
-    if(temMarcador||semFoto){
-      // Limpar cache — será rebuscado do banco com foto incluída
-      localStorage.removeItem('slj_hist_bk');
-      localStorage.removeItem('slj_hist_sync');
-    } else {
-      historico=histCache;
-    }
+    // Limpar marcador legado __tem_foto__
+    Object.values(histCache).forEach(arr=>arr.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;}));
+    historico=histCache;
   }
   const abaAtiva=localStorage.getItem('slj_aba_ativa')||'dash';
   sincronizar().finally(()=>{
