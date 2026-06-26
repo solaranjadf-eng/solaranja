@@ -223,6 +223,8 @@ label{font-size:11px;font-weight:600;color:var(--text3);display:block;margin-bot
 .modal-bg.open{opacity:1;pointer-events:all}
 .modal-box{background:var(--white);border-radius:10px 10px 0 0;width:100%;max-width:720px;padding:14px 17px 0;max-height:92vh;display:flex;flex-direction:column;transform:translateY(22px);transition:transform .22s;box-shadow:var(--shadow-md)}
 .modal-body{flex:1;overflow-y:auto;padding-bottom:8px}
+.foto-preview-wrap{display:none;width:100%;height:140px;border-radius:var(--radius);margin-top:8px;overflow:hidden;background:var(--bg2)}
+.foto-preview-wrap img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
 .foto-preview{display:none;width:100%;max-height:140px;object-fit:cover;border-radius:var(--radius);margin-top:4px}
 .modal-footer{flex-shrink:0;padding:10px 0 calc(18px + env(safe-area-inset-bottom));border-top:1px solid var(--border)}
 .modal-bg.open .modal-box{transform:translateY(0)}
@@ -1612,7 +1614,9 @@ a{color:var(--orange);text-decoration:none}
       <p style="font-size:13px;color:var(--text3);margin-bottom:12px">A foto é opcional. Você pode confirmar a entrega com ou sem foto.</p>
       <input type="file" id="foto-input" accept="image/*" capture="environment" style="display:none" onchange="fotoSelecionada()">
       <button class="btn btn-outline btn-full" onclick="document.getElementById('foto-input').click()" style="margin-bottom:10px">📷 Tirar Foto (opcional)</button>
-      <img id="foto-preview" class="foto-preview">
+      <div class="foto-preview-wrap" id="foto-preview-wrap">
+        <img id="foto-preview">
+      </div>
     </div>
     <div class="modal-footer">
       <div class="action-row" style="margin:0">
@@ -3279,7 +3283,7 @@ function abrirFoto(i){
   fotoEntregaIdx=i;
   fotoEntregaPedido=null;
   fotoBase64=null;
-  document.getElementById('foto-preview').style.display='none';
+  document.getElementById('foto-preview-wrap').style.display='none';
   try{document.getElementById('foto-input').value='';}catch(e){}
   document.getElementById('btn-confirmar-entrega').disabled=false;
   document.getElementById('modal-foto').classList.add('open');
@@ -3358,7 +3362,8 @@ function fotoSelecionada(){
   reader.onload=e=>{
     fotoBase64=e.target.result;
     const img=document.getElementById('foto-preview');
-    img.src=fotoBase64;img.style.display='block';
+    img.src=fotoBase64;
+    document.getElementById('foto-preview-wrap').style.display='block';
     document.getElementById('btn-confirmar-entrega').disabled=false;
   };
   reader.readAsDataURL(file);
@@ -3399,7 +3404,7 @@ function confirmarEntrega(){
   fotoBase64=null;
   document.getElementById('modal-foto').classList.remove('open');
   try{document.getElementById('foto-input').value='';}catch(e){}
-  try{document.getElementById('foto-preview').style.display='none';}catch(e){}
+  try{document.getElementById('foto-preview-wrap').style.display='none';}catch(e){}
 
   // Atualizar UI
   atualizarBadges();
@@ -4067,7 +4072,7 @@ function toggleRotaCheck(id){
     fotoEntregaIdx=null;
     fotoEntregaPedido=p;
     fotoBase64=null;
-    document.getElementById('foto-preview').style.display='none';
+    document.getElementById('foto-preview-wrap').style.display='none';
     try{document.getElementById('foto-input').value='';}catch(e){}
     document.getElementById('btn-confirmar-entrega').disabled=false;
     document.getElementById('modal-foto').classList.add('open');
