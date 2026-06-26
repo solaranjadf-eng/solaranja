@@ -1888,6 +1888,7 @@ async function sincronizar(){
       }
       // Limpeza de fotos antigas — roda só 1x por dia, junto com a sync de histórico (economiza egress)
       limparFotosAntigas();
+      compactarFotosAntigas();
     }
     const dbE=await sbGet('estoque','');
     if(dbE&&dbE.length)dbE.forEach(e=>estoque[e.tam]=e.qty||0);
@@ -3067,19 +3068,18 @@ function renderDia(){
   let lista=[];
   if(dataSel===hojeKey){
     lista=pedidos.slice();
+  } else if(dataSel===ontemKey||dataSel===amanhaKey){
+    const arr=dataSel===ontemKey?pedidosOntem:pedidosAmanha;
+    lista=arr.filter(p=>p.data===dataSel);
   } else {
-    // Buscar no historico ou pedidosOntem
-    const doPeriodo=historico[dataSel]||[];
-    lista=[...doPeriodo];
-    pedidosOntem.filter(p=>p.data===dataSel).forEach(p=>{
-      if(!lista.find(x=>x.id===p.id)) lista.push(p);
-    });
-    // Se não encontrou nada no cache, buscar do banco
-    if(!lista.length){
+    // Histórico: usar cache para renderizar imediatamente
+    lista=[...(historico[dataSel]||[])];
+    // Sempre rebuscar do banco para garantir foto atualizada
+    const cacheTemFoto=lista.some(p=>p.foto);
+    if(!cacheTemFoto){
       sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`).then(dbP=>{
         if(dbP&&dbP.length){
-          if(!historico[dataSel]) historico[dataSel]=[];
-          historico[dataSel]=(dbP||[]).map(mapPedido);
+          historico[dataSel]=dbP.map(mapPedido);
           renderDia();
         }
       }).catch(()=>{});
@@ -6400,6 +6400,43 @@ function fazerLogout(){
   chartResultado=destroyChart(chartResultado);
   chartCustosCat=destroyChart(chartCustosCat);
   chartEmb=destroyChart(chartEmb);
+}
+
+// Compacta fotos de pedidos entregues há mais de 24h para versão menor (400px, 50%)
+// Roda 1x por dia junto com a limpeza geral
+async function compactarFotosAntigas(){
+  const ultimaCompactacao=parseInt(localStorage.getItem('slj_compact_fotos')||'0');
+  const agora=Date.now();
+  if(agora-ultimaCompactacao<86400000) return; // já rodou nas últimas 24h
+  try{
+    const ontemKey2=new Date(hoje);ontemKey2.setDate(ontemKey2.getDate()-1);
+    const corte=ontemKey2.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
+    // Busca pedidos entregues há mais de 24h que ainda têm foto grande (>10KB em base64 ~= >13000 chars)
+    const candidatos=await sbGet('pedidos',`?data=lt.${corte}&entregue=eq.true&foto=not.is.null&select=id,foto`);
+    if(!candidatos||!candidatos.length) return;
+    let compactados=0;
+    for(const p of candidatos){
+      if(!p.foto||p.foto.length<13000) continue; // já pequena, pular
+      await new Promise(resolve=>{
+        const img=new Image();
+        img.onload=async()=>{
+          const MAX=400; // reduz de 800px para 400px
+          let w=img.width,h=img.height;
+          if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
+          const canvas=document.createElement('canvas');
+          canvas.width=w;canvas.height=h;
+          canvas.getContext('2d').drawImage(img,0,0,w,h);
+          const fotoCompacta=canvas.toDataURL('image/jpeg',0.5); // 50% qualidade
+          await sbPatch('pedidos',`?id=eq.${p.id}`,{foto:fotoCompacta}).catch(()=>{});
+          compactados++;
+          resolve();
+        };
+        img.onerror=resolve;
+        img.src=p.foto;
+      });
+    }
+    localStorage.setItem('slj_compact_fotos',agora.toString());
+  }catch(e){}
 }
 
 async function limparFotosAntigas(){
