@@ -3072,18 +3072,15 @@ function renderDia(){
     const arr=dataSel===ontemKey?pedidosOntem:pedidosAmanha;
     lista=arr.filter(p=>p.data===dataSel);
   } else {
-    // Histórico: usar cache para renderizar imediatamente
+    // Histórico: usar cache para renderizar imediatamente enquanto busca do banco
     lista=[...(historico[dataSel]||[])];
-    // Sempre rebuscar do banco para garantir foto atualizada
-    const cacheTemFoto=lista.some(p=>p.foto);
-    if(!cacheTemFoto){
-      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`).then(dbP=>{
-        if(dbP&&dbP.length){
-          historico[dataSel]=dbP.map(mapPedido);
-          renderDia();
-        }
-      }).catch(()=>{});
-    }
+    // Sempre buscar do banco com foto — cache do histórico bulk não tem foto
+    sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`).then(dbP=>{
+      if(dbP&&dbP.length){
+        historico[dataSel]=dbP.map(mapPedido);
+        renderDia();
+      }
+    }).catch(()=>{});
   }
 
   // Atualizar label
