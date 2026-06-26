@@ -1838,13 +1838,18 @@ async function sincronizar(){
     function mesclar(p){
       const mapped=mapPedido(p);
       const local=localState[mapped.id];
-      if(local){
-        // Se banco já tem entregue=true, manter
+      const pendente=_entregasLocais[mapped.id];
+      if(pendente){
+        // Entrega confirmada localmente mas banco ainda não atualizou — proteger
+        mapped.entregue=true;
+        mapped.horaEntrega=pendente.horaEntrega;
+        if(pendente.foto) mapped.foto=pendente.foto;
+      } else if(local){
+        // Se banco já tem entregue=true, manter (foto vem do banco)
         // Se local tem entregue=true mas banco ainda não, usar local
         if(mapped.entregue===true || local.entregue===true){
           mapped.entregue=true;
-          if(local.horaEntrega) mapped.horaEntrega=local.horaEntrega;
-          if(local.foto) mapped.foto=local.foto;
+          if(local.horaEntrega && !mapped.horaEntrega) mapped.horaEntrega=local.horaEntrega;
         } else {
           mapped.entregue=false;
         }
@@ -3385,7 +3390,6 @@ function confirmarEntrega(){
   // Salvar no localStorage imediatamente
   lsave('slj_ped_bk',pedidos);
   lsave('slj_ped_ontem_bk',pedidosOntem);
-  registrarAtividadePedido(); // Ativa sync a cada 5s
 
   // Limpar estado e fechar modal
   fotoEntregaIdx=null;
@@ -3401,11 +3405,13 @@ function confirmarEntrega(){
   renderRota();
   toast('✅ Entrega confirmada às '+hora+'.');
 
-  // Salvar no banco — sem setTimeout, chamada direta
+  // Proteger contra sobrescrita por sync periódica enquanto PATCH está em andamento
+  _entregasLocais[pedidoId]={entregue:true,horaEntrega:hora,foto:foto};
+
   sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:true,hora_entrega:hora,foto:foto})
     .then(()=>{
+      delete _entregasLocais[pedidoId];
       setSyncStatus('ok','✓ Conectado — dados sincronizados');
-      // Forçar sync imediata para atualizar outros dispositivos agora
       sincronizarRapido();
     })
     .catch(()=>{
@@ -6430,9 +6436,16 @@ function iniciarSistema(){
   // Carregar histórico do cache local — dados ficam disponíveis imediatamente
   const histCache=load('slj_hist_bk',{});
   if(Object.keys(histCache).length>0){
-    // Limpar marcador legado __tem_foto__ — foto agora vem direto do banco
-    Object.values(histCache).forEach(arr=>arr.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;}));
-    historico=histCache;
+    // Se o cache não tem fotos (versão antiga), invalidar para rebuscar do banco
+    const semFoto=Object.values(histCache).flat().some(p=>p.entregue&&p.foto===null);
+    const temMarcador=Object.values(histCache).flat().some(p=>p.foto==='__tem_foto__');
+    if(temMarcador||semFoto){
+      // Limpar cache — será rebuscado do banco com foto incluída
+      localStorage.removeItem('slj_hist_bk');
+      localStorage.removeItem('slj_hist_sync');
+    } else {
+      historico=histCache;
+    }
   }
   const abaAtiva=localStorage.getItem('slj_aba_ativa')||'dash';
   sincronizar().finally(()=>{
@@ -6516,6 +6529,9 @@ async function entregadorConfirmarEntrega(i){
 // 5s quando há pedidos recentes (últimos 20min), 30s quando inativo
 let _ultimoPedidoCriado=0;
 let _syncRapidoTimer=null;
+// Pedidos confirmados localmente mas ainda não confirmados pelo banco
+// Chave: id do pedido, Valor: {entregue, horaEntrega, foto, ts}
+const _entregasLocais={};
 
 function registrarAtividadePedido(){
   _ultimoPedidoCriado=Date.now();
@@ -6548,6 +6564,11 @@ async function sincronizarRapido(){
     let atualizado=false;
     if(dbP&&dbP.length>=0){
       const novos=dbP.map(mapPedido);
+      // Aplicar estado local pendente (entrega confirmada mas banco ainda não atualizou)
+      novos.forEach(n=>{
+        const local=_entregasLocais[n.id];
+        if(local){n.entregue=local.entregue;n.horaEntrega=local.horaEntrega;if(local.foto)n.foto=local.foto;}
+      });
       const mudou=novos.length!==pedidos.length||novos.some(n=>{
         const local=pedidos.find(p=>String(p.id)===String(n.id));
         return !local||local.entregue!==n.entregue||local.pago!==n.pago||local.foto!==n.foto;
@@ -6558,6 +6579,10 @@ async function sincronizarRapido(){
     }
     if(dbPOntem&&dbPOntem.length>=0){
       const novosOntem=dbPOntem.map(mapPedido);
+      novosOntem.forEach(n=>{
+        const local=_entregasLocais[n.id];
+        if(local){n.entregue=local.entregue;n.horaEntrega=local.horaEntrega;if(local.foto)n.foto=local.foto;}
+      });
       const mudouOntem=novosOntem.length!==pedidosOntem.length||novosOntem.some(n=>{
         const local=pedidosOntem.find(p=>String(p.id)===String(n.id));
         return !local||local.entregue!==n.entregue||local.pago!==n.pago||local.foto!==n.foto;
