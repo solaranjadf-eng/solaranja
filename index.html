@@ -221,7 +221,9 @@ label{font-size:11px;font-weight:600;color:var(--text3);display:block;margin-bot
 /* MODAL */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s}
 .modal-bg.open{opacity:1;pointer-events:all}
-.modal-box{background:var(--white);border-radius:10px 10px 0 0;width:100%;max-width:720px;padding:14px 17px 28px;max-height:92vh;overflow-y:auto;transform:translateY(22px);transition:transform .22s;box-shadow:var(--shadow-md)}
+.modal-box{background:var(--white);border-radius:10px 10px 0 0;width:100%;max-width:720px;padding:14px 17px 0;max-height:92vh;display:flex;flex-direction:column;transform:translateY(22px);transition:transform .22s;box-shadow:var(--shadow-md)}
+.modal-body{flex:1;overflow-y:auto;padding-bottom:8px}
+.modal-footer{flex-shrink:0;padding:10px 0 calc(18px + env(safe-area-inset-bottom));border-top:1px solid var(--border)}
 .modal-bg.open .modal-box{transform:translateY(0)}
 .modal-handle{width:32px;height:3px;background:var(--border2);border-radius:2px;margin:0 auto 13px}
 .modal-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px}
@@ -1604,14 +1606,18 @@ a{color:var(--orange);text-decoration:none}
 <div class="modal-bg" id="modal-foto">
   <div class="modal-box">
     <div class="modal-handle"></div>
-    <div class="modal-title">Confirmar Entrega</div>
-    <p style="font-size:13px;color:var(--text3);margin-bottom:12px">A foto é opcional. Você pode confirmar a entrega com ou sem foto.</p>
-    <input type="file" id="foto-input" accept="image/*" capture="environment" style="display:none" onchange="fotoSelecionada()">
-    <button class="btn btn-outline btn-full" onclick="document.getElementById('foto-input').click()" style="margin-bottom:10px">📷 Tirar Foto (opcional)</button>
-    <img id="foto-preview" class="foto-preview">
-    <div class="action-row" style="margin-top:12px">
-      <button class="btn btn-outline" onclick="fecharModal('foto')" style="flex:1">Cancelar</button>
-      <button class="btn btn-green" onclick="confirmarEntrega()" style="flex:2" id="btn-confirmar-entrega">✓ Confirmar Entrega</button>
+    <div class="modal-body">
+      <div class="modal-title">Confirmar Entrega</div>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:12px">A foto é opcional. Você pode confirmar a entrega com ou sem foto.</p>
+      <input type="file" id="foto-input" accept="image/*" capture="environment" style="display:none" onchange="fotoSelecionada()">
+      <button class="btn btn-outline btn-full" onclick="document.getElementById('foto-input').click()" style="margin-bottom:10px">📷 Tirar Foto (opcional)</button>
+      <img id="foto-preview" class="foto-preview">
+    </div>
+    <div class="modal-footer">
+      <div class="action-row" style="margin:0">
+        <button class="btn btn-outline" onclick="fecharModal('foto')" style="flex:1">Cancelar</button>
+        <button class="btn btn-green" onclick="confirmarEntrega()" style="flex:2" id="btn-confirmar-entrega">✓ Confirmar Entrega</button>
+      </div>
     </div>
   </div>
 </div>
