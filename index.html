@@ -3273,6 +3273,7 @@ function abrirFoto(i){
   fotoEntregaPedido=null;
   fotoBase64=null;
   document.getElementById('foto-preview').style.display='none';
+  try{document.getElementById('foto-input').value='';}catch(e){}
   document.getElementById('btn-confirmar-entrega').disabled=false;
   document.getElementById('modal-foto').classList.add('open');
 }
@@ -3297,12 +3298,10 @@ function inserirFotoSelecionada(){
   if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    comprimirFoto(e.target.result, compressed=>{
-      _inserirFotoBase64=compressed;
-      const img=document.getElementById('inserir-foto-preview');
-      img.src=_inserirFotoBase64;img.style.display='block';
-      document.getElementById('btn-salvar-foto-inserida').disabled=false;
-    });
+    _inserirFotoBase64=e.target.result;
+    const img=document.getElementById('inserir-foto-preview');
+    img.src=_inserirFotoBase64;img.style.display='block';
+    document.getElementById('btn-salvar-foto-inserida').disabled=false;
   };
   reader.readAsDataURL(file);
 }
@@ -3350,15 +3349,14 @@ function fotoSelecionada(){
   if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    comprimirFoto(e.target.result, compressed=>{
-      fotoBase64=compressed;
-      const img=document.getElementById('foto-preview');
-      img.src=fotoBase64;img.style.display='block';
-      document.getElementById('btn-confirmar-entrega').disabled=false;
-    });
+    fotoBase64=e.target.result;
+    const img=document.getElementById('foto-preview');
+    img.src=fotoBase64;img.style.display='block';
+    document.getElementById('btn-confirmar-entrega').disabled=false;
   };
   reader.readAsDataURL(file);
 }
+
 function confirmarEntrega(){
   // Suporta tanto idx (aba Do Dia) quanto referência direta (aba Rota)
   let pedido=null;
@@ -4059,11 +4057,11 @@ function toggleRotaCheck(id){
     sbPatch('pedidos',`?id=eq.${id}`,{entregue:false,hora_entrega:null,foto:null}).catch(()=>{});
     toast('Entrega desfeita.');
   }else{
-    // Marcar como entregue — abrir modal de foto
     fotoEntregaIdx=null;
     fotoEntregaPedido=p;
     fotoBase64=null;
     document.getElementById('foto-preview').style.display='none';
+    try{document.getElementById('foto-input').value='';}catch(e){}
     document.getElementById('btn-confirmar-entrega').disabled=false;
     document.getElementById('modal-foto').classList.add('open');
   }
