@@ -6545,21 +6545,18 @@ async function sincronizarRapido(){
   if(!perfilAtual)return;
   try{
     const [dbP,dbPOntem,dbPAmanha]=await Promise.all([
-      sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`),
-      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`),
-      sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`)
+      sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`),
+      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`),
+      sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`)
     ]);
-    // Buscar quais pedidos recentes têm foto (só IDs — não baixa a foto)
-    const dbFotosRapido=await sbGet('pedidos',`?data=gte.${ontemKey}&entregue=eq.true&select=id&foto=not.is.null`).catch(()=>[]);
     let atualizado=false;
     if(dbP&&dbP.length>=0){
       const novos=dbP.map(mapPedido);
       const mudou=novos.length!==pedidos.length||novos.some(n=>{
         const local=pedidos.find(p=>String(p.id)===String(n.id));
-        return !local||local.entregue!==n.entregue||local.pago!==n.pago;
+        return !local||local.entregue!==n.entregue||local.pago!==n.pago||local.foto!==n.foto;
       });
       if(mudou){
-        novos.forEach(n=>{const local=pedidos.find(p=>String(p.id)===String(n.id));if(local?.foto)n.foto=local.foto;});
         pedidos=novos;lsave('slj_ped_bk',pedidos);atualizado=true;
       }
     }
@@ -6567,10 +6564,9 @@ async function sincronizarRapido(){
       const novosOntem=dbPOntem.map(mapPedido);
       const mudouOntem=novosOntem.length!==pedidosOntem.length||novosOntem.some(n=>{
         const local=pedidosOntem.find(p=>String(p.id)===String(n.id));
-        return !local||local.entregue!==n.entregue||local.pago!==n.pago;
+        return !local||local.entregue!==n.entregue||local.pago!==n.pago||local.foto!==n.foto;
       });
       if(mudouOntem){
-        novosOntem.forEach(n=>{const local=pedidosOntem.find(p=>String(p.id)===String(n.id));if(local?.foto)n.foto=local.foto;});
         pedidosOntem=novosOntem;lsave('slj_ped_ontem_bk',pedidosOntem);atualizado=true;
       }
     }
@@ -6585,13 +6581,6 @@ async function sincronizarRapido(){
       }
     }
     if(atualizado){
-      // Marcar pedidos com foto (sem baixar a foto)
-      if(dbFotosRapido&&dbFotosRapido.length){
-        const fotosIds=new Set(dbFotosRapido.map(f=>String(f.id)));
-        [...pedidos,...pedidosOntem,...pedidosAmanha].forEach(p=>{
-          if(fotosIds.has(String(p.id))&&!p.foto) p.foto='__tem_foto__';
-        });
-      }
       atualizarBadges();
       if(document.getElementById('page-rota')?.classList.contains('active')) renderRota();
       if(document.getElementById('page-dia')?.classList.contains('active')) renderDia();
