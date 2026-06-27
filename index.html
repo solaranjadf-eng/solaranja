@@ -3407,9 +3407,13 @@ function confirmarEntrega(){
 
   sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:true,hora_entrega:hora,foto:foto})
     .then(()=>{
-      delete _entregasLocais[pedidoId];
       setSyncStatus('ok','✓ Conectado — dados sincronizados');
-      sincronizarRapido();
+      // Confirmar com o banco antes de limpar a proteção local
+      sincronizarRapido().then(()=>{
+        // Só limpar após sync confirmar — se banco já tem entregue=true, proteção não é mais necessária
+        const pedidoAtual=pedidos.find(p=>String(p.id)===String(pedidoId))||pedidosOntem.find(p=>String(p.id)===String(pedidoId));
+        if(pedidoAtual&&pedidoAtual.entregue) delete _entregasLocais[pedidoId];
+      });
     })
     .catch(()=>{
       setSyncStatus('err','Erro ao sincronizar — dado salvo localmente');
@@ -6576,7 +6580,7 @@ function iniciarSyncAdaptativa(){
       _syncRapidoTimer=setInterval(sincronizarRapido,30000);
     }
     sincronizarRapido();
-  },5000);
+  },15000);
 }
 
 // Sync rápida — só pedidos de hoje e ontem (sem histórico, sem fotos, sem outros dados)
@@ -6591,32 +6595,33 @@ async function sincronizarRapido(){
     let atualizado=false;
     if(dbP&&dbP.length>=0){
       const novos=dbP.map(mapPedido);
-      // Aplicar estado local pendente (entrega confirmada mas banco ainda não atualizou)
       novos.forEach(n=>{
-        const local=_entregasLocais[n.id];
-        if(local){n.entregue=local.entregue;n.horaEntrega=local.horaEntrega;if(local.foto)n.foto=local.foto;}
+        // Proteção 1: entrega pendente ainda não confirmada pelo banco
+        const pendente=_entregasLocais[n.id];
+        if(pendente){n.entregue=true;n.horaEntrega=pendente.horaEntrega;if(pendente.foto)n.foto=pendente.foto;return;}
+        // Proteção 2: nunca rebaixar entregue=true para false vindo do banco
+        const local=pedidos.find(p=>String(p.id)===String(n.id));
+        if(local&&local.entregue===true&&n.entregue===false){n.entregue=true;n.horaEntrega=local.horaEntrega;if(local.foto&&!n.foto)n.foto=local.foto;}
       });
       const mudou=novos.length!==pedidos.length||novos.some(n=>{
         const local=pedidos.find(p=>String(p.id)===String(n.id));
         return !local||local.entregue!==n.entregue||local.pago!==n.pago||local.foto!==n.foto;
       });
-      if(mudou){
-        pedidos=novos;lsave('slj_ped_bk',pedidos);atualizado=true;
-      }
+      if(mudou){pedidos=novos;lsave('slj_ped_bk',pedidos);atualizado=true;}
     }
     if(dbPOntem&&dbPOntem.length>=0){
       const novosOntem=dbPOntem.map(mapPedido);
       novosOntem.forEach(n=>{
-        const local=_entregasLocais[n.id];
-        if(local){n.entregue=local.entregue;n.horaEntrega=local.horaEntrega;if(local.foto)n.foto=local.foto;}
+        const pendente=_entregasLocais[n.id];
+        if(pendente){n.entregue=true;n.horaEntrega=pendente.horaEntrega;if(pendente.foto)n.foto=pendente.foto;return;}
+        const local=pedidosOntem.find(p=>String(p.id)===String(n.id));
+        if(local&&local.entregue===true&&n.entregue===false){n.entregue=true;n.horaEntrega=local.horaEntrega;if(local.foto&&!n.foto)n.foto=local.foto;}
       });
       const mudouOntem=novosOntem.length!==pedidosOntem.length||novosOntem.some(n=>{
         const local=pedidosOntem.find(p=>String(p.id)===String(n.id));
         return !local||local.entregue!==n.entregue||local.pago!==n.pago||local.foto!==n.foto;
       });
-      if(mudouOntem){
-        pedidosOntem=novosOntem;lsave('slj_ped_ontem_bk',pedidosOntem);atualizado=true;
-      }
+      if(mudouOntem){pedidosOntem=novosOntem;lsave('slj_ped_ontem_bk',pedidosOntem);atualizado=true;}
     }
     if(dbPAmanha&&dbPAmanha.length>=0){
       const novosAmanha=dbPAmanha.map(mapPedido);
