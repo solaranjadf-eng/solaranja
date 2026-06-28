@@ -6522,7 +6522,19 @@ function iniciarSistemaEntregador(){
   });
   setInterval(sincronizar,300000); // 5 minutos — sync completa
   // Sync adaptativa para entregador — 15s igual ao admin
-  _syncRapidoTimer=setInterval(sincronizarRapido,15000);
+  // Sync entregador: 2s quando ativo, 15s após 2h de inatividade
+  let _ultimaAtividadeEntregador=Date.now();
+  function registrarAtividadeEntregador(){_ultimaAtividadeEntregador=Date.now();}
+  document.addEventListener('touchstart',registrarAtividadeEntregador);
+  document.addEventListener('click',registrarAtividadeEntregador);
+  _syncRapidoTimer=setInterval(()=>{
+    const inativo=Date.now()-_ultimaAtividadeEntregador>2*60*60*1000; // 2h
+    if(inativo){
+      clearInterval(_syncRapidoTimer);
+      _syncRapidoTimer=setInterval(sincronizarRapido,15000);
+    }
+    sincronizarRapido();
+  },2000);
   if(pedidos.length>0) registrarAtividadePedido();
 }
 
