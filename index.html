@@ -343,7 +343,7 @@ a{color:var(--orange);text-decoration:none}
   <button class="login-btn login-btn-admin" onclick="abrirSenhaAdmin()">
     <span style="font-size:20px">🔐</span> Entrar como Administrador
   </button>
-  <button class="login-btn" style="background:rgba(255,255,255,.15);color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="entrarGerente()">
+  <button class="login-btn" style="background:rgba(255,255,255,.15);color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="abrirSenhaGerente()">
     <span style="font-size:20px">📋</span> Entrar como Gerente
   </button>
   <button class="login-btn login-btn-entregador" onclick="entrarEntregador()">
@@ -1866,8 +1866,7 @@ async function sincronizar(){
     pedidosOntem=(dbPOntem||[]).map(mesclar).filter(p=>p.data===ontemKey);
     pedidos=(dbP||[]).map(mesclar).filter(p=>p.data===hojeKey);
     pedidosAmanha=(dbPAmanha||[]).map(mesclar).filter(p=>p.data===amanhaKey);
-    lsave('slj_ped_bk',pedidos);
-    lsave('slj_ped_ontem_bk',pedidosOntem);
+    lsave('slj_ped_bk',pedidos);    lsave('slj_ped_ontem_bk',pedidosOntem);
     lsave('slj_ped_amanha_bk',pedidosAmanha);
     lsave('slj_ped_ontem_bk',pedidosOntem);
     // Buscar histórico — sempre na primeira carga, depois a cada 10 minutos
@@ -3808,7 +3807,7 @@ function renderRota(){
     }
   }
   if(!listaRota.length){
-    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido nesta data.<br><small style="color:var(--text3)">Sincronizando...</small></p></div>';
+    el.innerHTML='<div class="empty"><span class="empty-icon">⏳</span><p>Carregando pedidos de hoje...<br><small style="color:var(--text3)">Aguarde a sincronização</small></p></div>';
     return;
   }
   // Filtrar por viagem se selecionada
@@ -6466,6 +6465,18 @@ function iniciarSistema(){
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
   pedidos=load('slj_ped_bk',[]).filter(p=>p.data===hojeKey);
   pedidos.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;});
+  // Se há pedidos entregues sem foto no cache, buscar do banco em background
+  if(pedidos.some(p=>p.entregue&&!p.foto)){
+    sbGet('pedidos',`?data=eq.${hojeKey}&entregue=eq.true&select=id,foto&foto=not.is.null`).then(res=>{
+      if(!res||!res.length)return;
+      let mudou=false;
+      res.forEach(r=>{
+        const p=pedidos.find(x=>String(x.id)===String(r.id));
+        if(p&&r.foto&&!p.foto){p.foto=r.foto;mudou=true;}
+      });
+      if(mudou){lsave('slj_ped_bk',pedidos);renderDia();}
+    }).catch(()=>{});
+  }
   const cacheOntem=load('slj_ped_ontem_bk',[]);
   pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
   pedidosOntem.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;});
@@ -6498,17 +6509,20 @@ function iniciarSistema(){
 
 function iniciarSistemaEntregador(){
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
-  pedidos=load('slj_ped_bk',[]);
+  pedidos=load('slj_ped_bk',[]).filter(p=>p.data===hojeKey);
   const cacheOntem=load('slj_ped_ontem_bk',[]);
   pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
+  // Mostrar rota imediatamente com cache
+  document.getElementById('loading').classList.add('hidden');
+  setTab('rota');
+  renderRota();
+  // Sincronizar em background e atualizar
   sincronizar().finally(()=>{
-    document.getElementById('loading').classList.add('hidden');
-    setTab('rota');
     renderRota();
   });
   setInterval(sincronizar,300000); // 5 minutos — sync completa
-  // Sync adaptativa para entregador
-  _syncRapidoTimer=setInterval(sincronizarRapido,30000);
+  // Sync adaptativa para entregador — 15s igual ao admin
+  _syncRapidoTimer=setInterval(sincronizarRapido,15000);
   if(pedidos.length>0) registrarAtividadePedido();
 }
 
