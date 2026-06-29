@@ -366,6 +366,19 @@ a{color:var(--orange);text-decoration:none}
   </div>
 </div>
 
+<div class="login-modal hidden" id="login-modal-gerente">
+  <div class="login-modal-box">
+    <div class="login-modal-title">Acesso Gerente</div>
+    <div class="login-modal-sub">Digite a senha para continuar.</div>
+    <input type="password" id="senha-gerente-input" placeholder="Senha" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:15px;margin-bottom:4px" onkeydown="if(event.key==='Enter')verificarSenhaGerente()">
+    <div class="login-error" id="login-error-gerente">Senha incorreta. Tente novamente.</div>
+    <div class="action-row" style="margin-top:14px;gap:8px">
+      <button class="btn btn-outline" onclick="fecharLoginModalGerente()" style="flex:1">Cancelar</button>
+      <button class="btn btn-primary" onclick="verificarSenhaGerente()" style="flex:2">Entrar</button>
+    </div>
+  </div>
+</div>
+
 
 <div class="loading-overlay" id="loading">
   <div class="spinner"></div>
