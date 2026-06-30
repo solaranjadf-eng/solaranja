@@ -1824,6 +1824,9 @@ async function sincronizar(){
     // Teste rápido de conectividade primeiro
     const teste=await fetch(SB_URL+'/pedidos?limit=1',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     if(!teste.ok) throw new Error('HTTP '+teste.status);
+    // Conexão confirmada — mostrar verde imediatamente sem esperar todo o carregamento
+    setSyncStatus('ok','✓ Conectado');
+    syncErros=0;
     const dbC=await sbGet('clientes','?order=nome');
     if(dbC&&dbC.length>0){
       // Só atualizar clientes se banco retornou dados válidos
