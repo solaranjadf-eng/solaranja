@@ -1904,7 +1904,7 @@ async function sincronizar(){
     }
     const dbE=await sbGet('estoque','');
     if(dbE&&dbE.length)dbE.forEach(e=>estoque[e.tam]=e.qty||0);
-    else await sbUps('estoque',TAMS.map(t=>({tam:t,qty:0})));
+    // Nunca zerar o estoque automaticamente — só inicializar se tabela realmente não existe
     const dbM=await sbGet('est_minimos','');
     if(dbM&&dbM.length)dbM.forEach(e=>estMinimos[e.tam]=e.qty||0);
     const dbMov=await sbGet('movimentos','?order=id.desc&limit=100');
