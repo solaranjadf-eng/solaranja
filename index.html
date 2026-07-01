@@ -1829,21 +1829,19 @@ async function sincronizar(){
     syncErros=0;
     const dbC=await sbGet('clientes','?order=nome');
     if(dbC&&dbC.length>0){
-      // Só atualizar clientes se banco retornou dados válidos
       clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,apelido:c.apelido||'',tel:c.tel||'',
         bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
         maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos||{}}));
       lsave('slj_cli_bk',clientes);
-    }else{
-      await sbUps('clientes',CLIENTES_PADRAO.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,tel:c.tel||'',
-        bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
-        maps:'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos})));
-      clientes=[...CLIENTES_PADRAO];
-      lsave('slj_cli_bk',clientes);
     }
-    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
-    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
-    const dbPAmanha=await sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
+    let dbP=null,dbPOntem=null,dbPAmanha=null;
+    try{
+      [dbP,dbPOntem,dbPAmanha]=await Promise.all([
+        sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`),
+        sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`),
+        sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`)
+      ]);
+    }catch(e){console.warn('Pedidos sync falhou:',e?.message);}
     // Capturar estado local ANTES de sobrescrever — timestamp para saber qual é mais recente
     const localState={};
     const agora=Date.now();
@@ -2044,14 +2042,12 @@ async function sincronizar(){
     if(perfilAtual==='entregador') renderRota();
   }catch(e){
     syncErros=(syncErros||0)+1;
-    console.error('Sync erro #'+syncErros+':', e?.message||e, e);
-    // Só mostrar erro após 5 falhas consecutivas
-    if(syncErros>=5){
+    console.error('Sync erro #'+syncErros+':', e?.message||e);
+    if(syncErros>=3){
       setSyncStatus('err','Sem conexão — usando dados locais');
     }else{
-      // Tentar novamente em 5 segundos
       setSyncStatus('loading','Reconectando...');
-      setTimeout(sincronizar, 5000);
+      setTimeout(sincronizar,5000);
     }
   }
 }
