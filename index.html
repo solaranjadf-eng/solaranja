@@ -1885,36 +1885,45 @@ async function sincronizar(){
     lsave('slj_ped_bk',pedidos);    lsave('slj_ped_ontem_bk',pedidosOntem);
     lsave('slj_ped_amanha_bk',pedidosAmanha);
     lsave('slj_ped_ontem_bk',pedidosOntem);
-    // Buscar histórico — sempre na primeira carga, depois a cada 10 minutos
+    // Histórico — 10 em 10 minutos
     const agora2=Date.now();
     const ultimaHistSync=parseInt(localStorage.getItem('slj_hist_sync')||'0');
     const primeiraVez=ultimaHistSync===0||Object.keys(historico).length===0;
     const d90=new Date(hoje);d90.setDate(d90.getDate()-90);
     const noventaDiasAtras=d90.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
     if(primeiraVez||agora2-ultimaHistSync>600000){
-      const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
-      localStorage.setItem('slj_hist_sync',agora2.toString());
-      if(dbH!==null&&dbH.length>0){
-        const novoHist={};
-        dbH.forEach(p=>{const dk=p.data||'sem-data';if(!novoHist[dk])novoHist[dk]=[];novoHist[dk].push(mapPedido(p));});
-        historico=novoHist;
-        // Salvar no localStorage para disponibilidade imediata no próximo carregamento
-        lsave('slj_hist_bk',historico);
-      }
-      // Limpeza de fotos antigas — roda só 1x por dia, junto com a sync de histórico (economiza egress)
-      limparFotosAntigas();
-      compactarFotosAntigas();
+      try{
+        const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
+        localStorage.setItem('slj_hist_sync',agora2.toString());
+        if(dbH!==null&&dbH.length>0){
+          const novoHist={};
+          dbH.forEach(p=>{const dk=p.data||'sem-data';if(!novoHist[dk])novoHist[dk]=[];novoHist[dk].push(mapPedido(p));});
+          historico=novoHist;
+          lsave('slj_hist_bk',historico);
+        }
+        limparFotosAntigas();
+        compactarFotosAntigas();
+      }catch(e){console.warn('Histórico sync falhou:',e?.message);}
     }
-    const dbE=await sbGet('estoque','');
-    if(dbE&&dbE.length)dbE.forEach(e=>estoque[e.tam]=e.qty||0);
-    // Nunca zerar o estoque automaticamente — só inicializar se tabela realmente não existe
-    const dbM=await sbGet('est_minimos','');
-    if(dbM&&dbM.length)dbM.forEach(e=>estMinimos[e.tam]=e.qty||0);
-    const dbMov=await sbGet('movimentos','?order=id.desc&limit=100');
-    movimentos=(dbMov||[]).map(m=>({tipo:m.tipo,tam:m.tam,qtd:m.qtd,obs:m.obs,data:m.data,hora:m.hora}));
-    // Restaurar rotaOrdem — buscar do bling_tokens id=2 (não fatal se falhar)
-    const listaRotaIds=pedidos.filter(p=>p.data===hojeKey).map(p=>p.id);
+
     try{
+      const dbE=await sbGet('estoque','');
+      if(dbE&&dbE.length)dbE.forEach(e=>estoque[e.tam]=e.qty||0);
+    }catch(e){console.warn('Estoque sync falhou:',e?.message);}
+
+    try{
+      const dbM=await sbGet('est_minimos','');
+      if(dbM&&dbM.length)dbM.forEach(e=>estMinimos[e.tam]=e.qty||0);
+    }catch(e){}
+
+    try{
+      const dbMov=await sbGet('movimentos','?order=id.desc&limit=100');
+      movimentos=(dbMov||[]).map(m=>({tipo:m.tipo,tam:m.tam,qtd:m.qtd,obs:m.obs,data:m.data,hora:m.hora}));
+    }catch(e){}
+
+    // Rota ordem
+    try{
+      const listaRotaIds=pedidos.filter(p=>p.data===hojeKey).map(p=>p.id);
       const dbRota=await sbGet('bling_tokens','?id=eq.2&refresh_token=eq.rota_ordem');
       if(dbRota&&dbRota.length){
         const parsed=JSON.parse(dbRota[0].access_token||'{}');
@@ -1928,30 +1937,25 @@ async function sincronizar(){
           localStorage.setItem('slj_rota_ts',bancoTs.toString());
         }
       }
-    }catch(e){
-      // Falha silenciosa — não quebra a sync
-    }
-    if(!rotaOrdem.length) rotaOrdem=[...listaRotaIds];
-    else{
-      listaRotaIds.forEach(id=>{if(!rotaOrdem.some(x=>String(x)===String(id)))rotaOrdem.push(id);});
-      // NÃO remover ids de outras datas — apenas garantir que os de hoje estão presentes
-    }
-    // Migrar dados locais para o banco se existirem e banco estiver vazio
+      if(!rotaOrdem.length) rotaOrdem=[...listaRotaIds];
+      else{listaRotaIds.forEach(id=>{if(!rotaOrdem.some(x=>String(x)===String(id)))rotaOrdem.push(id);});}
+    }catch(e){}
+
+    // Custos operacionais
     try{
-      // Custos operacionais
       const dbCustos=await sbGet('custos_op','?order=data.desc&limit=1000');
       if(dbCustos&&dbCustos.length>0){
         custosOp=dbCustos.map(c=>({id:c.id,cat:c.cat,label:c.label||c.cat,valor:c.valor,data:c.data,desc:c.descricao||''}));
         lsave('slj_custos_op2',custosOp);
       } else if(custosOp.length>0){
-        // Migrar localStorage → banco
         await sbUps('custos_op',custosOp.map(c=>({id:c.id,cat:c.cat,label:c.label||c.cat,valor:c.valor,data:c.data,descricao:c.desc||''})));
       }
+    }catch(e){}
 
-      // Acompanhamento semanal
+    // Acompanhamento
+    try{
       const dbAcomp=await sbGet('acompanhamento_semanal','?order=created_at');
       if(dbAcomp&&dbAcomp.length>0){
-        // Preservar clienteId do localStorage (não está no banco)
         dbAcomp.forEach(a=>{
           const local=acompanhamentos.find(x=>x.id===a.id);
           if(!local) acompanhamentos.push({id:a.id,nome:a.nome,clienteId:'',ativo:a.ativo!==false});
@@ -1964,8 +1968,10 @@ async function sincronizar(){
         acompMarcados=dbAcompMarcados.map(m=>({id:m.id,acompId:m.acomp_id,semana:m.semana,cobrado:m.cobrado||false}));
         lsave('slj_acomp_marcados',acompMarcados);
       }
+    }catch(e){}
 
-      // Cobranças
+    // Cobranças
+    try{
       const dbCob=await sbGet('cobrancas','?order=created_at');
       if(dbCob&&dbCob.length>0){
         cobrancas=dbCob.map(c=>({id:c.id,nome:c.nome||'',email:c.email||'',ativo:c.ativo!==false}));
@@ -1978,21 +1984,24 @@ async function sincronizar(){
         cobrancasMarcados=dbCobMarcados.map(d=>({id:d.id,cobrancaId:d.cobranca_id,data:d.data,cobrado:d.cobrado||false}));
         lsave('slj_cobrancas_marcados',cobrancasMarcados);
       }
-      try{
-        const dbDatasMes=await sbGet('bling_tokens','?id=eq.3&refresh_token=eq.cobrancas_datas_mes');
-        if(dbDatasMes&&dbDatasMes.length){
-          cobrancasDatasMes=JSON.parse(dbDatasMes[0].access_token||'{}');
-          lsave('slj_cobrancas_datas_mes',cobrancasDatasMes);
-        }
-        // Carregar custos de produção do banco
-        const dbCustosProd=await sbGet('bling_tokens','?id=eq.4&refresh_token=eq.custos_producao');
-        if(dbCustosProd&&dbCustosProd.length){
-          custos=JSON.parse(dbCustosProd[0].access_token||'{}');
-          lsave('slj_custos',custos);
-        }
-      }catch(e){}
+    }catch(e){}
 
-      // Colaboradores
+    // Dados extras (bling_tokens)
+    try{
+      const dbDatasMes=await sbGet('bling_tokens','?id=eq.3&refresh_token=eq.cobrancas_datas_mes');
+      if(dbDatasMes&&dbDatasMes.length){
+        cobrancasDatasMes=JSON.parse(dbDatasMes[0].access_token||'{}');
+        lsave('slj_cobrancas_datas_mes',cobrancasDatasMes);
+      }
+      const dbCustosProd=await sbGet('bling_tokens','?id=eq.4&refresh_token=eq.custos_producao');
+      if(dbCustosProd&&dbCustosProd.length){
+        custos=JSON.parse(dbCustosProd[0].access_token||'{}');
+        lsave('slj_custos',custos);
+      }
+    }catch(e){}
+
+    // Colaboradores
+    try{
       const dbColab=await sbGet('colaboradores','?order=nome');
       if(dbColab&&dbColab.length>0){
         colaboradores=dbColab.map(c=>({id:c.id,nome:c.nome,ativo:c.ativo!==false}));
@@ -2007,12 +2016,15 @@ async function sincronizar(){
       } else if(pagamentosColab.length>0){
         await sbUps('pagamentos_colaborador',pagamentosColab.map(p=>({id:p.id,colab_id:p.colabId,data_semana:p.dataSemana,valor_base:p.valorBase,valor_domingo:p.valorDomingo,residuo:p.residuo,total:p.total,pago:p.pago})));
       }
+    }catch(e){}
 
-      const dbForn=await sbGet('fornecedores_laranja','?order=nome');      if(dbForn&&dbForn.length>0){
+    // Fornecedores e compras laranja
+    try{
+      const dbForn=await sbGet('fornecedores_laranja','?order=nome');
+      if(dbForn&&dbForn.length>0){
         fornecedores=dbForn.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',precoRef:f.preco_ref||0,obs:f.obs||''}));
         lsave('slj_fornecedores',fornecedores);
       } else if(fornecedores.length>0){
-        // Migrar do localStorage para o banco
         await sbUps('fornecedores_laranja',fornecedores.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',preco_ref:f.precoRef||0,obs:f.obs||''})));
       }
       const dbCompras=await sbGet('compras_laranja','?order=data.desc&limit=500');
@@ -2020,7 +2032,6 @@ async function sincronizar(){
         comprasLaranja=dbCompras.map(c=>({id:c.id,fornId:c.forn_id,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago||false,valorPago:c.valor_pago||0}));
         lsave('slj_compras_lar',comprasLaranja);
       } else if(comprasLaranja.length>0){
-        // Migrar do localStorage para o banco
         await sbUps('compras_laranja',comprasLaranja.map(c=>({id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:c.obs||''})));
       }
     }catch(e){}
@@ -2152,7 +2163,8 @@ function verificarAniversarios(){
 
 function recalcularImpostoLucro(){
   const imposto=parseFloat(document.getElementById('dash-valor-imposto')?.value)||0;
-  lsave('slj_valor_imposto_'+mesAtual,imposto);
+  const mesSel=getDashMes();
+  lsave('slj_valor_imposto_'+mesSel,imposto);
   const lucro=parseFloat(document.getElementById('dash-lucro-mes')?.dataset.valor)||0;
   const lucroReal=lucro-imposto;
   // Card imposto (vermelho) — mostra o valor do imposto
