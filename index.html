@@ -2152,7 +2152,7 @@ function verificarAniversarios(){
 
 function recalcularImpostoLucro(){
   const imposto=parseFloat(document.getElementById('dash-valor-imposto')?.value)||0;
-  lsave('slj_valor_imposto',imposto);
+  lsave('slj_valor_imposto_'+mesAtual,imposto);
   const lucro=parseFloat(document.getElementById('dash-lucro-mes')?.dataset.valor)||0;
   const lucroReal=lucro-imposto;
   // Card imposto (vermelho) — mostra o valor do imposto
@@ -2274,10 +2274,10 @@ function renderDash(){
     el('dash-lucro-badge').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
   }
   // Imposto e lucro real após imposto
-  const valorImposto=load('slj_valor_imposto',0);
+  const valorImposto=load('slj_valor_imposto_'+mesAtual,load('slj_valor_imposto',0));
   const impostoInp=document.getElementById('dash-valor-imposto');
-  if(impostoInp&&!impostoInp.value&&valorImposto>0) impostoInp.value=valorImposto;
-  const impostoAtual=parseFloat(impostoInp?.value)||valorImposto||0;
+  if(impostoInp) impostoInp.value=valorImposto>0?valorImposto:'';
+  const impostoAtual=valorImposto||0;
   const lucroReal=lucroLiquido-impostoAtual;
   if(el('dash-lucro-pos-imposto')) el('dash-lucro-pos-imposto').textContent=moeda(impostoAtual);
   if(el('dash-lucro-real')){
