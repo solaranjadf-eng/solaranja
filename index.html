@@ -2099,6 +2099,19 @@ function setDashPeriodo(p,btn){
   renderDash();
 }
 
+function getDashMes(){
+  const mesAtual=hojeKey.slice(0,7);
+  const anoAtual=hojeKey.slice(0,4);
+  const d=new Date(hoje);d.setMonth(d.getMonth()-1);
+  const mesAnt=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
+  if(dashPeriodo==='mes')    return mesAtual;
+  if(dashPeriodo==='mesant') return mesAnt;
+  if(dashPeriodo==='ano')    return anoAtual;
+  if(dashPeriodo==='hoje')   return hojeKey; // data exata
+  if(dashPeriodo==='custom'){const v=document.getElementById('dash-data-custom')?.value;return v||hojeKey;}
+  return mesAtual;
+}
+
 function getDashPedidos(){
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const mesAtual=hojeKey.slice(0,7);
@@ -2179,13 +2192,13 @@ function renderDash(){
   if(el('dash-arec-sub'))el('dash-arec-sub').textContent=lista.filter(p=>p.entregue&&!p.pago).length+' clientes';
 
   // Custos do mês — separados corretamente
-  const mesAtual=hojeKey.slice(0,7);
+  const mesAtual=getDashMes(); // respeita o período selecionado
   // Meta do mês — pizza chart
   const metaMes=load('slj_meta_mes',0);
   const metaMesInp=document.getElementById('meta-mes-input');
   if(metaMesInp&&!metaMesInp.value&&metaMes>0) metaMesInp.value=metaMes;
   const todosM2=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
-  const fatMesAtual=todosM2.filter(p=>p.data&&p.data.startsWith(mesAtual)).reduce((s,p)=>s+p.total,0);
+  const fatMesAtual=lista.reduce((s,p)=>s+p.total,0); // usa lista já filtrada pelo período
   const pctMeta=metaMes>0?Math.min(100,Math.round(fatMesAtual/metaMes*100)):0;
   const faltaMeta=metaMes>0?Math.max(0,metaMes-fatMesAtual):0;
   if(el('dash-meta-fat'))       el('dash-meta-fat').textContent=moeda(fatMesAtual);
@@ -2238,12 +2251,12 @@ function renderDash(){
 
   // Custo de produção (custo unitário × qtd vendida)
   const todosM=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
-  const pedidosMes=todosM.filter(p=>p.data&&p.data.startsWith(mesAtual));
+  const pedidosMes=lista; // já filtrado pelo período selecionado
   const qtdMes={};TAMS.forEach(t=>qtdMes[t]=0);
   pedidosMes.forEach(p=>p.itens.forEach(it=>{qtdMes[it.tam]=(qtdMes[it.tam]||0)+it.qtd;}));
   const custoProdMes=TAMS.reduce((s,t)=>s+getCustoTotal(t)*qtdMes[t],0);
 
-  const fatMes=pedidosMes.reduce((s,p)=>s+p.total,0);
+  const fatMes=lista.reduce((s,p)=>s+p.total,0);
   // Lucro líquido = Faturamento − Custo produção − Custos operacionais − Pagamento Fábio (sem embalagem, já no prod)
   const lucroLiquido=fatMes-custoProdMes-custoOpMes-gastoFabio;
 
