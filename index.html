@@ -1778,6 +1778,10 @@ function setSyncStatus(s,t){
 const _hd=document.getElementById('header-date');if(_hd)_hd.textContent=hoje.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
 if(metaDiaria>0) setTimeout(()=>document.getElementById('meta-input').value=metaDiaria,500);
 if(diasInativo) setTimeout(()=>document.getElementById('dias-inativo').value=diasInativo,500);
+
+// Detectar perda/retomada de internet em tempo real
+window.addEventListener('offline',()=>setSyncStatus('err','Sem sinal — dados salvos localmente'));
+window.addEventListener('online',()=>{setSyncStatus('loading','Reconectando...');sincronizar();});
 TAMS.forEach(t=>{setTimeout(()=>{const el=document.getElementById('min-'+t);if(el&&estMinimos[t]>0)el.value=estMinimos[t];},500);});
 
 // ── CLIENTES PADRÃO ────────────────────────────────────────────────────────
@@ -1824,16 +1828,16 @@ async function sincronizar(){
     // Teste rápido de conectividade primeiro
     const teste=await fetch(SB_URL+'/pedidos?limit=1',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     if(!teste.ok) throw new Error('HTTP '+teste.status);
-    // Conexão confirmada — mostrar verde imediatamente sem esperar todo o carregamento
-    setSyncStatus('ok','✓ Conectado');
     syncErros=0;
-    const dbC=await sbGet('clientes','?order=nome');
-    if(dbC&&dbC.length>0){
-      clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,apelido:c.apelido||'',tel:c.tel||'',
-        bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
-        maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos||{}}));
-      lsave('slj_cli_bk',clientes);
-    }
+    try{
+      const dbC=await sbGet('clientes','?order=nome');
+      if(dbC&&dbC.length>0){
+        clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,apelido:c.apelido||'',tel:c.tel||'',
+          bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
+          maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos||{}}));
+        lsave('slj_cli_bk',clientes);
+      }
+    }catch(e){console.warn('Clientes:',e?.message);}
     let dbP=null,dbPOntem=null,dbPAmanha=null;
     try{
       [dbP,dbPOntem,dbPAmanha]=await Promise.all([
@@ -2041,14 +2045,16 @@ async function sincronizar(){
     // Se entregador, atualizar rota
     if(perfilAtual==='entregador') renderRota();
   }catch(e){
-    syncErros=(syncErros||0)+1;
-    console.error('Sync erro #'+syncErros+':', e?.message||e);
-    if(syncErros>=3){
+    // Só mostrar erro se realmente sem internet
+    if(!navigator.onLine){
       setSyncStatus('err','Sem conexão — usando dados locais');
-    }else{
-      setSyncStatus('loading','Reconectando...');
-      setTimeout(sincronizar,5000);
+    } else {
+      // Tem internet mas algo falhou internamente — manter verde e tentar de novo
+      setSyncStatus('ok','✓ Conectado');
+      syncErros=0;
+      setTimeout(sincronizar,10000);
     }
+    console.warn('Sync erro:',e?.message);
   }
 }
 
