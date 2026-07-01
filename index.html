@@ -3146,6 +3146,7 @@ function renderDia(){
   const isHoje=dataSel===hojeKey;
   el.innerHTML=[...lista].reverse().map(p=>{
     const i=pedidos.findIndex(x=>x.id===p.id);
+    const isHojeCard=isHoje&&i!==-1;
     const statusEnt=p.entregue?'entregue':'pendente';
     const statusPag=p.pago?'pago':(p.entregue?'debito':'pendente');
     return`<div class="pedido-card${p.entregue?' entregue':''}${p.pago?' pago':p.entregue?' debito':''}">
@@ -3158,7 +3159,7 @@ function renderDia(){
           <div class="pedido-meta">CNPJ ${p.cnpj||'—'} · ${p.hora}${p.horaEntrega?' · Entregue '+p.horaEntrega:''}</div>
         </div>
         <div class="pedido-btns">
-          ${isHoje&&i!==-1?(
+          ${isHojeCard?(
             (!p.entregue?`<button class="psm psm-entrega" onclick="abrirFoto(${i})">Entregue</button>`:`<button class="psm psm-entregue">✓</button>`)
             +(p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPago(${i})">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
@@ -5944,7 +5945,6 @@ function altM(t,d){editPedQtds[t]=Math.max(0,(editPedQtds[t]||0)+d);document.get
 async function salvarEdicaoPedido(){
   if(editPedIdx===null)return;
 
-  // Determinar qual pedido editar
   let p=null;
   let isHist=false;
   if(editPedIdx===-1&&window._editHistPedido){
@@ -5954,23 +5954,30 @@ async function salvarEdicaoPedido(){
     p=pedidos[editPedIdx];
   }else return;
 
-  const c=clientes.find(x=>x.id===editClienteId)||{precos:p.precos||{}};
-  const precos=c.precos||p.precos||{};
-  const itens=TAMS.filter(t=>editPedQtds[t]>0&&precos[t]>0).map(t=>({tam:t,qtd:editPedQtds[t],preco:precos[t]}));
+  const c=clientes.find(x=>x.id===editClienteId);
+  // Usar preços do cliente se disponível, senão usar preços originais do pedido
+  const precos=(c&&c.precos)||p.precos||{};
+  const itens=TAMS.filter(t=>editPedQtds[t]>0).map(t=>({
+    tam:t,
+    qtd:editPedQtds[t],
+    preco:precos[t]||p.itens.find(i=>i.tam===t)?.preco||0
+  })).filter(it=>it.preco>0);
   if(!itens.length){toast('Adicione ao menos um item.');return;}
   const total=itens.reduce((s,i)=>s+i.preco*i.qtd,0);
   const obs=document.getElementById('modal-obs').value.trim();
 
+  fecharModal('edit');
   try{
     await sbPatch('pedidos',`?id=eq.${p.id}`,{itens,total,obs});
     p.itens=itens;p.total=total;p.obs=obs;
     if(!isHist){lsave('slj_ped_bk',pedidos);}
-    setSyncStatus('ok','✓ Conectado — dados sincronizados');
-  }catch(e){setSyncStatus('err','Erro ao sincronizar');}
-
-  fecharModal('edit');
-  renderDia();
-  toast('✓ Pedido atualizado.');
+    renderDia();
+    toast('✓ Pedido atualizado.');
+    setSyncStatus('ok','✓ Conectado');
+  }catch(e){
+    toast('❌ Erro ao salvar — tente novamente.');
+    setSyncStatus('err','Erro ao sincronizar');
+  }
   window._editHistPedido=null;
   window._editHistDataKey=null;
 }
