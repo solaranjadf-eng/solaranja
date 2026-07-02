@@ -6538,7 +6538,7 @@ function iniciarSistema(){
     }).catch(()=>{});
   }
   const cacheOntem=load('slj_ped_ontem_bk',[]);
-  pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
+  pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey||p.data===hojeKey);
   pedidosOntem.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;});
   pedidosAmanha=load('slj_ped_amanha_bk',[]).filter(p=>p.data===amanhaKey);
   pedidosAmanha.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;});
@@ -6571,7 +6571,7 @@ function iniciarSistemaEntregador(){
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
   pedidos=load('slj_ped_bk',[]).filter(p=>p.data===hojeKey);
   const cacheOntem=load('slj_ped_ontem_bk',[]);
-  pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
+  pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey||p.data===hojeKey);
   // Mostrar rota imediatamente com cache
   document.getElementById('loading').classList.add('hidden');
   setTab('rota');
