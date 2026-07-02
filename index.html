@@ -222,12 +222,12 @@ label{font-size:11px;font-weight:600;color:var(--text3);display:block;margin-bot
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s}
 .modal-bg.open{opacity:1;pointer-events:all}
 .modal-box{background:var(--white);border-radius:10px 10px 0 0;width:100%;max-width:720px;padding:14px 17px 0;max-height:92vh;display:flex;flex-direction:column;transform:translateY(22px);transition:transform .22s;box-shadow:var(--shadow-md)}
+.modal-bg.open .modal-box{transform:translateY(0)}
 .modal-body{flex:1;overflow-y:auto;padding-bottom:8px}
+.modal-footer{flex-shrink:0;padding:10px 0 calc(18px + env(safe-area-inset-bottom));border-top:1px solid var(--border)}
 .foto-preview-wrap{display:none;width:100%;height:140px;border-radius:var(--radius);margin-top:8px;overflow:hidden;background:var(--bg2)}
 .foto-preview-wrap img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
 .foto-preview{display:none;width:100%;max-height:140px;object-fit:cover;border-radius:var(--radius);margin-top:4px}
-.modal-footer{flex-shrink:0;padding:10px 0 calc(18px + env(safe-area-inset-bottom));border-top:1px solid var(--border)}
-.modal-bg.open .modal-box{transform:translateY(0)}
 .modal-handle{width:32px;height:3px;background:var(--border2);border-radius:2px;margin:0 auto 13px}
 .modal-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px}
 /* LOADING */
@@ -1778,8 +1778,6 @@ function setSyncStatus(s,t){
 const _hd=document.getElementById('header-date');if(_hd)_hd.textContent=hoje.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
 if(metaDiaria>0) setTimeout(()=>document.getElementById('meta-input').value=metaDiaria,500);
 if(diasInativo) setTimeout(()=>document.getElementById('dias-inativo').value=diasInativo,500);
-
-// Detectar perda/retomada de internet em tempo real
 window.addEventListener('offline',()=>setSyncStatus('err','Sem sinal — dados salvos localmente'));
 window.addEventListener('online',()=>{setSyncStatus('loading','Reconectando...');sincronizar();});
 TAMS.forEach(t=>{setTimeout(()=>{const el=document.getElementById('min-'+t);if(el&&estMinimos[t]>0)el.value=estMinimos[t];},500);});
@@ -1829,23 +1827,25 @@ async function sincronizar(){
     const teste=await fetch(SB_URL+'/pedidos?limit=1',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     if(!teste.ok) throw new Error('HTTP '+teste.status);
     syncErros=0;
-    try{
-      const dbC=await sbGet('clientes','?order=nome');
-      if(dbC&&dbC.length>0){
-        clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,apelido:c.apelido||'',tel:c.tel||'',
-          bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
-          maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos||{}}));
-        lsave('slj_cli_bk',clientes);
-      }
-    }catch(e){console.warn('Clientes:',e?.message);}
-    let dbP=null,dbPOntem=null,dbPAmanha=null;
-    try{
-      [dbP,dbPOntem,dbPAmanha]=await Promise.all([
-        sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`),
-        sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`),
-        sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`)
-      ]);
-    }catch(e){console.warn('Pedidos sync falhou:',e?.message);}
+    const dbC=await sbGet('clientes','?order=nome');
+    if(dbC&&dbC.length>0){
+      // Só atualizar clientes se banco retornou dados válidos
+      clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,apelido:c.apelido||'',tel:c.tel||'',
+        bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
+        maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos||{}}));
+      lsave('slj_cli_bk',clientes);
+    }else{
+      await sbUps('clientes',CLIENTES_PADRAO.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,tel:c.tel||'',
+        bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
+        maps:'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos})));
+      clientes=[...CLIENTES_PADRAO];
+      lsave('slj_cli_bk',clientes);
+    }
+    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
+    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
+    const dbPAmanha=await sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
+    // Buscar quais pedidos têm foto (só id — não baixa a foto em si)
+    const dbFotos=await sbGet('pedidos',`?entregue=eq.true&select=id,foto&foto=not.is.null`).catch(()=>[]);
     // Capturar estado local ANTES de sobrescrever — timestamp para saber qual é mais recente
     const localState={};
     const agora=Date.now();
@@ -1856,18 +1856,13 @@ async function sincronizar(){
     function mesclar(p){
       const mapped=mapPedido(p);
       const local=localState[mapped.id];
-      const pendente=_entregasLocais[mapped.id];
-      if(pendente){
-        // Entrega confirmada localmente mas banco ainda não atualizou — proteger
-        mapped.entregue=true;
-        mapped.horaEntrega=pendente.horaEntrega;
-        if(pendente.foto) mapped.foto=pendente.foto;
-      } else if(local){
-        // Se banco já tem entregue=true, manter (foto vem do banco)
+      if(local){
+        // Se banco já tem entregue=true, manter
         // Se local tem entregue=true mas banco ainda não, usar local
         if(mapped.entregue===true || local.entregue===true){
           mapped.entregue=true;
-          if(local.horaEntrega && !mapped.horaEntrega) mapped.horaEntrega=local.horaEntrega;
+          if(local.horaEntrega) mapped.horaEntrega=local.horaEntrega;
+          if(local.foto) mapped.foto=local.foto;
         } else {
           mapped.entregue=false;
         }
@@ -1884,48 +1879,48 @@ async function sincronizar(){
     pedidosOntem=(dbPOntem||[]).map(mesclar).filter(p=>p.data===ontemKey);
     pedidos=(dbP||[]).map(mesclar).filter(p=>p.data===hojeKey);
     pedidosAmanha=(dbPAmanha||[]).map(mesclar).filter(p=>p.data===amanhaKey);
+    // Marcar pedidos que têm foto no banco (sem baixar a imagem)
+    if(dbFotos&&dbFotos.length){
+      const fotosIds=new Set(dbFotos.map(f=>String(f.id)));
+      const marcarFoto=(p)=>{if(fotosIds.has(String(p.id))&&!p.foto) p.foto='__tem_foto__';};
+      pedidos.forEach(marcarFoto);
+      pedidosOntem.forEach(marcarFoto);
+      pedidosAmanha.forEach(marcarFoto);
+      Object.values(historico).forEach(arr=>arr.forEach(marcarFoto));
+    }
     lsave('slj_ped_bk',pedidos);
     lsave('slj_ped_ontem_bk',pedidosOntem);
     lsave('slj_ped_amanha_bk',pedidosAmanha);
-    // Histórico — 10 em 10 minutos
+    lsave('slj_ped_ontem_bk',pedidosOntem);
+    // Buscar histórico — sempre na primeira carga, depois a cada 10 minutos
     const agora2=Date.now();
     const ultimaHistSync=parseInt(localStorage.getItem('slj_hist_sync')||'0');
     const primeiraVez=ultimaHistSync===0||Object.keys(historico).length===0;
     const d90=new Date(hoje);d90.setDate(d90.getDate()-90);
     const noventaDiasAtras=d90.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
     if(primeiraVez||agora2-ultimaHistSync>600000){
-      try{
-        const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
-        localStorage.setItem('slj_hist_sync',agora2.toString());
-        if(dbH!==null&&dbH.length>0){
-          const novoHist={};
-          dbH.forEach(p=>{const dk=p.data||'sem-data';if(!novoHist[dk])novoHist[dk]=[];novoHist[dk].push(mapPedido(p));});
-          historico=novoHist;
-          lsave('slj_hist_bk',historico);
-        }
-        limparFotosAntigas();
-        compactarFotosAntigas();
-      }catch(e){console.warn('Histórico sync falhou:',e?.message);}
+      const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
+      localStorage.setItem('slj_hist_sync',agora2.toString());
+      if(dbH!==null&&dbH.length>0){
+        const novoHist={};
+        dbH.forEach(p=>{const dk=p.data||'sem-data';if(!novoHist[dk])novoHist[dk]=[];novoHist[dk].push(mapPedido(p));});
+        historico=novoHist;
+        // Salvar no localStorage para disponibilidade imediata no próximo carregamento
+        lsave('slj_hist_bk',historico);
+      }
+      // Limpeza de fotos antigas — roda só 1x por dia, junto com a sync de histórico (economiza egress)
+      limparFotosAntigas();
     }
-
+    const dbE=await sbGet('estoque','');
+    if(dbE&&dbE.length)dbE.forEach(e=>estoque[e.tam]=e.qty||0);
+    // Nunca zerar estoque automaticamente
+    const dbM=await sbGet('est_minimos','');
+    if(dbM&&dbM.length)dbM.forEach(e=>estMinimos[e.tam]=e.qty||0);
+    const dbMov=await sbGet('movimentos','?order=id.desc&limit=100');
+    movimentos=(dbMov||[]).map(m=>({tipo:m.tipo,tam:m.tam,qtd:m.qtd,obs:m.obs,data:m.data,hora:m.hora}));
+    // Restaurar rotaOrdem — buscar do bling_tokens id=2 (não fatal se falhar)
+    const listaRotaIds=pedidos.filter(p=>p.data===hojeKey).map(p=>p.id);
     try{
-      const dbE=await sbGet('estoque','');
-      if(dbE&&dbE.length)dbE.forEach(e=>estoque[e.tam]=e.qty||0);
-    }catch(e){console.warn('Estoque sync falhou:',e?.message);}
-
-    try{
-      const dbM=await sbGet('est_minimos','');
-      if(dbM&&dbM.length)dbM.forEach(e=>estMinimos[e.tam]=e.qty||0);
-    }catch(e){}
-
-    try{
-      const dbMov=await sbGet('movimentos','?order=id.desc&limit=100');
-      movimentos=(dbMov||[]).map(m=>({tipo:m.tipo,tam:m.tam,qtd:m.qtd,obs:m.obs,data:m.data,hora:m.hora}));
-    }catch(e){}
-
-    // Rota ordem
-    try{
-      const listaRotaIds=pedidos.filter(p=>p.data===hojeKey).map(p=>p.id);
       const dbRota=await sbGet('bling_tokens','?id=eq.2&refresh_token=eq.rota_ordem');
       if(dbRota&&dbRota.length){
         const parsed=JSON.parse(dbRota[0].access_token||'{}');
@@ -1939,25 +1934,30 @@ async function sincronizar(){
           localStorage.setItem('slj_rota_ts',bancoTs.toString());
         }
       }
-      if(!rotaOrdem.length) rotaOrdem=[...listaRotaIds];
-      else{listaRotaIds.forEach(id=>{if(!rotaOrdem.some(x=>String(x)===String(id)))rotaOrdem.push(id);});}
-    }catch(e){}
-
-    // Custos operacionais
+    }catch(e){
+      // Falha silenciosa — não quebra a sync
+    }
+    if(!rotaOrdem.length) rotaOrdem=[...listaRotaIds];
+    else{
+      listaRotaIds.forEach(id=>{if(!rotaOrdem.some(x=>String(x)===String(id)))rotaOrdem.push(id);});
+      // NÃO remover ids de outras datas — apenas garantir que os de hoje estão presentes
+    }
+    // Migrar dados locais para o banco se existirem e banco estiver vazio
     try{
+      // Custos operacionais
       const dbCustos=await sbGet('custos_op','?order=data.desc&limit=1000');
       if(dbCustos&&dbCustos.length>0){
         custosOp=dbCustos.map(c=>({id:c.id,cat:c.cat,label:c.label||c.cat,valor:c.valor,data:c.data,desc:c.descricao||''}));
         lsave('slj_custos_op2',custosOp);
       } else if(custosOp.length>0){
+        // Migrar localStorage → banco
         await sbUps('custos_op',custosOp.map(c=>({id:c.id,cat:c.cat,label:c.label||c.cat,valor:c.valor,data:c.data,descricao:c.desc||''})));
       }
-    }catch(e){}
 
-    // Acompanhamento
-    try{
+      // Acompanhamento semanal
       const dbAcomp=await sbGet('acompanhamento_semanal','?order=created_at');
       if(dbAcomp&&dbAcomp.length>0){
+        // Preservar clienteId do localStorage (não está no banco)
         dbAcomp.forEach(a=>{
           const local=acompanhamentos.find(x=>x.id===a.id);
           if(!local) acompanhamentos.push({id:a.id,nome:a.nome,clienteId:'',ativo:a.ativo!==false});
@@ -1970,10 +1970,8 @@ async function sincronizar(){
         acompMarcados=dbAcompMarcados.map(m=>({id:m.id,acompId:m.acomp_id,semana:m.semana,cobrado:m.cobrado||false}));
         lsave('slj_acomp_marcados',acompMarcados);
       }
-    }catch(e){}
 
-    // Cobranças
-    try{
+      // Cobranças
       const dbCob=await sbGet('cobrancas','?order=created_at');
       if(dbCob&&dbCob.length>0){
         cobrancas=dbCob.map(c=>({id:c.id,nome:c.nome||'',email:c.email||'',ativo:c.ativo!==false}));
@@ -1986,24 +1984,21 @@ async function sincronizar(){
         cobrancasMarcados=dbCobMarcados.map(d=>({id:d.id,cobrancaId:d.cobranca_id,data:d.data,cobrado:d.cobrado||false}));
         lsave('slj_cobrancas_marcados',cobrancasMarcados);
       }
-    }catch(e){}
+      try{
+        const dbDatasMes=await sbGet('bling_tokens','?id=eq.3&refresh_token=eq.cobrancas_datas_mes');
+        if(dbDatasMes&&dbDatasMes.length){
+          cobrancasDatasMes=JSON.parse(dbDatasMes[0].access_token||'{}');
+          lsave('slj_cobrancas_datas_mes',cobrancasDatasMes);
+        }
+        // Carregar custos de produção do banco
+        const dbCustosProd=await sbGet('bling_tokens','?id=eq.4&refresh_token=eq.custos_producao');
+        if(dbCustosProd&&dbCustosProd.length){
+          custos=JSON.parse(dbCustosProd[0].access_token||'{}');
+          lsave('slj_custos',custos);
+        }
+      }catch(e){}
 
-    // Dados extras (bling_tokens)
-    try{
-      const dbDatasMes=await sbGet('bling_tokens','?id=eq.3&refresh_token=eq.cobrancas_datas_mes');
-      if(dbDatasMes&&dbDatasMes.length){
-        cobrancasDatasMes=JSON.parse(dbDatasMes[0].access_token||'{}');
-        lsave('slj_cobrancas_datas_mes',cobrancasDatasMes);
-      }
-      const dbCustosProd=await sbGet('bling_tokens','?id=eq.4&refresh_token=eq.custos_producao');
-      if(dbCustosProd&&dbCustosProd.length){
-        custos=JSON.parse(dbCustosProd[0].access_token||'{}');
-        lsave('slj_custos',custos);
-      }
-    }catch(e){}
-
-    // Colaboradores
-    try{
+      // Colaboradores
       const dbColab=await sbGet('colaboradores','?order=nome');
       if(dbColab&&dbColab.length>0){
         colaboradores=dbColab.map(c=>({id:c.id,nome:c.nome,ativo:c.ativo!==false}));
@@ -2018,15 +2013,12 @@ async function sincronizar(){
       } else if(pagamentosColab.length>0){
         await sbUps('pagamentos_colaborador',pagamentosColab.map(p=>({id:p.id,colab_id:p.colabId,data_semana:p.dataSemana,valor_base:p.valorBase,valor_domingo:p.valorDomingo,residuo:p.residuo,total:p.total,pago:p.pago})));
       }
-    }catch(e){}
 
-    // Fornecedores e compras laranja
-    try{
-      const dbForn=await sbGet('fornecedores_laranja','?order=nome');
-      if(dbForn&&dbForn.length>0){
+      const dbForn=await sbGet('fornecedores_laranja','?order=nome');      if(dbForn&&dbForn.length>0){
         fornecedores=dbForn.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',precoRef:f.preco_ref||0,obs:f.obs||''}));
         lsave('slj_fornecedores',fornecedores);
       } else if(fornecedores.length>0){
+        // Migrar do localStorage para o banco
         await sbUps('fornecedores_laranja',fornecedores.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',preco_ref:f.precoRef||0,obs:f.obs||''})));
       }
       const dbCompras=await sbGet('compras_laranja','?order=data.desc&limit=500');
@@ -2034,6 +2026,7 @@ async function sincronizar(){
         comprasLaranja=dbCompras.map(c=>({id:c.id,fornId:c.forn_id,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago||false,valorPago:c.valor_pago||0}));
         lsave('slj_compras_lar',comprasLaranja);
       } else if(comprasLaranja.length>0){
+        // Migrar do localStorage para o banco
         await sbUps('compras_laranja',comprasLaranja.map(c=>({id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:c.obs||''})));
       }
     }catch(e){}
@@ -2045,11 +2038,9 @@ async function sincronizar(){
     // Se entregador, atualizar rota
     if(perfilAtual==='entregador') renderRota();
   }catch(e){
-    // Só mostrar erro se realmente sem internet
     if(!navigator.onLine){
       setSyncStatus('err','Sem conexão — usando dados locais');
     } else {
-      // Tem internet mas algo falhou internamente — manter verde e tentar de novo
       setSyncStatus('ok','✓ Conectado');
       syncErros=0;
       setTimeout(sincronizar,10000);
@@ -2112,19 +2103,6 @@ function setDashPeriodo(p,btn){
   renderDash();
 }
 
-function getDashMes(){
-  const mesAtual=hojeKey.slice(0,7);
-  const anoAtual=hojeKey.slice(0,4);
-  const d=new Date(hoje);d.setMonth(d.getMonth()-1);
-  const mesAnt=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
-  if(dashPeriodo==='mes')    return mesAtual;
-  if(dashPeriodo==='mesant') return mesAnt;
-  if(dashPeriodo==='ano')    return anoAtual;
-  if(dashPeriodo==='hoje')   return hojeKey; // data exata
-  if(dashPeriodo==='custom'){const v=document.getElementById('dash-data-custom')?.value;return v||hojeKey;}
-  return mesAtual;
-}
-
 function getDashPedidos(){
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const mesAtual=hojeKey.slice(0,7);
@@ -2165,8 +2143,7 @@ function verificarAniversarios(){
 
 function recalcularImpostoLucro(){
   const imposto=parseFloat(document.getElementById('dash-valor-imposto')?.value)||0;
-  const mesSel=getDashMes();
-  lsave('slj_valor_imposto_'+mesSel,imposto);
+  lsave('slj_valor_imposto',imposto);
   const lucro=parseFloat(document.getElementById('dash-lucro-mes')?.dataset.valor)||0;
   const lucroReal=lucro-imposto;
   // Card imposto (vermelho) — mostra o valor do imposto
@@ -2206,13 +2183,13 @@ function renderDash(){
   if(el('dash-arec-sub'))el('dash-arec-sub').textContent=lista.filter(p=>p.entregue&&!p.pago).length+' clientes';
 
   // Custos do mês — separados corretamente
-  const mesAtual=getDashMes(); // respeita o período selecionado
+  const mesAtual=hojeKey.slice(0,7);
   // Meta do mês — pizza chart
   const metaMes=load('slj_meta_mes',0);
   const metaMesInp=document.getElementById('meta-mes-input');
   if(metaMesInp&&!metaMesInp.value&&metaMes>0) metaMesInp.value=metaMes;
   const todosM2=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
-  const fatMesAtual=lista.reduce((s,p)=>s+p.total,0); // usa lista já filtrada pelo período
+  const fatMesAtual=todosM2.filter(p=>p.data&&p.data.startsWith(mesAtual)).reduce((s,p)=>s+p.total,0);
   const pctMeta=metaMes>0?Math.min(100,Math.round(fatMesAtual/metaMes*100)):0;
   const faltaMeta=metaMes>0?Math.max(0,metaMes-fatMesAtual):0;
   if(el('dash-meta-fat'))       el('dash-meta-fat').textContent=moeda(fatMesAtual);
@@ -2265,12 +2242,12 @@ function renderDash(){
 
   // Custo de produção (custo unitário × qtd vendida)
   const todosM=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
-  const pedidosMes=lista; // já filtrado pelo período selecionado
+  const pedidosMes=todosM.filter(p=>p.data&&p.data.startsWith(mesAtual));
   const qtdMes={};TAMS.forEach(t=>qtdMes[t]=0);
   pedidosMes.forEach(p=>p.itens.forEach(it=>{qtdMes[it.tam]=(qtdMes[it.tam]||0)+it.qtd;}));
   const custoProdMes=TAMS.reduce((s,t)=>s+getCustoTotal(t)*qtdMes[t],0);
 
-  const fatMes=lista.reduce((s,p)=>s+p.total,0);
+  const fatMes=pedidosMes.reduce((s,p)=>s+p.total,0);
   // Lucro líquido = Faturamento − Custo produção − Custos operacionais − Pagamento Fábio (sem embalagem, já no prod)
   const lucroLiquido=fatMes-custoProdMes-custoOpMes-gastoFabio;
 
@@ -2288,10 +2265,10 @@ function renderDash(){
     el('dash-lucro-badge').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
   }
   // Imposto e lucro real após imposto
-  const valorImposto=load('slj_valor_imposto_'+mesAtual,load('slj_valor_imposto',0));
+  const valorImposto=load('slj_valor_imposto',0);
   const impostoInp=document.getElementById('dash-valor-imposto');
-  if(impostoInp) impostoInp.value=valorImposto>0?valorImposto:'';
-  const impostoAtual=valorImposto||0;
+  if(impostoInp&&!impostoInp.value&&valorImposto>0) impostoInp.value=valorImposto;
+  const impostoAtual=parseFloat(impostoInp?.value)||valorImposto||0;
   const lucroReal=lucroLiquido-impostoAtual;
   if(el('dash-lucro-pos-imposto')) el('dash-lucro-pos-imposto').textContent=moeda(impostoAtual);
   if(el('dash-lucro-real')){
@@ -3110,19 +3087,23 @@ function renderDia(){
   let lista=[];
   if(dataSel===hojeKey){
     lista=pedidos.slice();
-  } else if(dataSel===ontemKey||dataSel===amanhaKey){
-    const arr=dataSel===ontemKey?pedidosOntem:pedidosAmanha;
-    lista=arr.filter(p=>p.data===dataSel);
   } else {
-    // Histórico: usar cache para renderizar imediatamente enquanto busca do banco
-    lista=[...(historico[dataSel]||[])];
-    // Sempre buscar do banco com foto — cache do histórico bulk não tem foto
-    sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`).then(dbP=>{
-      if(dbP&&dbP.length){
-        historico[dataSel]=dbP.map(mapPedido);
-        renderDia();
-      }
-    }).catch(()=>{});
+    // Buscar no historico ou pedidosOntem
+    const doPeriodo=historico[dataSel]||[];
+    lista=[...doPeriodo];
+    pedidosOntem.filter(p=>p.data===dataSel).forEach(p=>{
+      if(!lista.find(x=>x.id===p.id)) lista.push(p);
+    });
+    // Se não encontrou nada no cache, buscar do banco
+    if(!lista.length){
+      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`).then(dbP=>{
+        if(dbP&&dbP.length){
+          if(!historico[dataSel]) historico[dataSel]=[];
+          historico[dataSel]=(dbP||[]).map(mapPedido);
+          renderDia();
+        }
+      }).catch(()=>{});
+    }
   }
 
   // Atualizar label
@@ -3146,7 +3127,6 @@ function renderDia(){
   const isHoje=dataSel===hojeKey;
   el.innerHTML=[...lista].reverse().map(p=>{
     const i=pedidos.findIndex(x=>x.id===p.id);
-    const isHojeCard=isHoje&&i!==-1;
     const statusEnt=p.entregue?'entregue':'pendente';
     const statusPag=p.pago?'pago':(p.entregue?'debito':'pendente');
     return`<div class="pedido-card${p.entregue?' entregue':''}${p.pago?' pago':p.entregue?' debito':''}">
@@ -3159,7 +3139,7 @@ function renderDia(){
           <div class="pedido-meta">CNPJ ${p.cnpj||'—'} · ${p.hora}${p.horaEntrega?' · Entregue '+p.horaEntrega:''}</div>
         </div>
         <div class="pedido-btns">
-          ${isHojeCard?(
+          ${isHoje&&i!==-1?(
             (!p.entregue?`<button class="psm psm-entrega" onclick="abrirFoto(${i})">Entregue</button>`:`<button class="psm psm-entregue">✓</button>`)
             +(p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPago(${i})">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
@@ -3431,6 +3411,9 @@ function confirmarEntrega(){
   lsave('slj_ped_bk',pedidos);
   lsave('slj_ped_ontem_bk',pedidosOntem);
 
+  // Proteger contra sobrescrita por sync periódica enquanto PATCH está em andamento
+  _entregasLocais[pedidoId]={entregue:true,horaEntrega:hora,foto:foto};
+
   // Limpar estado e fechar modal
   fotoEntregaIdx=null;
   fotoEntregaPedido=null;
@@ -3445,18 +3428,12 @@ function confirmarEntrega(){
   renderRota();
   toast('✅ Entrega confirmada às '+hora+'.');
 
-  // Proteger contra sobrescrita por sync periódica enquanto PATCH está em andamento
-  _entregasLocais[pedidoId]={entregue:true,horaEntrega:hora,foto:foto};
-
+  // Salvar no banco — sem setTimeout, chamada direta
   sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:true,hora_entrega:hora,foto:foto})
     .then(()=>{
+      delete _entregasLocais[pedidoId];
       setSyncStatus('ok','✓ Conectado — dados sincronizados');
-      // Confirmar com o banco antes de limpar a proteção local
-      sincronizarRapido().then(()=>{
-        // Só limpar após sync confirmar — se banco já tem entregue=true, proteção não é mais necessária
-        const pedidoAtual=pedidos.find(p=>String(p.id)===String(pedidoId))||pedidosOntem.find(p=>String(p.id)===String(pedidoId));
-        if(pedidoAtual&&pedidoAtual.entregue) delete _entregasLocais[pedidoId];
-      });
+      sincronizarRapido();
     })
     .catch(()=>{
       setSyncStatus('err','Erro ao sincronizar — dado salvo localmente');
@@ -3851,7 +3828,7 @@ function renderRota(){
     }
   }
   if(!listaRota.length){
-    el.innerHTML='<div class="empty"><span class="empty-icon">⏳</span><p>Carregando pedidos de hoje...<br><small style="color:var(--text3)">Aguarde a sincronização</small></p></div>';
+    el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido nesta data.<br><small style="color:var(--text3)">Sincronizando...</small></p></div>';
     return;
   }
   // Filtrar por viagem se selecionada
@@ -5945,6 +5922,7 @@ function altM(t,d){editPedQtds[t]=Math.max(0,(editPedQtds[t]||0)+d);document.get
 async function salvarEdicaoPedido(){
   if(editPedIdx===null)return;
 
+  // Determinar qual pedido editar
   let p=null;
   let isHist=false;
   if(editPedIdx===-1&&window._editHistPedido){
@@ -5954,36 +5932,23 @@ async function salvarEdicaoPedido(){
     p=pedidos[editPedIdx];
   }else return;
 
-  const c=clientes.find(x=>x.id===editClienteId);
-  // Usar preços do cliente se disponível, senão usar preços originais do pedido
-  const precos=(c&&c.precos)||p.precos||{};
-  const itens=TAMS.filter(t=>editPedQtds[t]>0).map(t=>({
-    tam:t,
-    qtd:editPedQtds[t],
-    preco:precos[t]||p.itens.find(i=>i.tam===t)?.preco||0
-  })).filter(it=>it.preco>0);
+  const c=clientes.find(x=>x.id===editClienteId)||{precos:p.precos||{}};
+  const precos=c.precos||p.precos||{};
+  const itens=TAMS.filter(t=>editPedQtds[t]>0&&precos[t]>0).map(t=>({tam:t,qtd:editPedQtds[t],preco:precos[t]}));
   if(!itens.length){toast('Adicione ao menos um item.');return;}
   const total=itens.reduce((s,i)=>s+i.preco*i.qtd,0);
   const obs=document.getElementById('modal-obs').value.trim();
 
-  fecharModal('edit');
   try{
-    console.log('PATCH pedido id:', p.id, 'itens:', itens, 'total:', total);
-    const result=await sbPatch('pedidos',`?id=eq.${p.id}`,{itens,total,obs});
-    console.log('PATCH resultado:', result);
-    if(!result||result.length===0){
-      toast('❌ Pedido não encontrado no banco.');
-      return;
-    }
+    await sbPatch('pedidos',`?id=eq.${p.id}`,{itens,total,obs});
     p.itens=itens;p.total=total;p.obs=obs;
     if(!isHist){lsave('slj_ped_bk',pedidos);}
-    renderDia();
-    toast('✓ Pedido atualizado.');
-    setSyncStatus('ok','✓ Conectado');
-  }catch(e){
-    toast('❌ Erro ao salvar — tente novamente.');
-    setSyncStatus('err','Erro ao sincronizar');
-  }
+    setSyncStatus('ok','✓ Conectado — dados sincronizados');
+  }catch(e){setSyncStatus('err','Erro ao sincronizar');}
+
+  fecharModal('edit');
+  renderDia();
+  toast('✓ Pedido atualizado.');
   window._editHistPedido=null;
   window._editHistDataKey=null;
 }
@@ -6458,43 +6423,6 @@ function fazerLogout(){
   chartEmb=destroyChart(chartEmb);
 }
 
-// Compacta fotos de pedidos entregues há mais de 24h para versão menor (400px, 50%)
-// Roda 1x por dia junto com a limpeza geral
-async function compactarFotosAntigas(){
-  const ultimaCompactacao=parseInt(localStorage.getItem('slj_compact_fotos')||'0');
-  const agora=Date.now();
-  if(agora-ultimaCompactacao<86400000) return; // já rodou nas últimas 24h
-  try{
-    const ontemKey2=new Date(hoje);ontemKey2.setDate(ontemKey2.getDate()-1);
-    const corte=ontemKey2.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
-    // Busca pedidos entregues há mais de 24h que ainda têm foto grande (>10KB em base64 ~= >13000 chars)
-    const candidatos=await sbGet('pedidos',`?data=lt.${corte}&entregue=eq.true&foto=not.is.null&select=id,foto`);
-    if(!candidatos||!candidatos.length) return;
-    let compactados=0;
-    for(const p of candidatos){
-      if(!p.foto||p.foto.length<13000) continue; // já pequena, pular
-      await new Promise(resolve=>{
-        const img=new Image();
-        img.onload=async()=>{
-          const MAX=400; // reduz de 800px para 400px
-          let w=img.width,h=img.height;
-          if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
-          const canvas=document.createElement('canvas');
-          canvas.width=w;canvas.height=h;
-          canvas.getContext('2d').drawImage(img,0,0,w,h);
-          const fotoCompacta=canvas.toDataURL('image/jpeg',0.5); // 50% qualidade
-          await sbPatch('pedidos',`?id=eq.${p.id}`,{foto:fotoCompacta}).catch(()=>{});
-          compactados++;
-          resolve();
-        };
-        img.onerror=resolve;
-        img.src=p.foto;
-      });
-    }
-    localStorage.setItem('slj_compact_fotos',agora.toString());
-  }catch(e){}
-}
-
 async function limparFotosAntigas(){
   // Roda no máximo 1x por dia para não gastar egress/requests extras
   const ultimaLimpeza=parseInt(localStorage.getItem('slj_limpeza_fotos')||'0');
@@ -6520,31 +6448,12 @@ async function limparFotosAntigas(){
 function iniciarSistema(){
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
   pedidos=load('slj_ped_bk',[]).filter(p=>p.data===hojeKey);
-  pedidos.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;});
-  // Se há pedidos entregues sem foto no cache, buscar do banco em background
-  if(pedidos.some(p=>p.entregue&&!p.foto)){
-    sbGet('pedidos',`?data=eq.${hojeKey}&entregue=eq.true&select=id,foto&foto=not.is.null`).then(res=>{
-      if(!res||!res.length)return;
-      let mudou=false;
-      res.forEach(r=>{
-        const p=pedidos.find(x=>String(x.id)===String(r.id));
-        if(p&&r.foto&&!p.foto){p.foto=r.foto;mudou=true;}
-      });
-      if(mudou){lsave('slj_ped_bk',pedidos);renderDia();}
-    }).catch(()=>{});
-  }
   const cacheOntem=load('slj_ped_ontem_bk',[]);
   pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
-  pedidosOntem.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;});
   pedidosAmanha=load('slj_ped_amanha_bk',[]).filter(p=>p.data===amanhaKey);
-  pedidosAmanha.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;});
   // Carregar histórico do cache local — dados ficam disponíveis imediatamente
   const histCache=load('slj_hist_bk',{});
-  if(Object.keys(histCache).length>0){
-    // Limpar marcador legado __tem_foto__
-    Object.values(histCache).forEach(arr=>arr.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;}));
-    historico=histCache;
-  }
+  if(Object.keys(histCache).length>0) historico=histCache;
   const abaAtiva=localStorage.getItem('slj_aba_ativa')||'dash';
   sincronizar().finally(()=>{
     document.getElementById('loading').classList.add('hidden');
@@ -6572,23 +6481,17 @@ function iniciarSistemaEntregador(){
   document.getElementById('loading').classList.add('hidden');
   setTab('rota');
   renderRota();
-  // Sincronizar em background e atualizar
-  sincronizar().finally(()=>{
-    renderRota();
-  });
-  setInterval(sincronizar,300000); // 5 minutos — sync completa
-  // Sync adaptativa para entregador — 15s igual ao admin
-  // Sync entregador: 2s quando ativo, 15s após 2h de inatividade
+  // Sincronizar em background
+  sincronizar().finally(()=>{ renderRota(); });
+  setInterval(sincronizar,300000);
+  // 2s quando ativo, 15s após 2h de inatividade
   let _ultimaAtividadeEntregador=Date.now();
   function registrarAtividadeEntregador(){_ultimaAtividadeEntregador=Date.now();}
   document.addEventListener('touchstart',registrarAtividadeEntregador);
   document.addEventListener('click',registrarAtividadeEntregador);
   _syncRapidoTimer=setInterval(()=>{
-    const inativo=Date.now()-_ultimaAtividadeEntregador>2*60*60*1000; // 2h
-    if(inativo){
-      clearInterval(_syncRapidoTimer);
-      _syncRapidoTimer=setInterval(sincronizarRapido,15000);
-    }
+    const inativo=Date.now()-_ultimaAtividadeEntregador>2*60*60*1000;
+    if(inativo){clearInterval(_syncRapidoTimer);_syncRapidoTimer=setInterval(sincronizarRapido,15000);}
     sincronizarRapido();
   },2000);
   if(pedidos.length>0) registrarAtividadePedido();
@@ -6642,8 +6545,6 @@ async function entregadorConfirmarEntrega(i){
 // 5s quando há pedidos recentes (últimos 20min), 30s quando inativo
 let _ultimoPedidoCriado=0;
 let _syncRapidoTimer=null;
-// Pedidos confirmados localmente mas ainda não confirmados pelo banco
-// Chave: id do pedido, Valor: {entregue, horaEntrega, foto, ts}
 const _entregasLocais={};
 
 function registrarAtividadePedido(){
@@ -6662,7 +6563,7 @@ function iniciarSyncAdaptativa(){
       _syncRapidoTimer=setInterval(sincronizarRapido,30000);
     }
     sincronizarRapido();
-  },15000);
+  },5000);
 }
 
 // Sync rápida — só pedidos de hoje e ontem (sem histórico, sem fotos, sem outros dados)
@@ -6678,10 +6579,8 @@ async function sincronizarRapido(){
     if(dbP&&dbP.length>=0){
       const novos=dbP.map(mapPedido);
       novos.forEach(n=>{
-        // Proteção 1: entrega pendente ainda não confirmada pelo banco
         const pendente=_entregasLocais[n.id];
         if(pendente){n.entregue=true;n.horaEntrega=pendente.horaEntrega;if(pendente.foto)n.foto=pendente.foto;return;}
-        // Proteção 2: nunca rebaixar entregue=true para false vindo do banco
         const local=pedidos.find(p=>String(p.id)===String(n.id));
         if(local&&local.entregue===true&&n.entregue===false){n.entregue=true;n.horaEntrega=local.horaEntrega;if(local.foto&&!n.foto)n.foto=local.foto;}
       });
@@ -6699,6 +6598,10 @@ async function sincronizarRapido(){
         const local=pedidosOntem.find(p=>String(p.id)===String(n.id));
         if(local&&local.entregue===true&&n.entregue===false){n.entregue=true;n.horaEntrega=local.horaEntrega;if(local.foto&&!n.foto)n.foto=local.foto;}
       });
+      const mudouOntem=novosOntem.length!==pedidosOntem.length||novosOntem.some(n=>{
+        const local=pedidosOntem.find(p=>String(p.id)===String(n.id));
+        return !local||local.entregue!==n.entregue||local.pago!==n.pago||local.foto!==n.foto;
+      });
       if(mudouOntem){pedidosOntem=novosOntem;lsave('slj_ped_ontem_bk',pedidosOntem);atualizado=true;}
     }
     if(dbPAmanha&&dbPAmanha.length>=0){
@@ -6707,9 +6610,7 @@ async function sincronizarRapido(){
         const local=pedidosAmanha.find(p=>String(p.id)===String(n.id));
         return !local||local.entregue!==n.entregue||local.pago!==n.pago;
       });
-      if(mudouAmanha){
-        pedidosAmanha=novosAmanha;lsave('slj_ped_amanha_bk',pedidosAmanha);atualizado=true;
-      }
+      if(mudouAmanha){pedidosAmanha=novosAmanha;lsave('slj_ped_amanha_bk',pedidosAmanha);atualizado=true;}
     }
     if(atualizado){
       atualizarBadges();
