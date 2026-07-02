@@ -1884,9 +1884,9 @@ async function sincronizar(){
     pedidosOntem=(dbPOntem||[]).map(mesclar).filter(p=>p.data===ontemKey);
     pedidos=(dbP||[]).map(mesclar).filter(p=>p.data===hojeKey);
     pedidosAmanha=(dbPAmanha||[]).map(mesclar).filter(p=>p.data===amanhaKey);
-    lsave('slj_ped_bk',pedidos);    lsave('slj_ped_ontem_bk',pedidosOntem);
-    lsave('slj_ped_amanha_bk',pedidosAmanha);
+    lsave('slj_ped_bk',pedidos);
     lsave('slj_ped_ontem_bk',pedidosOntem);
+    lsave('slj_ped_amanha_bk',pedidosAmanha);
     // Histórico — 10 em 10 minutos
     const agora2=Date.now();
     const ultimaHistSync=parseInt(localStorage.getItem('slj_hist_sync')||'0');
@@ -3829,11 +3829,7 @@ function renderRota(){
   // Buscar pedidos da data selecionada em todos os caches
   let listaRota=[];
   if(dataSel===hojeKey){
-    // Pedidos de hoje: podem estar em pedidos[] OU em pedidosOntem[] (lançados ontem para hoje)
-    const deHoje=[...pedidos,...pedidosOntem].filter(p=>p.data===hojeKey);
-    // Deduplicar por id
-    const ids=new Set();
-    deHoje.forEach(p=>{if(!ids.has(p.id)){ids.add(p.id);listaRota.push(p);}});
+    listaRota=pedidos.filter(p=>p.data===hojeKey);
   } else if(dataSel===ontemKey){
     listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
   } else if(dataSel===amanhaKey){
@@ -6538,7 +6534,7 @@ function iniciarSistema(){
     }).catch(()=>{});
   }
   const cacheOntem=load('slj_ped_ontem_bk',[]);
-  pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey||p.data===hojeKey);
+  pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
   pedidosOntem.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;});
   pedidosAmanha=load('slj_ped_amanha_bk',[]).filter(p=>p.data===amanhaKey);
   pedidosAmanha.forEach(p=>{if(p.foto==='__tem_foto__')p.foto=null;});
@@ -6571,7 +6567,7 @@ function iniciarSistemaEntregador(){
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
   pedidos=load('slj_ped_bk',[]).filter(p=>p.data===hojeKey);
   const cacheOntem=load('slj_ped_ontem_bk',[]);
-  pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey||p.data===hojeKey);
+  pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
   // Mostrar rota imediatamente com cache
   document.getElementById('loading').classList.add('hidden');
   setTab('rota');
@@ -6702,10 +6698,6 @@ async function sincronizarRapido(){
         if(pendente){n.entregue=true;n.horaEntrega=pendente.horaEntrega;if(pendente.foto)n.foto=pendente.foto;return;}
         const local=pedidosOntem.find(p=>String(p.id)===String(n.id));
         if(local&&local.entregue===true&&n.entregue===false){n.entregue=true;n.horaEntrega=local.horaEntrega;if(local.foto&&!n.foto)n.foto=local.foto;}
-      });
-      const mudouOntem=novosOntem.length!==pedidosOntem.length||novosOntem.some(n=>{
-        const local=pedidosOntem.find(p=>String(p.id)===String(n.id));
-        return !local||local.entregue!==n.entregue||local.pago!==n.pago||local.foto!==n.foto;
       });
       if(mudouOntem){pedidosOntem=novosOntem;lsave('slj_ped_ontem_bk',pedidosOntem);atualizado=true;}
     }
