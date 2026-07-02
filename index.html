@@ -6493,7 +6493,7 @@ function iniciarSistemaEntregador(){
     const inativo=Date.now()-_ultimaAtividadeEntregador>2*60*60*1000;
     if(inativo){clearInterval(_syncRapidoTimer);_syncRapidoTimer=setInterval(sincronizarRapido,15000);}
     sincronizarRapido();
-  },2000);
+  },15000);
   if(pedidos.length>0) registrarAtividadePedido();
 }
 
