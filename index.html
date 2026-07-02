@@ -3829,7 +3829,11 @@ function renderRota(){
   // Buscar pedidos da data selecionada em todos os caches
   let listaRota=[];
   if(dataSel===hojeKey){
-    listaRota=pedidos.filter(p=>p.data===hojeKey);
+    // Pedidos de hoje: podem estar em pedidos[] OU em pedidosOntem[] (lançados ontem para hoje)
+    const deHoje=[...pedidos,...pedidosOntem].filter(p=>p.data===hojeKey);
+    // Deduplicar por id
+    const ids=new Set();
+    deHoje.forEach(p=>{if(!ids.has(p.id)){ids.add(p.id);listaRota.push(p);}});
   } else if(dataSel===ontemKey){
     listaRota=pedidosOntem.filter(p=>p.data===ontemKey);
   } else if(dataSel===amanhaKey){
@@ -5968,7 +5972,13 @@ async function salvarEdicaoPedido(){
 
   fecharModal('edit');
   try{
-    await sbPatch('pedidos',`?id=eq.${p.id}`,{itens,total,obs});
+    console.log('PATCH pedido id:', p.id, 'itens:', itens, 'total:', total);
+    const result=await sbPatch('pedidos',`?id=eq.${p.id}`,{itens,total,obs});
+    console.log('PATCH resultado:', result);
+    if(!result||result.length===0){
+      toast('❌ Pedido não encontrado no banco.');
+      return;
+    }
     p.itens=itens;p.total=total;p.obs=obs;
     if(!isHist){lsave('slj_ped_bk',pedidos);}
     renderDia();
