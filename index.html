@@ -3151,7 +3151,7 @@ function renderDia(){
           ):(
             (p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPagoHistorico(${p.id},'${dataSel}')">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
-            +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:(p.entregue?`<button class="psm" style="background:var(--bg);color:var(--text3);border:1px dashed var(--border2)" onclick="abrirInserirFoto(${p.id})">+📷</button>`:''))
+            +(p.entregue?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:'')
             +(['admin','gerente'].includes(perfilAtual)?`<button class="psm psm-edit" onclick="abrirModalEditHist(${p.id},'${dataSel}')">Editar</button>`:'')
             +`<button class="psm psm-wpp" onclick="enviarWhats(-1,'${dataSel}',${p.id})">WPP</button>`
             +`<button class="psm psm-del" onclick="delPedidoUniversal(${p.id},'${dataSel}')">✕</button>`
@@ -3323,10 +3323,12 @@ function inserirFotoSelecionada(){
   if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    _inserirFotoBase64=e.target.result;
-    const img=document.getElementById('inserir-foto-preview');
-    img.src=_inserirFotoBase64;img.style.display='block';
-    document.getElementById('btn-salvar-foto-inserida').disabled=false;
+    comprimirFoto(e.target.result, fotoComprimida=>{
+      _inserirFotoBase64=fotoComprimida;
+      const img=document.getElementById('inserir-foto-preview');
+      img.src=_inserirFotoBase64;img.style.display='block';
+      document.getElementById('btn-salvar-foto-inserida').disabled=false;
+    });
   };
   reader.readAsDataURL(file);
 }
@@ -3355,7 +3357,7 @@ async function salvarFotoInserida(){
 function comprimirFoto(base64, callback){
   const img=new Image();
   img.onload=()=>{
-    const MAX=800;
+    const MAX=400;
     let w=img.width, h=img.height;
     if(w>MAX||h>MAX){
       if(w>h){h=Math.round(h*MAX/w);w=MAX;}
@@ -3364,7 +3366,7 @@ function comprimirFoto(base64, callback){
     const canvas=document.createElement('canvas');
     canvas.width=w;canvas.height=h;
     canvas.getContext('2d').drawImage(img,0,0,w,h);
-    callback(canvas.toDataURL('image/jpeg',0.7));
+    callback(canvas.toDataURL('image/jpeg',0.4));
   };
   img.src=base64;
 }
@@ -3374,11 +3376,13 @@ function fotoSelecionada(){
   if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    fotoBase64=e.target.result;
-    const img=document.getElementById('foto-preview');
-    img.src=fotoBase64;
-    document.getElementById('foto-preview-wrap').style.display='block';
-    document.getElementById('btn-confirmar-entrega').disabled=false;
+    comprimirFoto(e.target.result, fotoComprimida=>{
+      fotoBase64=fotoComprimida;
+      const img=document.getElementById('foto-preview');
+      img.src=fotoBase64;
+      document.getElementById('foto-preview-wrap').style.display='block';
+      document.getElementById('btn-confirmar-entrega').disabled=false;
+    });
   };
   reader.readAsDataURL(file);
 }
