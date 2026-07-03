@@ -2035,8 +2035,6 @@ async function sincronizar(){
     } else {
       setSyncStatus('ok','✓ Conectado');
       syncErros=0;
-      setTimeout(sincronizar,10000);
-    }
     console.warn('Sync erro:',e?.message);
   }
 }
