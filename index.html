@@ -1644,37 +1644,41 @@ a{color:var(--orange);text-decoration:none}
 <div class="modal-bg" id="modal-cliente">
   <div class="modal-box">
     <div class="modal-handle"></div>
-    <div class="modal-title">Editar Cliente</div>
-    <div class="form-group"><label>Nome</label><input type="text" id="ec-nome"></div>
-    <div class="form-group"><label>Apelido / Nome interno <span style="font-size:10px;color:var(--text3)">(usado na rota do WhatsApp)</span></label><input type="text" id="ec-apelido" placeholder="Ex: nome curto para uso interno"></div>
-    <div class="action-row" style="margin-bottom:10px;gap:8px">
-      <div class="form-group" style="flex:1;margin:0"><label>CNPJ</label><input type="text" id="ec-cnpj" oninput="mascaraCNPJ(this)" maxlength="18" inputmode="numeric"></div>
-      <div class="form-group" style="flex:1;margin:0"><label>Telefone</label><input type="text" id="ec-tel" oninput="mascaraTel(this)" maxlength="15" inputmode="numeric"></div>
-    </div>
-    <div class="action-row" style="margin-bottom:10px;gap:8px">
-      <div class="form-group" style="flex:1;margin:0"><label>Bairro</label><input type="text" id="ec-bairro"></div>
-      <div class="form-group" style="flex:1;margin:0"><label>Região</label><input type="text" id="ec-regiao"></div>
-    </div>
-    <div class="form-group"><label>Endereço</label><input type="text" id="ec-endereco"></div>
-    <div class="form-group">
-      <label>Link do Google Maps 📍</label>
-      <input type="text" id="ec-maps" placeholder="Cole aqui o link do Google Maps">
-    </div>
-    <div class="form-group"><label>Aniversário</label><input type="date" id="ec-aniver"></div>
-    <div class="form-group">
-      <label>Preços por embalagem (R$)</label>
-      <div class="precos-form">
-        <div class="pfw"><label>200 ml</label><input type="number" id="ec-200ml" step="0.01" min="0" inputmode="decimal"></div>
-        <div class="pfw"><label>300 ml</label><input type="number" id="ec-300ml" step="0.01" min="0" inputmode="decimal"></div>
-        <div class="pfw"><label>500 ml</label><input type="number" id="ec-500ml" step="0.01" min="0" inputmode="decimal"></div>
-        <div class="pfw"><label>1 L</label><input type="number" id="ec-1L" step="0.01" min="0" inputmode="decimal"></div>
-        <div class="pfw"><label>5 L</label><input type="number" id="ec-5L" step="0.01" min="0" inputmode="decimal"></div>
+    <div class="modal-body">
+      <div class="modal-title">Editar Cliente</div>
+      <div class="form-group"><label>Nome</label><input type="text" id="ec-nome"></div>
+      <div class="form-group"><label>Apelido / Nome interno <span style="font-size:10px;color:var(--text3)">(usado na rota do WhatsApp)</span></label><input type="text" id="ec-apelido" placeholder="Ex: nome curto para uso interno"></div>
+      <div class="action-row" style="margin-bottom:10px;gap:8px">
+        <div class="form-group" style="flex:1;margin:0"><label>CNPJ</label><input type="text" id="ec-cnpj" oninput="mascaraCNPJ(this)" maxlength="18" inputmode="numeric"></div>
+        <div class="form-group" style="flex:1;margin:0"><label>Telefone</label><input type="text" id="ec-tel" oninput="mascaraTel(this)" maxlength="15" inputmode="numeric"></div>
       </div>
+      <div class="action-row" style="margin-bottom:10px;gap:8px">
+        <div class="form-group" style="flex:1;margin:0"><label>Bairro</label><input type="text" id="ec-bairro"></div>
+        <div class="form-group" style="flex:1;margin:0"><label>Região</label><input type="text" id="ec-regiao"></div>
+      </div>
+      <div class="form-group"><label>Endereço</label><input type="text" id="ec-endereco"></div>
+      <div class="form-group">
+        <label>Link do Google Maps 📍</label>
+        <input type="text" id="ec-maps" placeholder="Cole aqui o link do Google Maps">
+      </div>
+      <div class="form-group"><label>Aniversário</label><input type="date" id="ec-aniver"></div>
+      <div class="form-group">
+        <label>Preços por embalagem (R$)</label>
+        <div class="precos-form">
+          <div class="pfw"><label>200 ml</label><input type="number" id="ec-200ml" step="0.01" min="0" inputmode="decimal"></div>
+          <div class="pfw"><label>300 ml</label><input type="number" id="ec-300ml" step="0.01" min="0" inputmode="decimal"></div>
+          <div class="pfw"><label>500 ml</label><input type="number" id="ec-500ml" step="0.01" min="0" inputmode="decimal"></div>
+          <div class="pfw"><label>1 L</label><input type="number" id="ec-1L" step="0.01" min="0" inputmode="decimal"></div>
+          <div class="pfw"><label>5 L</label><input type="number" id="ec-5L" step="0.01" min="0" inputmode="decimal"></div>
+        </div>
+      </div>
+      <div class="form-group"><label>Valor mínimo (R$)</label><input type="number" id="ec-minimo" step="0.01" min="0" inputmode="decimal"></div>
     </div>
-    <div class="form-group"><label>Valor mínimo (R$)</label><input type="number" id="ec-minimo" step="0.01" min="0" inputmode="decimal"></div>
-    <div class="action-row">
-      <button class="btn btn-outline" onclick="fecharModal('cliente')" style="flex:1">Cancelar</button>
-      <button class="btn btn-primary" onclick="salvarEdicaoCliente()" style="flex:2">Salvar</button>
+    <div class="modal-footer">
+      <div class="action-row" style="margin:0">
+        <button class="btn btn-outline" onclick="fecharModal('cliente')" style="flex:1">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarEdicaoCliente()" style="flex:2">Salvar</button>
+      </div>
     </div>
   </div>
 </div>
