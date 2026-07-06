@@ -221,13 +221,8 @@ label{font-size:11px;font-weight:600;color:var(--text3);display:block;margin-bot
 /* MODAL */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .18s}
 .modal-bg.open{opacity:1;pointer-events:all}
-.modal-box{background:var(--white);border-radius:10px 10px 0 0;width:100%;max-width:720px;padding:14px 17px 0;max-height:92vh;display:flex;flex-direction:column;transform:translateY(22px);transition:transform .22s;box-shadow:var(--shadow-md)}
+.modal-box{background:var(--white);border-radius:10px 10px 0 0;width:100%;max-width:720px;padding:14px 17px 28px;max-height:92vh;overflow-y:auto;transform:translateY(22px);transition:transform .22s;box-shadow:var(--shadow-md)}
 .modal-bg.open .modal-box{transform:translateY(0)}
-.modal-body{flex:1;overflow-y:auto;padding-bottom:8px}
-.modal-footer{flex-shrink:0;padding:10px 0 calc(18px + env(safe-area-inset-bottom));border-top:1px solid var(--border)}
-.foto-preview-wrap{display:none;width:100%;height:140px;border-radius:var(--radius);margin-top:8px;overflow:hidden;background:var(--bg2)}
-.foto-preview-wrap img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
-.foto-preview{display:none;width:100%;max-height:140px;object-fit:cover;border-radius:var(--radius);margin-top:4px}
 .modal-handle{width:32px;height:3px;background:var(--border2);border-radius:2px;margin:0 auto 13px}
 .modal-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px}
 /* LOADING */
@@ -343,7 +338,7 @@ a{color:var(--orange);text-decoration:none}
   <button class="login-btn login-btn-admin" onclick="abrirSenhaAdmin()">
     <span style="font-size:20px">🔐</span> Entrar como Administrador
   </button>
-  <button class="login-btn" style="background:rgba(255,255,255,.15);color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="abrirSenhaGerente()">
+  <button class="login-btn" style="background:rgba(255,255,255,.15);color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="entrarGerente()">
     <span style="font-size:20px">📋</span> Entrar como Gerente
   </button>
   <button class="login-btn login-btn-entregador" onclick="entrarEntregador()">
@@ -362,19 +357,6 @@ a{color:var(--orange);text-decoration:none}
     <div class="action-row" style="margin-top:14px;gap:8px">
       <button class="btn btn-outline" onclick="fecharLoginModal()" style="flex:1">Cancelar</button>
       <button class="btn btn-primary" onclick="verificarSenha()" style="flex:2">Entrar</button>
-    </div>
-  </div>
-</div>
-
-<div class="login-modal hidden" id="login-modal-gerente">
-  <div class="login-modal-box">
-    <div class="login-modal-title">Acesso Gerente</div>
-    <div class="login-modal-sub">Digite a senha para continuar.</div>
-    <input type="password" id="senha-gerente-input" placeholder="Senha" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:15px;margin-bottom:4px" onkeydown="if(event.key==='Enter')verificarSenhaGerente()">
-    <div class="login-error" id="login-error-gerente">Senha incorreta. Tente novamente.</div>
-    <div class="action-row" style="margin-top:14px;gap:8px">
-      <button class="btn btn-outline" onclick="fecharLoginModalGerente()" style="flex:1">Cancelar</button>
-      <button class="btn btn-primary" onclick="verificarSenhaGerente()" style="flex:2">Entrar</button>
     </div>
   </div>
 </div>
@@ -1622,20 +1604,14 @@ a{color:var(--orange);text-decoration:none}
 <div class="modal-bg" id="modal-foto">
   <div class="modal-box">
     <div class="modal-handle"></div>
-    <div class="modal-body">
-      <div class="modal-title">Confirmar Entrega</div>
-      <p style="font-size:13px;color:var(--text3);margin-bottom:12px">A foto é opcional. Você pode confirmar a entrega com ou sem foto.</p>
-      <input type="file" id="foto-input" accept="image/*" capture="environment" style="display:none" onchange="fotoSelecionada()">
-      <button class="btn btn-outline btn-full" onclick="document.getElementById('foto-input').click()" style="margin-bottom:10px">📷 Tirar Foto (opcional)</button>
-      <div class="foto-preview-wrap" id="foto-preview-wrap">
-        <img id="foto-preview">
-      </div>
-    </div>
-    <div class="modal-footer">
-      <div class="action-row" style="margin:0">
-        <button class="btn btn-outline" onclick="fecharModal('foto')" style="flex:1">Cancelar</button>
-        <button class="btn btn-green" onclick="confirmarEntrega()" style="flex:2" id="btn-confirmar-entrega">✓ Confirmar Entrega</button>
-      </div>
+    <div class="modal-title">Confirmar Entrega</div>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:12px">A foto é opcional. Você pode confirmar a entrega com ou sem foto.</p>
+    <input type="file" id="foto-input" accept="image/*" capture="environment" style="display:none" onchange="fotoSelecionada()">
+    <button class="btn btn-outline btn-full" onclick="document.getElementById('foto-input').click()" style="margin-bottom:10px">📷 Tirar Foto (opcional)</button>
+    <img id="foto-preview" class="foto-preview">
+    <div class="action-row" style="margin-top:12px">
+      <button class="btn btn-outline" onclick="fecharModal('foto')" style="flex:1">Cancelar</button>
+      <button class="btn btn-green" onclick="confirmarEntrega()" style="flex:2" id="btn-confirmar-entrega">✓ Confirmar Entrega</button>
     </div>
   </div>
 </div>
@@ -1644,41 +1620,37 @@ a{color:var(--orange);text-decoration:none}
 <div class="modal-bg" id="modal-cliente">
   <div class="modal-box">
     <div class="modal-handle"></div>
-    <div class="modal-body">
-      <div class="modal-title">Editar Cliente</div>
-      <div class="form-group"><label>Nome</label><input type="text" id="ec-nome"></div>
-      <div class="form-group"><label>Apelido / Nome interno <span style="font-size:10px;color:var(--text3)">(usado na rota do WhatsApp)</span></label><input type="text" id="ec-apelido" placeholder="Ex: nome curto para uso interno"></div>
-      <div class="action-row" style="margin-bottom:10px;gap:8px">
-        <div class="form-group" style="flex:1;margin:0"><label>CNPJ</label><input type="text" id="ec-cnpj" oninput="mascaraCNPJ(this)" maxlength="18" inputmode="numeric"></div>
-        <div class="form-group" style="flex:1;margin:0"><label>Telefone</label><input type="text" id="ec-tel" oninput="mascaraTel(this)" maxlength="15" inputmode="numeric"></div>
-      </div>
-      <div class="action-row" style="margin-bottom:10px;gap:8px">
-        <div class="form-group" style="flex:1;margin:0"><label>Bairro</label><input type="text" id="ec-bairro"></div>
-        <div class="form-group" style="flex:1;margin:0"><label>Região</label><input type="text" id="ec-regiao"></div>
-      </div>
-      <div class="form-group"><label>Endereço</label><input type="text" id="ec-endereco"></div>
-      <div class="form-group">
-        <label>Link do Google Maps 📍</label>
-        <input type="text" id="ec-maps" placeholder="Cole aqui o link do Google Maps">
-      </div>
-      <div class="form-group"><label>Aniversário</label><input type="date" id="ec-aniver"></div>
-      <div class="form-group">
-        <label>Preços por embalagem (R$)</label>
-        <div class="precos-form">
-          <div class="pfw"><label>200 ml</label><input type="number" id="ec-200ml" step="0.01" min="0" inputmode="decimal"></div>
-          <div class="pfw"><label>300 ml</label><input type="number" id="ec-300ml" step="0.01" min="0" inputmode="decimal"></div>
-          <div class="pfw"><label>500 ml</label><input type="number" id="ec-500ml" step="0.01" min="0" inputmode="decimal"></div>
-          <div class="pfw"><label>1 L</label><input type="number" id="ec-1L" step="0.01" min="0" inputmode="decimal"></div>
-          <div class="pfw"><label>5 L</label><input type="number" id="ec-5L" step="0.01" min="0" inputmode="decimal"></div>
-        </div>
-      </div>
-      <div class="form-group"><label>Valor mínimo (R$)</label><input type="number" id="ec-minimo" step="0.01" min="0" inputmode="decimal"></div>
+    <div class="modal-title">Editar Cliente</div>
+    <div class="form-group"><label>Nome</label><input type="text" id="ec-nome"></div>
+    <div class="form-group"><label>Apelido / Nome interno <span style="font-size:10px;color:var(--text3)">(usado na rota do WhatsApp)</span></label><input type="text" id="ec-apelido" placeholder="Ex: nome curto para uso interno"></div>
+    <div class="action-row" style="margin-bottom:10px;gap:8px">
+      <div class="form-group" style="flex:1;margin:0"><label>CNPJ</label><input type="text" id="ec-cnpj" oninput="mascaraCNPJ(this)" maxlength="18" inputmode="numeric"></div>
+      <div class="form-group" style="flex:1;margin:0"><label>Telefone</label><input type="text" id="ec-tel" oninput="mascaraTel(this)" maxlength="15" inputmode="numeric"></div>
     </div>
-    <div class="modal-footer">
-      <div class="action-row" style="margin:0">
-        <button class="btn btn-outline" onclick="fecharModal('cliente')" style="flex:1">Cancelar</button>
-        <button class="btn btn-primary" onclick="salvarEdicaoCliente()" style="flex:2">Salvar</button>
+    <div class="action-row" style="margin-bottom:10px;gap:8px">
+      <div class="form-group" style="flex:1;margin:0"><label>Bairro</label><input type="text" id="ec-bairro"></div>
+      <div class="form-group" style="flex:1;margin:0"><label>Região</label><input type="text" id="ec-regiao"></div>
+    </div>
+    <div class="form-group"><label>Endereço</label><input type="text" id="ec-endereco"></div>
+    <div class="form-group">
+      <label>Link do Google Maps 📍</label>
+      <input type="text" id="ec-maps" placeholder="Cole aqui o link do Google Maps">
+    </div>
+    <div class="form-group"><label>Aniversário</label><input type="date" id="ec-aniver"></div>
+    <div class="form-group">
+      <label>Preços por embalagem (R$)</label>
+      <div class="precos-form">
+        <div class="pfw"><label>200 ml</label><input type="number" id="ec-200ml" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="pfw"><label>300 ml</label><input type="number" id="ec-300ml" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="pfw"><label>500 ml</label><input type="number" id="ec-500ml" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="pfw"><label>1 L</label><input type="number" id="ec-1L" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="pfw"><label>5 L</label><input type="number" id="ec-5L" step="0.01" min="0" inputmode="decimal"></div>
       </div>
+    </div>
+    <div class="form-group"><label>Valor mínimo (R$)</label><input type="number" id="ec-minimo" step="0.01" min="0" inputmode="decimal"></div>
+    <div class="action-row">
+      <button class="btn btn-outline" onclick="fecharModal('cliente')" style="flex:1">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEdicaoCliente()" style="flex:2">Salvar</button>
     </div>
   </div>
 </div>
@@ -1700,16 +1672,12 @@ a{color:var(--orange);text-decoration:none}
 <script>
 // ── SUPABASE ───────────────────────────────────────────────────────────────
 const SB_URL='https://sbqzoljcohzaokkdtsaq.supabase.co/rest/v1';
-const SB_KEY='sb_publishable_Hey5dk7q7WHpgKhnmnte2g_X-jIbE83';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNicXpvbGpjb2h6YW9ra2R0c2FxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwNDk5MTQsImV4cCI6MjA5NDYyNTkxNH0.P8Gb8B3KMDSnPgVWf2FipVvYURNpvRhg8unjtrSI6UY';
 const HDR={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=representation'};
 async function sb(m,t,b,q=''){
-  const controller=new AbortController();
-  const timeout=setTimeout(()=>controller.abort(),30000);
-  try{
-    const r=await fetch(`${SB_URL}/${t}${q}`,{method:m,headers:HDR,body:b?JSON.stringify(b):null,signal:controller.signal});
-    if(!r.ok){const e=await r.text();throw new Error(e);}
-    const tx=await r.text();return tx?JSON.parse(tx):null;
-  }finally{clearTimeout(timeout);}
+  const r=await fetch(`${SB_URL}/${t}${q}`,{method:m,headers:HDR,body:b?JSON.stringify(b):null});
+  if(!r.ok){const e=await r.text();throw new Error(e);}
+  const tx=await r.text();return tx?JSON.parse(tx):null;
 }
 const sbGet=(t,q)=>sb('GET',t,null,q);
 const sbPost=(t,b)=>sb('POST',t,b);
@@ -1786,8 +1754,6 @@ function setSyncStatus(s,t){
 const _hd=document.getElementById('header-date');if(_hd)_hd.textContent=hoje.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
 if(metaDiaria>0) setTimeout(()=>document.getElementById('meta-input').value=metaDiaria,500);
 if(diasInativo) setTimeout(()=>document.getElementById('dias-inativo').value=diasInativo,500);
-window.addEventListener('offline',()=>setSyncStatus('err','Sem sinal — dados salvos localmente'));
-window.addEventListener('online',()=>{setSyncStatus('loading','Reconectando...');sincronizar();});
 TAMS.forEach(t=>{setTimeout(()=>{const el=document.getElementById('min-'+t);if(el&&estMinimos[t]>0)el.value=estMinimos[t];},500);});
 
 // ── CLIENTES PADRÃO ────────────────────────────────────────────────────────
@@ -1834,7 +1800,6 @@ async function sincronizar(){
     // Teste rápido de conectividade primeiro
     const teste=await fetch(SB_URL+'/pedidos?limit=1',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
     if(!teste.ok) throw new Error('HTTP '+teste.status);
-    syncErros=0;
     const dbC=await sbGet('clientes','?order=nome');
     if(dbC&&dbC.length>0){
       // Só atualizar clientes se banco retornou dados válidos
@@ -1849,9 +1814,11 @@ async function sincronizar(){
       clientes=[...CLIENTES_PADRAO];
       lsave('slj_cli_bk',clientes);
     }
-    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
-    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
-    const dbPAmanha=await sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
+    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
+    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
+    const dbPAmanha=await sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
+    // Buscar quais pedidos têm foto (só id — não baixa a foto em si)
+    const dbFotos=await sbGet('pedidos',`?entregue=eq.true&select=id,foto&foto=not.is.null`).catch(()=>[]);
     // Capturar estado local ANTES de sobrescrever — timestamp para saber qual é mais recente
     const localState={};
     const agora=Date.now();
@@ -1885,9 +1852,19 @@ async function sincronizar(){
     pedidosOntem=(dbPOntem||[]).map(mesclar).filter(p=>p.data===ontemKey);
     pedidos=(dbP||[]).map(mesclar).filter(p=>p.data===hojeKey);
     pedidosAmanha=(dbPAmanha||[]).map(mesclar).filter(p=>p.data===amanhaKey);
+    // Marcar pedidos que têm foto no banco (sem baixar a imagem)
+    if(dbFotos&&dbFotos.length){
+      const fotosIds=new Set(dbFotos.map(f=>String(f.id)));
+      const marcarFoto=(p)=>{if(fotosIds.has(String(p.id))&&!p.foto) p.foto='__tem_foto__';};
+      pedidos.forEach(marcarFoto);
+      pedidosOntem.forEach(marcarFoto);
+      pedidosAmanha.forEach(marcarFoto);
+      Object.values(historico).forEach(arr=>arr.forEach(marcarFoto));
+    }
     lsave('slj_ped_bk',pedidos);
     lsave('slj_ped_ontem_bk',pedidosOntem);
     lsave('slj_ped_amanha_bk',pedidosAmanha);
+    lsave('slj_ped_ontem_bk',pedidosOntem);
     // Buscar histórico — sempre na primeira carga, depois a cada 10 minutos
     const agora2=Date.now();
     const ultimaHistSync=parseInt(localStorage.getItem('slj_hist_sync')||'0');
@@ -1895,7 +1872,7 @@ async function sincronizar(){
     const d90=new Date(hoje);d90.setDate(d90.getDate()-90);
     const noventaDiasAtras=d90.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
     if(primeiraVez||agora2-ultimaHistSync>600000){
-      const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
+      const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
       localStorage.setItem('slj_hist_sync',agora2.toString());
       if(dbH!==null&&dbH.length>0){
         const novoHist={};
@@ -1909,7 +1886,7 @@ async function sincronizar(){
     }
     const dbE=await sbGet('estoque','');
     if(dbE&&dbE.length)dbE.forEach(e=>estoque[e.tam]=e.qty||0);
-    // Nunca zerar estoque automaticamente
+    else await sbUps('estoque',TAMS.map(t=>({tam:t,qty:0})));
     const dbM=await sbGet('est_minimos','');
     if(dbM&&dbM.length)dbM.forEach(e=>estMinimos[e.tam]=e.qty||0);
     const dbMov=await sbGet('movimentos','?order=id.desc&limit=100');
@@ -2034,12 +2011,16 @@ async function sincronizar(){
     // Se entregador, atualizar rota
     if(perfilAtual==='entregador') renderRota();
   }catch(e){
-    if(!navigator.onLine){
+    syncErros=(syncErros||0)+1;
+    console.error('Sync erro #'+syncErros+':', e?.message||e, e);
+    // Só mostrar erro após 5 falhas consecutivas
+    if(syncErros>=5){
       setSyncStatus('err','Sem conexão — usando dados locais');
-    } else {
-      setSyncStatus('ok','✓ Conectado');
-      syncErros=0;
-    console.warn('Sync erro:',e?.message);
+    }else{
+      // Tentar novamente em 5 segundos
+      setSyncStatus('loading','Reconectando...');
+      setTimeout(sincronizar, 5000);
+    }
   }
 }
 
@@ -3090,7 +3071,7 @@ function renderDia(){
     });
     // Se não encontrou nada no cache, buscar do banco
     if(!lista.length){
-      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`).then(dbP=>{
+      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`).then(dbP=>{
         if(dbP&&dbP.length){
           if(!historico[dataSel]) historico[dataSel]=[];
           historico[dataSel]=(dbP||[]).map(mapPedido);
@@ -3145,7 +3126,7 @@ function renderDia(){
           ):(
             (p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPagoHistorico(${p.id},'${dataSel}')">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
-            +(p.entregue?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:'')
+            +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:(p.entregue?`<button class="psm" style="background:var(--bg);color:var(--text3);border:1px dashed var(--border2)" onclick="abrirInserirFoto(${p.id})">+📷</button>`:''))
             +(['admin','gerente'].includes(perfilAtual)?`<button class="psm psm-edit" onclick="abrirModalEditHist(${p.id},'${dataSel}')">Editar</button>`:'')
             +`<button class="psm psm-wpp" onclick="enviarWhats(-1,'${dataSel}',${p.id})">WPP</button>`
             +`<button class="psm psm-del" onclick="delPedidoUniversal(${p.id},'${dataSel}')">✕</button>`
@@ -3291,7 +3272,7 @@ function abrirFoto(i){
   fotoEntregaIdx=i;
   fotoEntregaPedido=null;
   fotoBase64=null;
-  document.getElementById('foto-preview-wrap').style.display='none';
+  document.getElementById('foto-preview').style.display='none';
   try{document.getElementById('foto-input').value='';}catch(e){}
   document.getElementById('btn-confirmar-entrega').disabled=false;
   document.getElementById('modal-foto').classList.add('open');
@@ -3317,12 +3298,10 @@ function inserirFotoSelecionada(){
   if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    comprimirFoto(e.target.result, fotoComprimida=>{
-      _inserirFotoBase64=fotoComprimida;
-      const img=document.getElementById('inserir-foto-preview');
-      img.src=_inserirFotoBase64;img.style.display='block';
-      document.getElementById('btn-salvar-foto-inserida').disabled=false;
-    });
+    _inserirFotoBase64=e.target.result;
+    const img=document.getElementById('inserir-foto-preview');
+    img.src=_inserirFotoBase64;img.style.display='block';
+    document.getElementById('btn-salvar-foto-inserida').disabled=false;
   };
   reader.readAsDataURL(file);
 }
@@ -3351,7 +3330,7 @@ async function salvarFotoInserida(){
 function comprimirFoto(base64, callback){
   const img=new Image();
   img.onload=()=>{
-    const MAX=400;
+    const MAX=800;
     let w=img.width, h=img.height;
     if(w>MAX||h>MAX){
       if(w>h){h=Math.round(h*MAX/w);w=MAX;}
@@ -3360,7 +3339,7 @@ function comprimirFoto(base64, callback){
     const canvas=document.createElement('canvas');
     canvas.width=w;canvas.height=h;
     canvas.getContext('2d').drawImage(img,0,0,w,h);
-    callback(canvas.toDataURL('image/jpeg',0.4));
+    callback(canvas.toDataURL('image/jpeg',0.7));
   };
   img.src=base64;
 }
@@ -3370,13 +3349,10 @@ function fotoSelecionada(){
   if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    comprimirFoto(e.target.result, fotoComprimida=>{
-      fotoBase64=fotoComprimida;
-      const img=document.getElementById('foto-preview');
-      img.src=fotoBase64;
-      document.getElementById('foto-preview-wrap').style.display='block';
-      document.getElementById('btn-confirmar-entrega').disabled=false;
-    });
+    fotoBase64=e.target.result;
+    const img=document.getElementById('foto-preview');
+    img.src=fotoBase64;img.style.display='block';
+    document.getElementById('btn-confirmar-entrega').disabled=false;
   };
   reader.readAsDataURL(file);
 }
@@ -3408,9 +3384,7 @@ function confirmarEntrega(){
   // Salvar no localStorage imediatamente
   lsave('slj_ped_bk',pedidos);
   lsave('slj_ped_ontem_bk',pedidosOntem);
-
-  // Proteger contra sobrescrita por sync periódica enquanto PATCH está em andamento
-  _entregasLocais[pedidoId]={entregue:true,horaEntrega:hora,foto:foto};
+  registrarAtividadePedido(); // Ativa sync a cada 5s
 
   // Limpar estado e fechar modal
   fotoEntregaIdx=null;
@@ -3418,7 +3392,7 @@ function confirmarEntrega(){
   fotoBase64=null;
   document.getElementById('modal-foto').classList.remove('open');
   try{document.getElementById('foto-input').value='';}catch(e){}
-  try{document.getElementById('foto-preview-wrap').style.display='none';}catch(e){}
+  try{document.getElementById('foto-preview').style.display='none';}catch(e){}
 
   // Atualizar UI
   atualizarBadges();
@@ -3429,8 +3403,8 @@ function confirmarEntrega(){
   // Salvar no banco — sem setTimeout, chamada direta
   sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:true,hora_entrega:hora,foto:foto})
     .then(()=>{
-      delete _entregasLocais[pedidoId];
       setSyncStatus('ok','✓ Conectado — dados sincronizados');
+      // Forçar sync imediata para atualizar outros dispositivos agora
       sincronizarRapido();
     })
     .catch(()=>{
@@ -3814,7 +3788,7 @@ function renderRota(){
     listaRota=[...(historico[dataSel]||[])];
     // Se não tem, buscar do banco
     if(!listaRota.length){
-      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`).then(dbP=>{
+      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`).then(dbP=>{
         if(dbP&&dbP.length){
           if(!historico[dataSel]) historico[dataSel]=[];
           historico[dataSel]=(dbP||[]).map(mapPedido);
@@ -4086,7 +4060,7 @@ function toggleRotaCheck(id){
     fotoEntregaIdx=null;
     fotoEntregaPedido=p;
     fotoBase64=null;
-    document.getElementById('foto-preview-wrap').style.display='none';
+    document.getElementById('foto-preview').style.display='none';
     try{document.getElementById('foto-input').value='';}catch(e){}
     document.getElementById('btn-confirmar-entrega').disabled=false;
     document.getElementById('modal-foto').classList.add('open');
@@ -6472,26 +6446,17 @@ function iniciarSistema(){
 
 function iniciarSistemaEntregador(){
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
-  pedidos=load('slj_ped_bk',[]).filter(p=>p.data===hojeKey);
+  pedidos=load('slj_ped_bk',[]);
   const cacheOntem=load('slj_ped_ontem_bk',[]);
   pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
-  // Mostrar rota imediatamente com cache
-  document.getElementById('loading').classList.add('hidden');
-  setTab('rota');
-  renderRota();
-  // Sincronizar em background
-  sincronizar().finally(()=>{ renderRota(); });
-  setInterval(sincronizar,300000);
-  // 2s quando ativo, 15s após 2h de inatividade
-  let _ultimaAtividadeEntregador=Date.now();
-  function registrarAtividadeEntregador(){_ultimaAtividadeEntregador=Date.now();}
-  document.addEventListener('touchstart',registrarAtividadeEntregador);
-  document.addEventListener('click',registrarAtividadeEntregador);
-  _syncRapidoTimer=setInterval(()=>{
-    const inativo=Date.now()-_ultimaAtividadeEntregador>2*60*60*1000;
-    if(inativo){clearInterval(_syncRapidoTimer);_syncRapidoTimer=setInterval(sincronizarRapido,15000);}
-    sincronizarRapido();
-  },15000);
+  sincronizar().finally(()=>{
+    document.getElementById('loading').classList.add('hidden');
+    setTab('rota');
+    renderRota();
+  });
+  setInterval(sincronizar,300000); // 5 minutos — sync completa
+  // Sync adaptativa para entregador
+  _syncRapidoTimer=setInterval(sincronizarRapido,30000);
   if(pedidos.length>0) registrarAtividadePedido();
 }
 
@@ -6543,7 +6508,6 @@ async function entregadorConfirmarEntrega(i){
 // 5s quando há pedidos recentes (últimos 20min), 30s quando inativo
 let _ultimoPedidoCriado=0;
 let _syncRapidoTimer=null;
-const _entregasLocais={};
 
 function registrarAtividadePedido(){
   _ultimoPedidoCriado=Date.now();
@@ -6569,38 +6533,34 @@ async function sincronizarRapido(){
   if(!perfilAtual)return;
   try{
     const [dbP,dbPOntem,dbPAmanha]=await Promise.all([
-      sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`),
-      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`),
-      sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`)
+      sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`),
+      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`),
+      sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`)
     ]);
+    // Buscar quais pedidos recentes têm foto (só IDs — não baixa a foto)
+    const dbFotosRapido=await sbGet('pedidos',`?data=gte.${ontemKey}&entregue=eq.true&select=id&foto=not.is.null`).catch(()=>[]);
     let atualizado=false;
     if(dbP&&dbP.length>=0){
       const novos=dbP.map(mapPedido);
-      novos.forEach(n=>{
-        const pendente=_entregasLocais[n.id];
-        if(pendente){n.entregue=true;n.horaEntrega=pendente.horaEntrega;if(pendente.foto)n.foto=pendente.foto;return;}
-        const local=pedidos.find(p=>String(p.id)===String(n.id));
-        if(local&&local.entregue===true&&n.entregue===false){n.entregue=true;n.horaEntrega=local.horaEntrega;if(local.foto&&!n.foto)n.foto=local.foto;}
-      });
       const mudou=novos.length!==pedidos.length||novos.some(n=>{
         const local=pedidos.find(p=>String(p.id)===String(n.id));
-        return !local||local.entregue!==n.entregue||local.pago!==n.pago||local.foto!==n.foto;
+        return !local||local.entregue!==n.entregue||local.pago!==n.pago;
       });
-      if(mudou){pedidos=novos;lsave('slj_ped_bk',pedidos);atualizado=true;}
+      if(mudou){
+        novos.forEach(n=>{const local=pedidos.find(p=>String(p.id)===String(n.id));if(local?.foto)n.foto=local.foto;});
+        pedidos=novos;lsave('slj_ped_bk',pedidos);atualizado=true;
+      }
     }
     if(dbPOntem&&dbPOntem.length>=0){
       const novosOntem=dbPOntem.map(mapPedido);
-      novosOntem.forEach(n=>{
-        const pendente=_entregasLocais[n.id];
-        if(pendente){n.entregue=true;n.horaEntrega=pendente.horaEntrega;if(pendente.foto)n.foto=pendente.foto;return;}
-        const local=pedidosOntem.find(p=>String(p.id)===String(n.id));
-        if(local&&local.entregue===true&&n.entregue===false){n.entregue=true;n.horaEntrega=local.horaEntrega;if(local.foto&&!n.foto)n.foto=local.foto;}
-      });
       const mudouOntem=novosOntem.length!==pedidosOntem.length||novosOntem.some(n=>{
         const local=pedidosOntem.find(p=>String(p.id)===String(n.id));
-        return !local||local.entregue!==n.entregue||local.pago!==n.pago||local.foto!==n.foto;
+        return !local||local.entregue!==n.entregue||local.pago!==n.pago;
       });
-      if(mudouOntem){pedidosOntem=novosOntem;lsave('slj_ped_ontem_bk',pedidosOntem);atualizado=true;}
+      if(mudouOntem){
+        novosOntem.forEach(n=>{const local=pedidosOntem.find(p=>String(p.id)===String(n.id));if(local?.foto)n.foto=local.foto;});
+        pedidosOntem=novosOntem;lsave('slj_ped_ontem_bk',pedidosOntem);atualizado=true;
+      }
     }
     if(dbPAmanha&&dbPAmanha.length>=0){
       const novosAmanha=dbPAmanha.map(mapPedido);
@@ -6608,9 +6568,18 @@ async function sincronizarRapido(){
         const local=pedidosAmanha.find(p=>String(p.id)===String(n.id));
         return !local||local.entregue!==n.entregue||local.pago!==n.pago;
       });
-      if(mudouAmanha){pedidosAmanha=novosAmanha;lsave('slj_ped_amanha_bk',pedidosAmanha);atualizado=true;}
+      if(mudouAmanha){
+        pedidosAmanha=novosAmanha;lsave('slj_ped_amanha_bk',pedidosAmanha);atualizado=true;
+      }
     }
     if(atualizado){
+      // Marcar pedidos com foto (sem baixar a foto)
+      if(dbFotosRapido&&dbFotosRapido.length){
+        const fotosIds=new Set(dbFotosRapido.map(f=>String(f.id)));
+        [...pedidos,...pedidosOntem,...pedidosAmanha].forEach(p=>{
+          if(fotosIds.has(String(p.id))&&!p.foto) p.foto='__tem_foto__';
+        });
+      }
       atualizarBadges();
       if(document.getElementById('page-rota')?.classList.contains('active')) renderRota();
       if(document.getElementById('page-dia')?.classList.contains('active')) renderDia();
