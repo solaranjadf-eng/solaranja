@@ -3360,7 +3360,7 @@ function comprimirFoto(base64, callback){
     const canvas=document.createElement('canvas');
     canvas.width=w;canvas.height=h;
     canvas.getContext('2d').drawImage(img,0,0,w,h);
-    callback(canvas.toDataURL('image/jpeg',0.4));
+    callback(canvas.toDataURL('image/jpeg',0.3));
   };
   img.src=base64;
 }
