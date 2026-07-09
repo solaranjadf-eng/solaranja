@@ -1145,7 +1145,7 @@ a{color:var(--orange);text-decoration:none}
     <div class="action-row" style="margin-bottom:10px;gap:8px;flex-wrap:wrap">
       <div class="form-group" style="flex:1;min-width:110px;margin:0"><label>Embalagem</label>
         <select id="ent-tam" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white)">
-          <option value="200ml">200 ml</option><option value="copo200ml">Copo 200ml</option><option value="300ml">300 ml</option><option value="500ml">500 ml</option><option value="1L">1 L</option><option value="5L">5 L</option>
+          <option value="copo200ml">Copo 200ml</option><option value="200ml">200 ml</option><option value="300ml">300 ml</option><option value="500ml">500 ml</option><option value="1L">1 L</option><option value="5L">5 L</option>
         </select>
       </div>
       <div class="form-group" style="flex:1;min-width:80px;margin:0"><label>Quantidade</label><input type="number" id="ent-qtd" min="1" placeholder="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text)"></div>
@@ -1158,7 +1158,7 @@ a{color:var(--orange);text-decoration:none}
     <div class="action-row" style="margin-bottom:10px;gap:8px;flex-wrap:wrap">
       <div class="form-group" style="flex:1;min-width:110px;margin:0"><label>Embalagem</label>
         <select id="aj-tam" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white)">
-          <option value="200ml">200 ml</option><option value="copo200ml">Copo 200ml</option><option value="300ml">300 ml</option><option value="500ml">500 ml</option><option value="1L">1 L</option><option value="5L">5 L</option>
+          <option value="copo200ml">Copo 200ml</option><option value="200ml">200 ml</option><option value="300ml">300 ml</option><option value="500ml">500 ml</option><option value="1L">1 L</option><option value="5L">5 L</option>
         </select>
       </div>
       <div class="form-group" style="flex:1;min-width:80px;margin:0"><label>Novo saldo</label><input type="number" id="aj-qtd" min="0" placeholder="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text)"></div>
@@ -1169,8 +1169,8 @@ a{color:var(--orange);text-decoration:none}
   <div class="card">
     <div class="card-title">Mínimo de Alerta</div>
     <div class="precos-form" style="margin-bottom:8px">
-      <div class="pfw"><label>200 ml</label><input type="number" id="min-200ml" min="0" inputmode="numeric" placeholder="0"></div>
       <div class="pfw"><label>Copo 200ml</label><input type="number" id="min-copo200ml" min="0" inputmode="numeric" placeholder="0"></div>
+      <div class="pfw"><label>200 ml</label><input type="number" id="min-200ml" min="0" inputmode="numeric" placeholder="0"></div>
       <div class="pfw"><label>300 ml</label><input type="number" id="min-300ml" min="0" inputmode="numeric" placeholder="0"></div>
       <div class="pfw"><label>500 ml</label><input type="number" id="min-500ml" min="0" inputmode="numeric" placeholder="0"></div>
       <div class="pfw"><label>1 L</label><input type="number" id="min-1L" min="0" inputmode="numeric" placeholder="0"></div>
@@ -1441,8 +1441,8 @@ a{color:var(--orange);text-decoration:none}
     <div class="form-group">
       <label>Preços por embalagem (R$)</label>
       <div class="precos-form">
-        <div class="pfw"><label>200 ml</label><input type="number" id="np-200ml" placeholder="—" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>Copo 200ml</label><input type="number" id="np-copo200ml" placeholder="—" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="pfw"><label>200 ml</label><input type="number" id="np-200ml" placeholder="—" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>300 ml</label><input type="number" id="np-300ml" placeholder="—" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>500 ml</label><input type="number" id="np-500ml" placeholder="—" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>1 L</label><input type="number" id="np-1L" placeholder="—" step="0.01" min="0" inputmode="decimal"></div>
@@ -1642,8 +1642,8 @@ a{color:var(--orange);text-decoration:none}
     <div class="form-group">
       <label>Preços por embalagem (R$)</label>
       <div class="precos-form">
-        <div class="pfw"><label>200 ml</label><input type="number" id="ec-200ml" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>Copo 200ml</label><input type="number" id="ec-copo200ml" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="pfw"><label>200 ml</label><input type="number" id="ec-200ml" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>300 ml</label><input type="number" id="ec-300ml" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>500 ml</label><input type="number" id="ec-500ml" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>1 L</label><input type="number" id="ec-1L" step="0.01" min="0" inputmode="decimal"></div>
@@ -1689,9 +1689,9 @@ const sbDel=(t,q)=>sb('DELETE',t,null,q);
 const sbUps=(t,b)=>fetch(`${SB_URL}/${t}`,{method:'POST',headers:{...HDR,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(b)}).then(r=>r.json());
 
 // ── CONSTANTES ─────────────────────────────────────────────────────────────
-const TAMS=['200ml','copo200ml','300ml','500ml','1L','5L'];
-const TL={'200ml':'200 ml','copo200ml':'Copo 200ml','300ml':'300 ml','500ml':'500 ml','1L':'1 L','5L':'5 L'};
-const LITROS={'200ml':0.2,'copo200ml':0.2,'300ml':0.3,'500ml':0.5,'1L':1.0,'5L':5.0};
+const TAMS=['copo200ml','200ml','300ml','500ml','1L','5L'];
+const TL={'copo200ml':'Copo 200ml','200ml':'200 ml','300ml':'300 ml','500ml':'500 ml','1L':'1 L','5L':'5 L'};
+const LITROS={'copo200ml':0.2,'200ml':0.2,'300ml':0.3,'500ml':0.5,'1L':1.0,'5L':5.0};
 const moeda=v=>'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const hoje=new Date();
 // Usar data local (fuso de Brasília UTC-3) — evita virar o dia às 21h no UTC
@@ -1707,7 +1707,7 @@ const lsave=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 let clientes=[], pedidos=[], pedidosOntem=[], pedidosAmanha=[], historico={}, syncErros=0;
-let estoque={'200ml':0,'copo200ml':0,'300ml':0,'500ml':0,'1L':0,'5L':0};
+let estoque={'copo200ml':0,'200ml':0,'300ml':0,'500ml':0,'1L':0,'5L':0};
 let estMinimos={'200ml':0,'300ml':0,'500ml':0,'1L':0,'5L':0};
 let movimentos=[];
 let custos=load('slj_custos',{
