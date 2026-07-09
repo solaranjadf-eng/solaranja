@@ -2109,7 +2109,10 @@ function verificarAniversarios(){
 
 function recalcularImpostoLucro(){
   const imposto=parseFloat(document.getElementById('dash-valor-imposto')?.value)||0;
-  lsave('slj_valor_imposto',imposto);
+  const _dAnt2=new Date(hoje);_dAnt2.setMonth(_dAnt2.getMonth()-1);
+  const _mesAnt2=_dAnt2.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
+  const mesSel=dashPeriodo==='mesant'?_mesAnt2:hojeKey.slice(0,7);
+  lsave('slj_valor_imposto_'+mesSel,imposto);
   const lucro=parseFloat(document.getElementById('dash-lucro-mes')?.dataset.valor)||0;
   const lucroReal=lucro-imposto;
   // Card imposto (vermelho) — mostra o valor do imposto
@@ -2233,10 +2236,10 @@ function renderDash(){
     el('dash-lucro-badge').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
   }
   // Imposto e lucro real após imposto
-  const valorImposto=load('slj_valor_imposto',0);
+  const valorImposto=load('slj_valor_imposto_'+mesAtual,load('slj_valor_imposto',0));
   const impostoInp=document.getElementById('dash-valor-imposto');
-  if(impostoInp&&!impostoInp.value&&valorImposto>0) impostoInp.value=valorImposto;
-  const impostoAtual=parseFloat(impostoInp?.value)||valorImposto||0;
+  if(impostoInp) impostoInp.value=valorImposto>0?valorImposto:'';
+  const impostoAtual=valorImposto||0;
   const lucroReal=lucroLiquido-impostoAtual;
   if(el('dash-lucro-pos-imposto')) el('dash-lucro-pos-imposto').textContent=moeda(impostoAtual);
   if(el('dash-lucro-real')){
