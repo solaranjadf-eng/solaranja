@@ -2148,8 +2148,10 @@ function renderDash(){
   if(el('dash-arec'))    el('dash-arec').textContent=moeda(arec);
   if(el('dash-arec-sub'))el('dash-arec-sub').textContent=lista.filter(p=>p.entregue&&!p.pago).length+' clientes';
 
-  // Custos do mês — separados corretamente
-  const mesAtual=hojeKey.slice(0,7);
+  // Custos do mês — separados corretamente — respeita o período selecionado
+  const _dAnt=new Date(hoje);_dAnt.setMonth(_dAnt.getMonth()-1);
+  const _mesAnt=_dAnt.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
+  const mesAtual=dashPeriodo==='mesant'?_mesAnt:(dashPeriodo==='ano'?hojeKey.slice(0,4):(dashPeriodo==='hoje'?hojeKey:hojeKey.slice(0,7)));
   // Meta do mês — pizza chart
   const metaMes=load('slj_meta_mes',0);
   const metaMesInp=document.getElementById('meta-mes-input');
