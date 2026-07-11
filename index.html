@@ -1551,7 +1551,7 @@ a{color:var(--orange);text-decoration:none}
           <input type="number" class="orc-preco" step="0.01" min="0" placeholder="0,00" inputmode="decimal">
         </div>
         <div class="form-group" style="flex:1;margin:0">
-          <label>Desconto (R$)</label>
+          <label>Preço c/ Desconto (R$)</label>
           <input type="number" class="orc-desc" step="0.01" min="0" placeholder="0,00" inputmode="decimal">
         </div>
         <button onclick="removerItemOrc(this)" style="background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer;margin-bottom:2px">✕</button>
@@ -6717,7 +6717,7 @@ function adicionarItemOrc(){
       <input type="number" class="orc-preco" step="0.01" min="0" placeholder="0,00" inputmode="decimal">
     </div>
     <div class="form-group" style="flex:1;margin:0">
-      <label>Desconto (R$)</label>
+      <label>Preço c/ Desconto (R$)</label>
       <input type="number" class="orc-desc" step="0.01" min="0" placeholder="0,00" inputmode="decimal">
     </div>
     <button onclick="removerItemOrc(this)" style="background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer;margin-bottom:2px">✕</button>
@@ -6735,19 +6735,20 @@ function removerItemOrc(btn){
 
 function atualizarTotalOrc(){
   let subtotal=0;
-  let descTotal=0;
+  let totalComDesc=0;
   document.querySelectorAll('.orc-item-row').forEach(row=>{
     const qtd=parseFloat(row.querySelector('.orc-qtd')?.value)||0;
     const preco=parseFloat(row.querySelector('.orc-preco')?.value)||0;
-    const desc=parseFloat(row.querySelector('.orc-desc')?.value)||0;
+    const precoDesc=parseFloat(row.querySelector('.orc-desc')?.value)||0;
+    const precoFinal=precoDesc>0?precoDesc:preco;
     subtotal+=qtd*preco;
-    descTotal+=desc;
+    totalComDesc+=qtd*precoFinal;
   });
-  const total=Math.max(0,subtotal-descTotal);
+  const descTotal=subtotal-totalComDesc;
   const fmt=v=>'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const el=document.getElementById('orc-subtotal');if(el)el.textContent=fmt(subtotal);
-  const el2=document.getElementById('orc-desconto-valor');if(el2)el2.textContent='- '+fmt(descTotal);
-  const el3=document.getElementById('orc-total');if(el3)el3.textContent=fmt(total);
+  const el2=document.getElementById('orc-desconto-valor');if(el2)el2.textContent='- '+fmt(Math.max(0,descTotal));
+  const el3=document.getElementById('orc-total');if(el3)el3.textContent=fmt(totalComDesc);
 }
 
 function gerarPDFOrcamento(){
@@ -6765,24 +6766,23 @@ function gerarPDFOrcamento(){
 
   const itens=[];
   let total=0;
-  let descTotal=0;
+  let totalComDesc=0;
   document.querySelectorAll('.orc-item-row').forEach(row=>{
     const tam=row.querySelector('.orc-tam')?.value;
     const qtd=parseFloat(row.querySelector('.orc-qtd')?.value)||0;
     const preco=parseFloat(row.querySelector('.orc-preco')?.value)||0;
-    const desc=parseFloat(row.querySelector('.orc-desc')?.value)||0;
+    const precoDesc=parseFloat(row.querySelector('.orc-desc')?.value)||0;
+    const precoFinal=precoDesc>0?precoDesc:preco;
     if(tam&&qtd>0&&preco>0){
-      const subtotal=qtd*preco;
-      const precoComDesc=Math.max(0,preco-desc);
-      const totalItem=qtd*precoComDesc;
-      total+=subtotal;
-      descTotal+=desc*qtd;
-      itens.push({tam:TL[tam]||tam,qtd,preco,desc,precoComDesc,subtotal,totalItem});
+      total+=qtd*preco;
+      totalComDesc+=qtd*precoFinal;
+      itens.push({tam:TL[tam]||tam,qtd,preco,precoDesc:precoDesc>0?precoDesc:null,precoFinal,totalItem:qtd*precoFinal});
     }
   });
   if(!itens.length){toast('Adicione ao menos um item com quantidade e preco.');return;}
 
-  const totalFinal=Math.max(0,total-descTotal);
+  const descTotal=Math.max(0,total-totalComDesc);
+  const totalFinal=totalComDesc;
   const moedaFmt=v=>'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 
   const itensHTML=itens.map(it=>`
@@ -6873,12 +6873,11 @@ function gerarPDFOrcamento(){
   <table class="itens">
     <thead>
       <tr>
-        <th class="l" style="width:35%">Produto / Embalagem</th>
+        <th class="l" style="width:40%">Produto / Embalagem</th>
         <th style="width:8%">Qtd.</th>
-        <th class="r" style="width:16%">Valor Un. (R$)</th>
-        <th class="r" style="width:16%">Desconto Un. (R$)</th>
-        <th class="r" style="width:16%">Valor c/ Desc. (R$)</th>
-        <th class="r" style="width:9%">Total (R$)</th>
+        <th class="r" style="width:17%">Valor Un. (R$)</th>
+        <th class="r" style="width:17%">Valor c/ Desc. (R$)</th>
+        <th class="r" style="width:18%">Total (R$)</th>
       </tr>
     </thead>
     <tbody>
@@ -6886,8 +6885,7 @@ function gerarPDFOrcamento(){
         <td class="l">${it.tam}</td>
         <td>${it.qtd}</td>
         <td class="r">${moedaFmt(it.preco)}</td>
-        <td class="r">${it.desc>0?moedaFmt(it.desc):'-'}</td>
-        <td class="r">${it.desc>0?moedaFmt(it.precoComDesc):moedaFmt(it.preco)}</td>
+        <td class="r">${it.precoDesc?moedaFmt(it.precoDesc):'-'}</td>
         <td class="r">${moedaFmt(it.totalItem)}</td>
       </tr>`).join('')}
     </tbody>
