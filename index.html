@@ -444,6 +444,10 @@ a{color:var(--orange);text-decoration:none}
       <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       <span>Clientes</span>
     </button>
+    <button class="sidebar-item" onclick="setTab('orcamento')">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      <span>Orçamento</span>
+    </button>
   </nav>
   <<div class="sidebar-footer" style="background:#2D3139">
       <div class="sidebar-sync" id="sync-bar" style="margin-bottom:0">
@@ -1145,7 +1149,7 @@ a{color:var(--orange);text-decoration:none}
     <div class="action-row" style="margin-bottom:10px;gap:8px;flex-wrap:wrap">
       <div class="form-group" style="flex:1;min-width:110px;margin:0"><label>Embalagem</label>
         <select id="ent-tam" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white)">
-          <option value="copo200ml">Copo 200ml</option><option value="200ml">200 ml</option><option value="300ml">300 ml</option><option value="500ml">500 ml</option><option value="1L">1 L</option><option value="5L">5 L</option>
+          <option value="200ml">200 ml</option><option value="300ml">300 ml</option><option value="500ml">500 ml</option><option value="1L">1 L</option><option value="5L">5 L</option>
         </select>
       </div>
       <div class="form-group" style="flex:1;min-width:80px;margin:0"><label>Quantidade</label><input type="number" id="ent-qtd" min="1" placeholder="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text)"></div>
@@ -1158,7 +1162,7 @@ a{color:var(--orange);text-decoration:none}
     <div class="action-row" style="margin-bottom:10px;gap:8px;flex-wrap:wrap">
       <div class="form-group" style="flex:1;min-width:110px;margin:0"><label>Embalagem</label>
         <select id="aj-tam" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white)">
-          <option value="copo200ml">Copo 200ml</option><option value="200ml">200 ml</option><option value="300ml">300 ml</option><option value="500ml">500 ml</option><option value="1L">1 L</option><option value="5L">5 L</option>
+          <option value="200ml">200 ml</option><option value="300ml">300 ml</option><option value="500ml">500 ml</option><option value="1L">1 L</option><option value="5L">5 L</option>
         </select>
       </div>
       <div class="form-group" style="flex:1;min-width:80px;margin:0"><label>Novo saldo</label><input type="number" id="aj-qtd" min="0" placeholder="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text)"></div>
@@ -1169,7 +1173,6 @@ a{color:var(--orange);text-decoration:none}
   <div class="card">
     <div class="card-title">Mínimo de Alerta</div>
     <div class="precos-form" style="margin-bottom:8px">
-      <div class="pfw"><label>Copo 200ml</label><input type="number" id="min-copo200ml" min="0" inputmode="numeric" placeholder="0"></div>
       <div class="pfw"><label>200 ml</label><input type="number" id="min-200ml" min="0" inputmode="numeric" placeholder="0"></div>
       <div class="pfw"><label>300 ml</label><input type="number" id="min-300ml" min="0" inputmode="numeric" placeholder="0"></div>
       <div class="pfw"><label>500 ml</label><input type="number" id="min-500ml" min="0" inputmode="numeric" placeholder="0"></div>
@@ -1441,7 +1444,6 @@ a{color:var(--orange);text-decoration:none}
     <div class="form-group">
       <label>Preços por embalagem (R$)</label>
       <div class="precos-form">
-        <div class="pfw"><label>Copo 200ml</label><input type="number" id="np-copo200ml" placeholder="—" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>200 ml</label><input type="number" id="np-200ml" placeholder="—" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>300 ml</label><input type="number" id="np-300ml" placeholder="—" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>500 ml</label><input type="number" id="np-500ml" placeholder="—" step="0.01" min="0" inputmode="decimal"></div>
@@ -1486,7 +1488,73 @@ a{color:var(--orange);text-decoration:none}
   </div>
 </main>
 
-<!-- MODAL NF-e -->
+<!-- PÁGINA ORÇAMENTO -->
+<main class="page" id="page-orcamento">
+  <div class="card">
+    <div class="card-title">📄 Gerar Orçamento</div>
+
+    <div class="form-group">
+      <label>Cliente / Empresa</label>
+      <input type="text" id="orc-cliente" placeholder="Nome do cliente ou empresa" autocomplete="off">
+    </div>
+    <div class="action-row" style="gap:8px;margin-bottom:10px">
+      <div class="form-group" style="flex:1;margin:0">
+        <label>CNPJ / CPF (opcional)</label>
+        <input type="text" id="orc-cnpj" placeholder="00.000.000/0001-00">
+      </div>
+      <div class="form-group" style="flex:1;margin:0">
+        <label>Telefone (opcional)</label>
+        <input type="text" id="orc-tel" placeholder="(61) 99999-9999" oninput="mascaraTel(this)" maxlength="15" inputmode="numeric">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Validade do orçamento</label>
+      <input type="date" id="orc-validade">
+    </div>
+
+    <div class="card-title" style="margin-top:16px;font-size:14px">Itens do Orçamento</div>
+    <div id="orc-itens">
+      <div class="orc-item-row" data-idx="0" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
+        <div class="form-group" style="flex:2;margin:0">
+          <label>Embalagem</label>
+          <select class="orc-tam">
+            <option value="">Selecione</option>
+            <option value="copo200ml">Copo 200ml</option>
+            <option value="200ml">200 ml</option>
+            <option value="300ml">300 ml</option>
+            <option value="500ml">500 ml</option>
+            <option value="1L">1 L</option>
+            <option value="5L">5 L</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1;margin:0">
+          <label>Qtd</label>
+          <input type="number" class="orc-qtd" min="1" placeholder="0" inputmode="numeric">
+        </div>
+        <div class="form-group" style="flex:1;margin:0">
+          <label>Preço Unit. (R$)</label>
+          <input type="number" class="orc-preco" step="0.01" min="0" placeholder="0,00" inputmode="decimal">
+        </div>
+        <button onclick="removerItemOrc(this)" style="background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer;margin-bottom:2px">✕</button>
+      </div>
+    </div>
+    <button class="btn btn-outline btn-full" onclick="adicionarItemOrc()" style="margin-bottom:16px">+ Adicionar Item</button>
+
+    <div class="form-group">
+      <label>Observações (opcional)</label>
+      <textarea id="orc-obs" rows="3" placeholder="Ex: Entrega inclusa, pagamento em 30 dias..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;resize:vertical"></textarea>
+    </div>
+
+    <div style="background:var(--bg2);border-radius:var(--radius);padding:12px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;font-size:14px;color:var(--text2)">
+        <span>Total do Orçamento:</span>
+        <strong id="orc-total" style="color:var(--orange);font-size:18px">R$ 0,00</strong>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="gerarPDFOrcamento()">📄 Gerar PDF</button>
+  </div>
+</main>
 <div class="modal-bg" id="modal-nfe">
   <div class="modal-box">
     <div class="modal-handle"></div>
@@ -1642,7 +1710,6 @@ a{color:var(--orange);text-decoration:none}
     <div class="form-group">
       <label>Preços por embalagem (R$)</label>
       <div class="precos-form">
-        <div class="pfw"><label>Copo 200ml</label><input type="number" id="ec-copo200ml" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>200 ml</label><input type="number" id="ec-200ml" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>300 ml</label><input type="number" id="ec-300ml" step="0.01" min="0" inputmode="decimal"></div>
         <div class="pfw"><label>500 ml</label><input type="number" id="ec-500ml" step="0.01" min="0" inputmode="decimal"></div>
@@ -1689,9 +1756,9 @@ const sbDel=(t,q)=>sb('DELETE',t,null,q);
 const sbUps=(t,b)=>fetch(`${SB_URL}/${t}`,{method:'POST',headers:{...HDR,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(b)}).then(r=>r.json());
 
 // ── CONSTANTES ─────────────────────────────────────────────────────────────
-const TAMS=['copo200ml','200ml','300ml','500ml','1L','5L'];
-const TL={'copo200ml':'Copo 200ml','200ml':'200 ml','300ml':'300 ml','500ml':'500 ml','1L':'1 L','5L':'5 L'};
-const LITROS={'copo200ml':0.2,'200ml':0.2,'300ml':0.3,'500ml':0.5,'1L':1.0,'5L':5.0};
+const TAMS=['200ml','300ml','500ml','1L','5L'];
+const TL={'200ml':'200 ml','300ml':'300 ml','500ml':'500 ml','1L':'1 L','5L':'5 L'};
+const LITROS={'200ml':0.2,'300ml':0.3,'500ml':0.5,'1L':1.0,'5L':5.0};
 const moeda=v=>'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const hoje=new Date();
 // Usar data local (fuso de Brasília UTC-3) — evita virar o dia às 21h no UTC
@@ -1707,7 +1774,7 @@ const lsave=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 let clientes=[], pedidos=[], pedidosOntem=[], pedidosAmanha=[], historico={}, syncErros=0;
-let estoque={'copo200ml':0,'200ml':0,'300ml':0,'500ml':0,'1L':0,'5L':0};
+let estoque={'200ml':0,'300ml':0,'500ml':0,'1L':0,'5L':0};
 let estMinimos={'200ml':0,'300ml':0,'500ml':0,'1L':0,'5L':0};
 let movimentos=[];
 let custos=load('slj_custos',{
@@ -2109,10 +2176,7 @@ function verificarAniversarios(){
 
 function recalcularImpostoLucro(){
   const imposto=parseFloat(document.getElementById('dash-valor-imposto')?.value)||0;
-  const _dAnt2=new Date(hoje);_dAnt2.setMonth(_dAnt2.getMonth()-1);
-  const _mesAnt2=_dAnt2.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
-  const mesSel=dashPeriodo==='mesant'?_mesAnt2:hojeKey.slice(0,7);
-  lsave('slj_valor_imposto_'+mesSel,imposto);
+  lsave('slj_valor_imposto',imposto);
   const lucro=parseFloat(document.getElementById('dash-lucro-mes')?.dataset.valor)||0;
   const lucroReal=lucro-imposto;
   // Card imposto (vermelho) — mostra o valor do imposto
@@ -2151,10 +2215,8 @@ function renderDash(){
   if(el('dash-arec'))    el('dash-arec').textContent=moeda(arec);
   if(el('dash-arec-sub'))el('dash-arec-sub').textContent=lista.filter(p=>p.entregue&&!p.pago).length+' clientes';
 
-  // Custos do mês — separados corretamente — respeita o período selecionado
-  const _dAnt=new Date(hoje);_dAnt.setMonth(_dAnt.getMonth()-1);
-  const _mesAnt=_dAnt.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
-  const mesAtual=dashPeriodo==='mesant'?_mesAnt:(dashPeriodo==='ano'?hojeKey.slice(0,4):(dashPeriodo==='hoje'?hojeKey:hojeKey.slice(0,7)));
+  // Custos do mês — separados corretamente
+  const mesAtual=hojeKey.slice(0,7);
   // Meta do mês — pizza chart
   const metaMes=load('slj_meta_mes',0);
   const metaMesInp=document.getElementById('meta-mes-input');
@@ -2236,10 +2298,10 @@ function renderDash(){
     el('dash-lucro-badge').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
   }
   // Imposto e lucro real após imposto
-  const valorImposto=load('slj_valor_imposto_'+mesAtual,load('slj_valor_imposto',0));
+  const valorImposto=load('slj_valor_imposto',0);
   const impostoInp=document.getElementById('dash-valor-imposto');
-  if(impostoInp) impostoInp.value=valorImposto>0?valorImposto:'';
-  const impostoAtual=valorImposto||0;
+  if(impostoInp&&!impostoInp.value&&valorImposto>0) impostoInp.value=valorImposto;
+  const impostoAtual=parseFloat(impostoInp?.value)||valorImposto||0;
   const lucroReal=lucroLiquido-impostoAtual;
   if(el('dash-lucro-pos-imposto')) el('dash-lucro-pos-imposto').textContent=moeda(impostoAtual);
   if(el('dash-lucro-real')){
@@ -6099,7 +6161,7 @@ async function importarDoBlIng(){
 }
 function exportarClientes(){
   const header='Nome,CNPJ,Telefone,Bairro,Região,Endereço,Aniversário,200ml,300ml,500ml,1L,5L,Minimo';
-  const linhas=clientes.map(c=>[`"${c.nome}"`,c.cnpj,c.tel||'',c.bairro||'',c.regiao||'',`"${c.endereco||''}"`,c.aniver||'',c.precos['200ml']||'',c.precos['copo200ml']||'',c.precos['300ml']||'',c.precos['500ml']||'',c.precos['1L']||'',c.precos['5L']||'',c.minimo||''].join(','));
+  const linhas=clientes.map(c=>[`"${c.nome}"`,c.cnpj,c.tel||'',c.bairro||'',c.regiao||'',`"${c.endereco||''}"`,c.aniver||'',c.precos['200ml']||'',c.precos['300ml']||'',c.precos['500ml']||'',c.precos['1L']||'',c.precos['5L']||'',c.minimo||''].join(','));
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+[header,...linhas].join('\n')],{type:'text/csv;charset=utf-8;'}));a.download='SoLaranja_Clientes.csv';a.click();
   toast('Planilha exportada.');
 }
@@ -6596,6 +6658,211 @@ async function sincronizarRapido(){
     iniciarSistemaEntregador();
   }
   // else: mostrar tela de login (padrão)
+// ── ORÇAMENTO ──────────────────────────────────────────────────────────────
+function adicionarItemOrc(){
+  const container=document.getElementById('orc-itens');
+  const idx=container.children.length;
+  const div=document.createElement('div');
+  div.className='orc-item-row';
+  div.dataset.idx=idx;
+  div.style.cssText='display:flex;gap:8px;align-items:flex-end;margin-bottom:8px';
+  div.innerHTML=`
+    <div class="form-group" style="flex:2;margin:0">
+      <label>Embalagem</label>
+      <select class="orc-tam">
+        <option value="">Selecione</option>
+        <option value="copo200ml">Copo 200ml</option>
+        <option value="200ml">200 ml</option>
+        <option value="300ml">300 ml</option>
+        <option value="500ml">500 ml</option>
+        <option value="1L">1 L</option>
+        <option value="5L">5 L</option>
+      </select>
+    </div>
+    <div class="form-group" style="flex:1;margin:0">
+      <label>Qtd</label>
+      <input type="number" class="orc-qtd" min="1" placeholder="0" inputmode="numeric">
+    </div>
+    <div class="form-group" style="flex:1;margin:0">
+      <label>Preço Unit. (R$)</label>
+      <input type="number" class="orc-preco" step="0.01" min="0" placeholder="0,00" inputmode="decimal">
+    </div>
+    <button onclick="removerItemOrc(this)" style="background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer;margin-bottom:2px">✕</button>
+  `;
+  container.appendChild(div);
+  div.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',atualizarTotalOrc));
+}
+
+function removerItemOrc(btn){
+  const row=btn.closest('.orc-item-row');
+  if(document.querySelectorAll('.orc-item-row').length===1){toast('Mantenha ao menos um item.');return;}
+  row.remove();
+  atualizarTotalOrc();
+}
+
+function atualizarTotalOrc(){
+  let total=0;
+  document.querySelectorAll('.orc-item-row').forEach(row=>{
+    const qtd=parseFloat(row.querySelector('.orc-qtd')?.value)||0;
+    const preco=parseFloat(row.querySelector('.orc-preco')?.value)||0;
+    total+=qtd*preco;
+  });
+  document.getElementById('orc-total').textContent='R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function gerarPDFOrcamento(){
+  const cliente=document.getElementById('orc-cliente').value.trim();
+  if(!cliente){toast('Informe o nome do cliente.');return;}
+
+  const cnpj=document.getElementById('orc-cnpj').value.trim();
+  const tel=document.getElementById('orc-tel').value.trim();
+  const obs=document.getElementById('orc-obs').value.trim();
+  const validadeRaw=document.getElementById('orc-validade').value;
+  const validade=validadeRaw?new Date(validadeRaw+'T12:00:00').toLocaleDateString('pt-BR'):'Não informada';
+  const dataAtual=new Date().toLocaleDateString('pt-BR');
+  const numOrc=Date.now().toString().slice(-6);
+
+  const itens=[];
+  let total=0;
+  document.querySelectorAll('.orc-item-row').forEach(row=>{
+    const tam=row.querySelector('.orc-tam')?.value;
+    const qtd=parseFloat(row.querySelector('.orc-qtd')?.value)||0;
+    const preco=parseFloat(row.querySelector('.orc-preco')?.value)||0;
+    if(tam&&qtd>0&&preco>0){
+      const subtotal=qtd*preco;
+      total+=subtotal;
+      itens.push({tam:TL[tam]||tam,qtd,preco,subtotal});
+    }
+  });
+  if(!itens.length){toast('Adicione ao menos um item com quantidade e preço.');return;}
+
+  const moedaFmt=v=>'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  const itensHTML=itens.map(it=>`
+    <tr>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0">${it.tam}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;text-align:center">${it.qtd}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;text-align:right">${moedaFmt(it.preco)}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">${moedaFmt(it.subtotal)}</td>
+    </tr>`).join('');
+
+  const html=`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#222;background:#fff;padding:40px}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #F97316;padding-bottom:20px;margin-bottom:24px}
+  .logo-area{display:flex;align-items:center;gap:12px}
+  .logo-icon{width:50px;height:50px;background:#F97316;border-radius:10px;display:flex;align-items:center;justify-content:center}
+  .logo-icon svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .empresa-nome{font-size:22px;font-weight:700;color:#F97316}
+  .empresa-sub{font-size:12px;color:#666;margin-top:2px}
+  .empresa-info{font-size:11px;color:#555;margin-top:6px;line-height:1.6}
+  .orc-info{text-align:right}
+  .orc-titulo{font-size:20px;font-weight:700;color:#333;letter-spacing:1px}
+  .orc-num{font-size:12px;color:#888;margin-top:4px}
+  .orc-data{font-size:12px;color:#555;margin-top:2px}
+  .section{margin-bottom:20px}
+  .section-title{font-size:11px;font-weight:700;color:#F97316;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .cliente-box{background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:14px}
+  .cliente-nome{font-size:16px;font-weight:700;color:#333}
+  .cliente-detalhe{font-size:12px;color:#666;margin-top:4px}
+  table{width:100%;border-collapse:collapse;margin-bottom:16px}
+  thead{background:#F97316}
+  thead th{color:#fff;padding:10px 12px;font-size:12px;font-weight:600;text-align:left}
+  thead th:nth-child(2){text-align:center}
+  thead th:nth-child(3),thead th:nth-child(4){text-align:right}
+  tbody tr:hover{background:#FFF7ED}
+  .total-row{background:#FFF7ED;border-top:2px solid #F97316}
+  .total-row td{padding:12px;font-weight:700;font-size:15px}
+  .validade-box{background:#FFF7ED;border-left:4px solid #F97316;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:20px}
+  .validade-box p{font-size:12px;color:#555}
+  .validade-box strong{color:#F97316}
+  .obs-box{background:#f9f9f9;border:1px solid #eee;border-radius:8px;padding:14px;margin-bottom:20px}
+  .obs-box p{font-size:12px;color:#555;line-height:1.6}
+  .footer{border-top:1px solid #eee;padding-top:16px;text-align:center;font-size:11px;color:#999}
+  @media print{body{padding:20px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo-area">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </div>
+    <div>
+      <div class="empresa-nome">Só Laranja</div>
+      <div class="empresa-sub">Suco Natural de Laranja</div>
+      <div class="empresa-info">
+        📍 Jardins Mangueiral PA 04 LT 04 LJ 105 - Jardim Botânico, Brasília - DF<br>
+        📞 (61) 98562-3008<br>
+      </div>
+    </div>
+  </div>
+  <div class="orc-info">
+    <div class="orc-titulo">ORÇAMENTO</div>
+    <div class="orc-num">Nº ${numOrc}</div>
+    <div class="orc-data">Data: ${dataAtual}</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Cliente</div>
+  <div class="cliente-box">
+    <div class="cliente-nome">${cliente}</div>
+    ${cnpj?`<div class="cliente-detalhe">CNPJ/CPF: ${cnpj}</div>`:''}
+    ${tel?`<div class="cliente-detalhe">Telefone: ${tel}</div>`:''}
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Itens</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Embalagem</th>
+        <th style="text-align:center">Qtd</th>
+        <th style="text-align:right">Preço Unit.</th>
+        <th style="text-align:right">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itensHTML}
+      <tr class="total-row">
+        <td colspan="3" style="text-align:right;color:#555">Total Geral:</td>
+        <td style="text-align:right;color:#F97316;font-size:16px">${moedaFmt(total)}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="validade-box">
+  <p>⏳ Validade do orçamento: <strong>${validade}</strong></p>
+</div>
+
+${obs?`<div class="section"><div class="section-title">Observações</div><div class="obs-box"><p>${obs.replace(/\n/g,'<br>')}</p></div></div>`:''}
+
+<div class="footer">
+  Só Laranja — Suco Natural de Laranja · (61) 98562-3008 · Brasília - DF<br>
+  Este orçamento é válido até ${validade}
+</div>
+</body></html>`;
+
+  const w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(),800);
+}
+
+// Listener para calcular total ao digitar
+document.addEventListener('input',e=>{
+  if(e.target.classList.contains('orc-qtd')||e.target.classList.contains('orc-preco')){
+    atualizarTotalOrc();
+  }
+});
+
 })();
 </script>
     </div>
