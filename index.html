@@ -1554,6 +1554,7 @@ a{color:var(--orange);text-decoration:none}
   <!-- FORMULARIO EVENTO -->
   <div id="orc-form-evento" class="card" style="display:none">
     <div class="card-title">Orcamento de Evento</div>
+    <div class="form-group"><label>Titulo da Proposta</label><input type="text" id="ev-titulo" placeholder="Ex: PROPOSTA COMERCIAL - CASAMENTO" value="PROPOSTA COMERCIAL - EVENTO" autocomplete="off"></div>
     <div class="form-group"><label>Nome do Evento</label><input type="text" id="ev-nome-evento" placeholder="Ex: Casamento de Lucio e Larissa" autocomplete="off"></div>
     <div class="form-group"><label>Contratante</label><input type="text" id="ev-cliente" placeholder="Nome do contratante" autocomplete="off"></div>
     <div class="action-row" style="gap:8px;margin-bottom:10px">
@@ -7001,6 +7002,7 @@ function removerDifEv(btn){btn.closest('.ev-dif-row').remove();}
 function gerarPDFEvento(){
   const nomeEvento=document.getElementById('ev-nome-evento').value.trim();
   const cliente=document.getElementById('ev-cliente').value.trim();
+  const tituloProposta=document.getElementById('ev-titulo').value.trim()||'PROPOSTA COMERCIAL - EVENTO';
   if(!nomeEvento){toast('Informe o nome do evento.');return;}
   if(!cliente){toast('Informe o nome do contratante.');return;}
   const dataRaw=document.getElementById('ev-data').value;
@@ -7061,7 +7063,7 @@ function gerarPDFEvento(){
     </div>
     <div class="topo-dir">Brasilia, ${dataAtual}<br><strong>Validade: ${validade}</strong></div>
   </div>
-  <div class="titulo">PROPOSTA COMERCIAL - EVENTO</div>
+  <div class="titulo">${tituloProposta}</div>
   <div style="text-align:center;font-size:14px;font-weight:700;margin-bottom:14px">${nomeEvento}</div>
   <div class="section">
     <div class="section-title">Dados do Evento</div>
