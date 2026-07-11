@@ -6791,130 +6791,120 @@ function gerarPDFOrcamento(){
 <meta charset="UTF-8">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',Arial,sans-serif;color:#000;background:#fff;padding:40px}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000000;padding-bottom:20px;margin-bottom:24px}
-  .logo-area{display:flex;align-items:center;gap:12px}
-  .logo-icon{width:50px;height:50px;background:#000000;border-radius:10px;display:flex;align-items:center;justify-content:center}
-  .logo-icon svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .empresa-nome{font-size:22px;font-weight:700;color:#000000}
-  .empresa-sub{font-size:12px;color:#000;margin-top:2px}
-  .empresa-info{font-size:11px;color:#000;margin-top:6px;line-height:1.6}
-  .orc-info{text-align:right}
-  .orc-titulo{font-size:20px;font-weight:700;color:#000;letter-spacing:1px}
-  .orc-num{font-size:12px;color:#000;margin-top:4px}
-  .orc-data{font-size:12px;color:#000;margin-top:2px}
-  .section{margin-bottom:20px}
-  .section-title{font-size:11px;font-weight:700;color:#000000;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-  .cliente-box{background:#f5f5f5;border:1px solid #cccccc;border-radius:8px;padding:14px}
-  .cliente-nome{font-size:16px;font-weight:700;color:#000}
-  .cliente-detalhe{font-size:12px;color:#000;margin-top:4px}
-  table{width:100%;border-collapse:collapse;margin-bottom:16px}
-  thead{background:#000000}
-  thead th{color:#fff;padding:10px 12px;font-size:12px;font-weight:600;text-align:left}
-  thead th:nth-child(2){text-align:center}
-  thead th:nth-child(3),thead th:nth-child(4){text-align:right}
-  tbody tr:nth-child(even){background:#f5f5f5}
-  .total-row{background:#f5f5f5;border-top:2px solid #000000}
-  .total-row td{padding:12px;font-weight:700;font-size:15px;color:#000}
-  .validade-box{background:#f5f5f5;border-left:4px solid #000000;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:20px}
-  .validade-box p{font-size:12px;color:#000}
-  .validade-box strong{color:#000000}
-  .obs-box{background:#f9f9f9;border:1px solid #eee;border-radius:8px;padding:14px;margin-bottom:20px}
-  .obs-box p{font-size:12px;color:#000;line-height:1.6}
-  .footer{border-top:1px solid #eee;padding-top:16px;text-align:center;font-size:11px;color:#000}
-  @media print{body{padding:20px}}
+  body{font-family:Arial,sans-serif;color:#000;background:#fff;font-size:12px}
+  .page{padding:30px 35px}
+  .topo{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+  .empresa-logo{font-size:22px;font-weight:900;letter-spacing:2px;border-bottom:3px solid #000;padding-bottom:4px;margin-bottom:2px}
+  .empresa-slogan{font-size:10px;color:#444}
+  .topo-dir{text-align:right;font-size:11px;line-height:1.8;border:1px solid #000;padding:8px 12px}
+  .titulo-orc{text-align:center;font-size:15px;font-weight:700;margin:10px 0;border-top:1px solid #000;border-bottom:1px solid #000;padding:6px 0}
+  table.info{width:100%;border-collapse:collapse}
+  table.info td{border:1px solid #000;padding:5px 8px;font-size:11px;vertical-align:top}
+  table.info td.lb{font-weight:700;white-space:nowrap;background:#f0f0f0;width:120px}
+  table.itens{width:100%;border-collapse:collapse;margin:10px 0}
+  table.itens th{border:1px solid #000;padding:7px 8px;font-weight:700;background:#f0f0f0;font-size:11px}
+  table.itens td{border:1px solid #000;padding:7px 8px;font-size:11px;text-align:center;vertical-align:middle}
+  .r{text-align:right}.l{text-align:left}
+  table.totais{width:100%;border-collapse:collapse;margin-top:0}
+  table.totais td{border:1px solid #000;padding:5px 10px;font-size:11px}
+  table.totais td.lb{text-align:right;font-weight:700;background:#f0f0f0}
+  table.totais td.vl{text-align:right;white-space:nowrap;width:150px}
+  table.totais tr.dest td{font-weight:700;font-size:13px;background:#e0e0e0}
+  .cond-box{display:flex;gap:0;margin-top:8px}
+  .cond-item{border:1px solid #000;padding:6px 10px;font-size:11px;flex:1;border-right:none}
+  .cond-item:last-child{border-right:1px solid #000}
+  .cond-lb{font-weight:700;font-size:10px;text-transform:uppercase;margin-bottom:2px}
+  .obs-box{border:1px solid #000;padding:8px;margin-top:8px;min-height:50px}
+  .obs-lb{font-weight:700;margin-bottom:4px;font-size:11px}
+  .footer{margin-top:14px;font-size:10px;text-align:center;color:#555;border-top:1px solid #ccc;padding-top:6px}
+  @media print{body{margin:0}}
 </style>
 </head>
 <body>
-<div class="header">
-  <div class="logo-area">
-    <div class="logo-icon">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </div>
+<div class="page">
+
+  <div class="topo">
     <div>
-      <div class="empresa-nome">Só Laranja</div>
-      <div class="empresa-sub">Suco Natural de Laranja</div>
-      <div class="empresa-info">
-        CNPJ: 40.776.530/0001-40<br>
-        Jardins Mangueiral PA 04 LT 04 LJ 105 - Jardim Botanico, Brasilia - DF, 71690-000<br>
-        Telefone: (61) 98562-3008
-      </div>
+      <div class="empresa-logo">SO LARANJA</div>
+      <div class="empresa-slogan">Suco Natural de Laranja</div>
+    </div>
+    <div class="topo-dir">
+      Brasilia, ${dataAtual}<br>
+      <strong>Validade: ${validade}</strong>
     </div>
   </div>
-  <div class="orc-info">
-    <div class="orc-titulo">ORCAMENTO</div>
-    <div class="orc-num">N ${numOrc}</div>
-    <div class="orc-data">Data: ${dataAtual}</div>
-  </div>
-</div>
 
-<div class="section">
-  <div class="section-title">Cliente</div>
-  <div class="cliente-box">
-    <div class="cliente-nome">${cliente}</div>
-    ${cnpj?`<div class="cliente-detalhe">CNPJ/CPF: ${cnpj}</div>`:''}
-    ${tel?`<div class="cliente-detalhe">Telefone: ${tel}</div>`:''}
-  </div>
-</div>
+  <div class="titulo-orc">Orcamento n. ${numOrc}</div>
 
-<div class="section">
-  <div class="section-title">Itens</div>
-  <table>
+  <table class="info">
+    <tr>
+      <td class="lb">EMPRESA:</td>
+      <td colspan="3"><strong>So Laranja - Suco Natural de Laranja</strong></td>
+    </tr>
+    <tr>
+      <td class="lb">CNPJ:</td>
+      <td>40.776.530/0001-40</td>
+      <td class="lb" style="width:80px">Tel.:</td>
+      <td>(61) 98562-3008</td>
+    </tr>
+    <tr>
+      <td class="lb">Endereco:</td>
+      <td colspan="3">Jardins Mangueiral PA 04 LT 04 LJ 105 - Jardim Botanico, Brasilia - DF, CEP: 71690-000</td>
+    </tr>
+  </table>
+
+  <table class="info" style="margin-top:8px">
+    <tr>
+      <td class="lb">CLIENTE:</td>
+      <td colspan="3"><strong>${cliente}</strong></td>
+    </tr>
+    ${cnpj?`<tr><td class="lb">CNPJ/CPF:</td><td colspan="3">${cnpj}</td></tr>`:''}
+    ${tel?`<tr><td class="lb">Telefone:</td><td colspan="3">${tel}</td></tr>`:''}
+  </table>
+
+  <table class="itens">
     <thead>
       <tr>
-        <th>Embalagem</th>
-        <th style="text-align:center">Qtd</th>
-        <th style="text-align:right">Preco Unit.</th>
-        <th style="text-align:right">Subtotal</th>
+        <th class="l" style="width:50%">Produto / Embalagem</th>
+        <th style="width:10%">Qtd.</th>
+        <th class="r" style="width:20%">Valor Un. (R$)</th>
+        <th class="r" style="width:20%">Valor Total (R$)</th>
       </tr>
     </thead>
     <tbody>
-      ${itensHTML}
-      ${descPct>0?`<tr style="background:#fff">
-        <td colspan="3" style="padding:10px 12px;text-align:right;color:#000">Subtotal:</td>
-        <td style="padding:10px 12px;text-align:right">${moedaFmt(total)}</td>
-      </tr>
-      <tr style="background:#fff">
-        <td colspan="3" style="padding:10px 12px;text-align:right;color:#c00">Desconto (${descPct}%):</td>
-        <td style="padding:10px 12px;text-align:right;color:#c00">- ${moedaFmt(descValor)}</td>
-      </tr>`:''}
-      <tr class="total-row">
-        <td colspan="3" style="text-align:right;color:#000">Total Geral:</td>
-        <td style="text-align:right;color:#000000;font-size:16px">${moedaFmt(totalFinal)}</td>
-      </tr>
+      ${itens.map(it=>`<tr>
+        <td class="l">${it.tam}</td>
+        <td>${it.qtd}</td>
+        <td class="r">${moedaFmt(it.preco)}</td>
+        <td class="r">${moedaFmt(it.subtotal)}</td>
+      </tr>`).join('')}
     </tbody>
   </table>
-</div>
 
-<div class="validade-box">
-  <p>Validade do orcamento: <strong>${validade}</strong></p>
-</div>
-
-<div class="section">
-  <div class="section-title">Condicoes Comerciais</div>
-  <table style="font-size:12px">
-    <tbody>
-      <tr style="background:#f5f5f5">
-        <td style="padding:8px 12px;font-weight:600;width:40%">Forma de Pagamento</td>
-        <td style="padding:8px 12px">${pagamento}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 12px;font-weight:600">Frete</td>
-        <td style="padding:8px 12px">Incluso</td>
-      </tr>
-      <tr style="background:#f5f5f5">
-        <td style="padding:8px 12px;font-weight:600">Validade</td>
-        <td style="padding:8px 12px">${validade}</td>
-      </tr>
-    </tbody>
+  <table class="totais">
+    <tr><td class="lb">Quantidade total de itens: ${itens.reduce((s,i)=>s+i.qtd,0)}</td><td class="vl">Subtotal: ${moedaFmt(total)}</td></tr>
+    ${descPct>0?`<tr><td class="lb">Desconto (${descPct}%):</td><td class="vl">- ${moedaFmt(descValor)}</td></tr>`:''}
+    <tr><td class="lb">Frete:</td><td class="vl">Incluso</td></tr>
+    <tr class="dest"><td class="lb">VALOR TOTAL:</td><td class="vl">${moedaFmt(totalFinal)}</td></tr>
   </table>
-</div>
 
-${obs?`<div class="section"><div class="section-title">Observacoes</div><div class="obs-box"><p>${obs.replace(/\n/g,'<br>')}</p></div></div>`:''}
+  <div class="cond-box">
+    <div class="cond-item"><div class="cond-lb">Forma de Pagamento</div>${pagamento}</div>
+    <div class="cond-item"><div class="cond-lb">Frete</div>Incluso</div>
+    <div class="cond-item"><div class="cond-lb">Validade do Orcamento</div>${validade}</div>
+  </div>
 
-<div class="footer">
-  So Laranja - Suco Natural de Laranja · CNPJ: 40.776.530/0001-40 · (61) 98562-3008 · Brasilia - DF<br>
-  Este orcamento e valido ate ${validade}
+  <div class="obs-box">
+    <div class="obs-lb">OBSERVACAO:</div>
+    ${obs?obs.replace(/
+/g,'<br>'):''}
+  </div>
+
+  <div class="footer">
+    So Laranja - Suco Natural de Laranja | CNPJ: 40.776.530/0001-40 | Tel: (61) 98562-3008 | Brasilia - DF<br>
+    Emitido em: ${dataAtual}
+  </div>
+
 </div>
 </body></html>`;
 
