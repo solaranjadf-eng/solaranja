@@ -6658,7 +6658,9 @@ async function sincronizarRapido(){
     iniciarSistemaEntregador();
   }
   // else: mostrar tela de login (padrão)
-// ── ORÇAMENTO ──────────────────────────────────────────────────────────────
+})();
+
+// ── ORÇAMENTO (escopo global) ───────────────────────────────────────────────
 function adicionarItemOrc(){
   const container=document.getElementById('orc-itens');
   const idx=container.children.length;
@@ -6863,9 +6865,8 @@ document.addEventListener('input',e=>{
   }
 });
 
-})();
-</script>
-    </div>
+// ── ORÇAMENTO (escopo global) ───────────────────────────────────────────────
+</script>    </div>
   </div>
 </div>
 
