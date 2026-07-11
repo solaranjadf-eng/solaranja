@@ -6792,11 +6792,11 @@ function gerarPDFOrcamento(){
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Segoe UI',Arial,sans-serif;color:#000;background:#fff;padding:40px}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #F97316;padding-bottom:20px;margin-bottom:24px}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #000000;padding-bottom:20px;margin-bottom:24px}
   .logo-area{display:flex;align-items:center;gap:12px}
-  .logo-icon{width:50px;height:50px;background:#F97316;border-radius:10px;display:flex;align-items:center;justify-content:center}
+  .logo-icon{width:50px;height:50px;background:#000000;border-radius:10px;display:flex;align-items:center;justify-content:center}
   .logo-icon svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .empresa-nome{font-size:22px;font-weight:700;color:#F97316}
+  .empresa-nome{font-size:22px;font-weight:700;color:#000000}
   .empresa-sub{font-size:12px;color:#000;margin-top:2px}
   .empresa-info{font-size:11px;color:#000;margin-top:6px;line-height:1.6}
   .orc-info{text-align:right}
@@ -6804,21 +6804,21 @@ function gerarPDFOrcamento(){
   .orc-num{font-size:12px;color:#000;margin-top:4px}
   .orc-data{font-size:12px;color:#000;margin-top:2px}
   .section{margin-bottom:20px}
-  .section-title{font-size:11px;font-weight:700;color:#F97316;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-  .cliente-box{background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:14px}
+  .section-title{font-size:11px;font-weight:700;color:#000000;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .cliente-box{background:#f5f5f5;border:1px solid #cccccc;border-radius:8px;padding:14px}
   .cliente-nome{font-size:16px;font-weight:700;color:#000}
   .cliente-detalhe{font-size:12px;color:#000;margin-top:4px}
   table{width:100%;border-collapse:collapse;margin-bottom:16px}
-  thead{background:#F97316}
+  thead{background:#000000}
   thead th{color:#fff;padding:10px 12px;font-size:12px;font-weight:600;text-align:left}
   thead th:nth-child(2){text-align:center}
   thead th:nth-child(3),thead th:nth-child(4){text-align:right}
-  tbody tr:nth-child(even){background:#FFF7ED}
-  .total-row{background:#FFF7ED;border-top:2px solid #F97316}
+  tbody tr:nth-child(even){background:#f5f5f5}
+  .total-row{background:#f5f5f5;border-top:2px solid #000000}
   .total-row td{padding:12px;font-weight:700;font-size:15px;color:#000}
-  .validade-box{background:#FFF7ED;border-left:4px solid #F97316;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:20px}
+  .validade-box{background:#f5f5f5;border-left:4px solid #000000;padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:20px}
   .validade-box p{font-size:12px;color:#000}
-  .validade-box strong{color:#F97316}
+  .validade-box strong{color:#000000}
   .obs-box{background:#f9f9f9;border:1px solid #eee;border-radius:8px;padding:14px;margin-bottom:20px}
   .obs-box p{font-size:12px;color:#000;line-height:1.6}
   .footer{border-top:1px solid #eee;padding-top:16px;text-align:center;font-size:11px;color:#000}
@@ -6880,7 +6880,7 @@ function gerarPDFOrcamento(){
       </tr>`:''}
       <tr class="total-row">
         <td colspan="3" style="text-align:right;color:#000">Total Geral:</td>
-        <td style="text-align:right;color:#F97316;font-size:16px">${moedaFmt(totalFinal)}</td>
+        <td style="text-align:right;color:#000000;font-size:16px">${moedaFmt(totalFinal)}</td>
       </tr>
     </tbody>
   </table>
@@ -6894,7 +6894,7 @@ function gerarPDFOrcamento(){
   <div class="section-title">Condicoes Comerciais</div>
   <table style="font-size:12px">
     <tbody>
-      <tr style="background:#FFF7ED">
+      <tr style="background:#f5f5f5">
         <td style="padding:8px 12px;font-weight:600;width:40%">Forma de Pagamento</td>
         <td style="padding:8px 12px">${pagamento}</td>
       </tr>
@@ -6902,7 +6902,7 @@ function gerarPDFOrcamento(){
         <td style="padding:8px 12px;font-weight:600">Frete</td>
         <td style="padding:8px 12px">Incluso</td>
       </tr>
-      <tr style="background:#FFF7ED">
+      <tr style="background:#f5f5f5">
         <td style="padding:8px 12px;font-weight:600">Validade</td>
         <td style="padding:8px 12px">${validade}</td>
       </tr>
