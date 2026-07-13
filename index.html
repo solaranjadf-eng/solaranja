@@ -338,7 +338,7 @@ a{color:var(--orange);text-decoration:none}
   <button class="login-btn login-btn-admin" onclick="abrirSenhaAdmin()">
     <span style="font-size:20px">🔐</span> Entrar como Administrador
   </button>
-  <button class="login-btn" style="background:rgba(255,255,255,.15);color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="entrarGerente()">
+  <button class="login-btn" style="background:rgba(255,255,255,.15);color:white;border:1.5px solid rgba(255,255,255,.3)" onclick="abrirSenhaGerente()">
     <span style="font-size:20px">📋</span> Entrar como Gerente
   </button>
   <button class="login-btn login-btn-entregador" onclick="entrarEntregador()">
@@ -357,6 +357,19 @@ a{color:var(--orange);text-decoration:none}
     <div class="action-row" style="margin-top:14px;gap:8px">
       <button class="btn btn-outline" onclick="fecharLoginModal()" style="flex:1">Cancelar</button>
       <button class="btn btn-primary" onclick="verificarSenha()" style="flex:2">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="login-modal hidden" id="login-modal-gerente">
+  <div class="login-modal-box">
+    <div class="login-modal-title">Acesso Gerente</div>
+    <div class="login-modal-sub">Digite a senha para continuar.</div>
+    <input type="password" id="senha-gerente-input" placeholder="Senha" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:15px;margin-bottom:4px" onkeydown="if(event.key==='Enter')verificarSenhaGerente()">
+    <div class="login-error" id="login-error-gerente">Senha incorreta. Tente novamente.</div>
+    <div class="action-row" style="margin-top:14px;gap:8px">
+      <button class="btn btn-outline" onclick="fecharLoginModalGerente()" style="flex:1">Cancelar</button>
+      <button class="btn btn-primary" onclick="verificarSenhaGerente()" style="flex:2">Entrar</button>
     </div>
   </div>
 </div>
