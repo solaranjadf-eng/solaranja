@@ -2007,9 +2007,9 @@ async function sincronizar(){
       clientes=[...CLIENTES_PADRAO];
       lsave('slj_cli_bk',clientes);
     }
-    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,preços,entregue,hora_entrega,data,pago,numero_pedido`);
-    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,preços,entregue,hora_entrega,data,pago,numero_pedido`);
-    const dbPAmanha=await sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,preços,entregue,hora_entrega,data,pago,numero_pedido`);
+    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
+    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
+    const dbPAmanha=await sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
     // Capturar estado local ANTES de sobrescrever — timestamp para saber qual é mais recente
     const localState={};
     const agora=Date.now();
@@ -2053,7 +2053,7 @@ async function sincronizar(){
     const d90=new Date(hoje);d90.setDate(d90.getDate()-90);
     const noventaDiasAtras=d90.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
     if(primeiraVez||agora2-ultimaHistSync>600000){
-      const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,preços,entregue,hora_entrega,data,pago,numero_pedido`);
+      const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`);
       localStorage.setItem('slj_hist_sync',agora2.toString());
       if(dbH!==null&&dbH.length>0){
         const novoHist={};
@@ -3252,7 +3252,7 @@ function renderDia(){
     });
     // Se não encontrou nada no cache, buscar do banco
     if(!lista.length){
-      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,preços,entregue,hora_entrega,data,pago,numero_pedido`).then(dbP=>{
+      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`).then(dbP=>{
         if(dbP&&dbP.length){
           if(!historico[dataSel]) historico[dataSel]=[];
           historico[dataSel]=(dbP||[]).map(mapPedido);
@@ -3973,7 +3973,7 @@ function renderRota(){
     listaRota=[...(historico[dataSel]||[])];
     // Se não tem, buscar do banco
     if(!listaRota.length){
-      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,preços,entregue,hora_entrega,data,pago,numero_pedido`).then(dbP=>{
+      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`).then(dbP=>{
         if(dbP&&dbP.length){
           if(!historico[dataSel]) historico[dataSel]=[];
           historico[dataSel]=(dbP||[]).map(mapPedido);
@@ -6718,9 +6718,9 @@ async function sincronizarRapido(){
   if(!perfilAtual)return;
   try{
     const [dbP,dbPOntem,dbPAmanha]=await Promise.all([
-      sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,preços,entregue,hora_entrega,data,pago,numero_pedido`),
-      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,preços,entregue,hora_entrega,data,pago,numero_pedido`),
-      sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,preços,entregue,hora_entrega,data,pago,numero_pedido`)
+      sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`),
+      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`),
+      sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido`)
     ]);
     let atualizado=false;
     if(dbP&&dbP.length>=0){
