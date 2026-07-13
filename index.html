@@ -1998,12 +1998,12 @@ async function sincronizar(){
       // Só atualizar clientes se banco retornou dados válidos
       clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,apelido:c.apelido||'',tel:c.tel||'',
         bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
-        maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,preços:c.preços||{}}));
+        maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos||{}}));
       lsave('slj_cli_bk',clientes);
     }else{
       await sbUps('clientes',CLIENTES_PADRAO.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,tel:c.tel||'',
         bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
-        maps:'',aniver:c.aniver||'',minimo:c.minimo,preços:c.preços})));
+        maps:'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos})));
       clientes=[...CLIENTES_PADRAO];
       lsave('slj_cli_bk',clientes);
     }
@@ -2205,7 +2205,7 @@ async function sincronizar(){
   }
 }
 
-function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],total:p.total,preços:p.preços||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null};}
+function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null};}
 
 // ── TABS ───────────────────────────────────────────────────────────────────
 const TAB_LABELS={'dash':'Início','pedido':'Novo Pedido','dia':'Do Dia','rota':'Rota','resumo':'Resumo','producao':'Produção','financeiro':'Financeiro','estoque':'Estoque','custos':'Custos','laranjas':'Laranjas','historico':'Histórico','ranking':'Ranking','clientes':'Clientes'};
@@ -2451,7 +2451,7 @@ function renderDash(){
     const receitaPorTam={},qtdPorTam={};
     TAMS.forEach(t=>{receitaPorTam[t]=0;qtdPorTam[t]=0;});
     lista.forEach(p=>p.itens.forEach(it=>{
-      const preço=(p.preços||{})[it.tam]||0;
+      const preço=(p.precos||{})[it.tam]||0;
       receitaPorTam[it.tam]+=preço*it.qtd;
       qtdPorTam[it.tam]+=it.qtd;
     }));
@@ -2943,7 +2943,7 @@ function salvarDiasInativo(){const v=parseInt(document.getElementById('dias-inat
 
 // ── LISTA CLIENTES ─────────────────────────────────────────────────────────
 function calcLitros(itens){return itens.reduce((s,it)=>s+(LITROS[it.tam]||0)*it.qtd,0);}
-function preçosLabel(c){const a=TAMS.filter(t=>c.preços[t]>0);return a.length?a.map(t=>`${TL[t]}: ${moeda(c.preços[t])}`).join(' · '):'Sem preços cadastrados';}
+function preçosLabel(c){const a=TAMS.filter(t=>c.precos[t]>0);return a.length?a.map(t=>`${TL[t]}: ${moeda(c.precos[t])}`).join(' · '):'Sem preços cadastrados';}
 function clienteDebitoTotal(id){
   const todos=[...pedidos];Object.values(historico).forEach(d=>d.forEach(p=>todos.push(p)));
   return todos.filter(p=>p.clienteId===id&&p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
@@ -3021,10 +3021,10 @@ function escolher(id){
   renderClienteList(document.getElementById('busca').value.toLowerCase());
   document.getElementById('order-area').style.display='block';
   document.getElementById('no-client').style.display='none';
-  const ativos=TAMS.filter(t=>sel.preços[t]>0);
+  const ativos=TAMS.filter(t=>sel.precos[t]>0);
   document.getElementById('preço-info').innerHTML=
     `<strong>${sel.nome}</strong>${sel.bairro?` — 📍 ${sel.bairro}`:''}<br>Tabela: `+
-    (ativos.length?ativos.map(t=>`${TL[t]} = <strong>${moeda(sel.preços[t])}</strong>`).join(' · '):'Sem preços cadastrados')+
+    (ativos.length?ativos.map(t=>`${TL[t]} = <strong>${moeda(sel.precos[t])}</strong>`).join(' · '):'Sem preços cadastrados')+
     (sel.tel?`<br>WhatsApp: ${sel.tel}`:'');
   // Débito
   const deb=clienteDebitoTotal(sel.id);
@@ -3044,13 +3044,13 @@ function escolher(id){
 function repetirPedido(){
   const ult=ultimoPedidoCliente(sel.id);if(!ult)return;
   TAMS.forEach(t=>qtds[t]=0);
-  ult.itens.forEach(it=>{if(sel.preços[it.tam]>0)qtds[it.tam]=it.qtd;});
+  ult.itens.forEach(it=>{if(sel.precos[it.tam]>0)qtds[it.tam]=it.qtd;});
   document.getElementById('obs').value=ult.obs||'';
   renderGarrafas();atualizarResumo();toast('Pedido anterior carregado.');
 }
 function renderGarrafas(){
   document.getElementById('garrafas').innerHTML=TAMS.map(t=>{
-    const p=sel.preços[t],ok=p&&p>0;
+    const p=sel.precos[t],ok=p&&p>0;
     return`<div class="g-card ${ok?'has-price':'disabled'}">
       <div class="g-size">${TL[t]}</div>
       ${ok?`<div class="g-price">${moeda(p)}</div>`:'<div class="g-price-empty">—</div>'}
@@ -3103,17 +3103,17 @@ function getDataEntregaKey(override){
   amanha.setDate(amanha.getDate()+1);
   return amanha.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
 }
-function alt(t,d){if(!sel||!(sel.preços[t]>0))return;qtds[t]=Math.max(0,(qtds[t]||0)+d);document.getElementById('q-'+t).textContent=qtds[t];atualizarResumo();}
+function alt(t,d){if(!sel||!(sel.precos[t]>0))return;qtds[t]=Math.max(0,(qtds[t]||0)+d);document.getElementById('q-'+t).textContent=qtds[t];atualizarResumo();}
 function atualizarResumo(){
-  const itens=TAMS.filter(t=>qtds[t]>0&&sel.preços[t]>0);
+  const itens=TAMS.filter(t=>qtds[t]>0&&sel.precos[t]>0);
   const rp=document.getElementById('resumo-ped');
   if(!itens.length){rp.style.display='none';document.getElementById('minimo-aviso').style.display='none';return;}
   rp.style.display='block';
   const tqtd=itens.reduce((s,t)=>s+qtds[t],0);
-  const tval=itens.reduce((s,t)=>s+(sel.preços[t]||0)*qtds[t],0);
+  const tval=itens.reduce((s,t)=>s+(sel.precos[t]||0)*qtds[t],0);
   const tlit=itens.reduce((s,t)=>s+(LITROS[t]||0)*qtds[t],0);
   document.getElementById('resumo-rows').innerHTML=
-    itens.map(t=>`<div class="rp-row"><span>${TL[t]} × ${qtds[t]} un.</span><span>${moeda((sel.preços[t]||0)*qtds[t])}</span></div>`).join('')+
+    itens.map(t=>`<div class="rp-row"><span>${TL[t]} × ${qtds[t]} un.</span><span>${moeda((sel.precos[t]||0)*qtds[t])}</span></div>`).join('')+
     `<div class="rp-row sub"><span>Unidades / Litros</span><span>${tqtd} un. · ${tlit.toFixed(1)} L</span></div>`;
   document.getElementById('resumo-total-val').textContent=moeda(tval);
   const av=document.getElementById('minimo-aviso');
@@ -3127,7 +3127,7 @@ let _ultimoPedidoHash=''; // proteção extra contra duplicatas
 async function confirmar(){
   if(_confirmando){toast('Aguarde, salvando...');return;}
   if(!sel){toast('Selecione um cliente.');return;}
-  const itens=TAMS.filter(t=>qtds[t]>0&&sel.preços[t]>0).map(t=>({tam:t,qtd:qtds[t],preço:sel.preços[t]}));
+  const itens=TAMS.filter(t=>qtds[t]>0&&sel.precos[t]>0).map(t=>({tam:t,qtd:qtds[t],preço:sel.precos[t]}));
   if(!itens.length){toast('Adicione ao menos um item.');return;}
 
   // Verificar se já existe pedido para este cliente na mesma data de entrega
@@ -3167,7 +3167,7 @@ async function confirmar(){
   let pedidoSalvo=false;
   try{
     const numeroPedido = await getNextNumeroPedido();
-    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,preços:sel.preços,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido}]);
+    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido}]);
     const ped=Array.isArray(res)?res[0]:res;
     const obj=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
     // Adicionar ao array correto baseado na data de entrega
@@ -5932,7 +5932,7 @@ function renderNovoFinGarrafas(){
   const el = document.getElementById('novo-fin-garrafas');
   if(!novoFinCliSelecionado){el.innerHTML='<div style="font-size:13px;color:var(--text3);grid-column:1/-1">Selecione um cliente primeiro.</div>';return;}
   el.innerHTML = TAMS.map(t=>{
-    const pr = novoFinCliSelecionado.preços[t];
+    const pr = novoFinCliSelecionado.precos[t];
     const ok = pr&&pr>0;
     return`<div class="g-card ${ok?'has-price':'disabled'}">
       <div class="g-size">${TL[t]}</div>
@@ -5946,13 +5946,13 @@ function renderNovoFinGarrafas(){
 }
 
 function altNovoFin(t,d){
-  if(!novoFinCliSelecionado||!(novoFinCliSelecionado.preços[t]>0)) return;
+  if(!novoFinCliSelecionado||!(novoFinCliSelecionado.precos[t]>0)) return;
   novoFinQtds[t]=Math.max(0,(novoFinQtds[t]||0)+d);
   document.getElementById('nfq-'+t).textContent=novoFinQtds[t];
-  const itens=TAMS.filter(x=>novoFinQtds[x]>0&&novoFinCliSelecionado.preços[x]>0);
-  const total=itens.reduce((s,x)=>s+(novoFinCliSelecionado.preços[x]||0)*novoFinQtds[x],0);
+  const itens=TAMS.filter(x=>novoFinQtds[x]>0&&novoFinCliSelecionado.precos[x]>0);
+  const total=itens.reduce((s,x)=>s+(novoFinCliSelecionado.precos[x]||0)*novoFinQtds[x],0);
   document.getElementById('novo-fin-resumo').textContent = itens.length
-    ? itens.map(x=>TL[x]+': '+novoFinQtds[x]+' un. = '+moeda((novoFinCliSelecionado.preços[x]||0)*novoFinQtds[x])).join(' | ')+' | Total: '+moeda(total)
+    ? itens.map(x=>TL[x]+': '+novoFinQtds[x]+' un. = '+moeda((novoFinCliSelecionado.precos[x]||0)*novoFinQtds[x])).join(' | ')+' | Total: '+moeda(total)
     : '';
 }
 
@@ -5960,8 +5960,8 @@ async function salvarPedidoRetroativo(){
   if(!novoFinCliSelecionado){toast('Selecione um cliente.');return;}
   const data = document.getElementById('novo-fin-data').value;
   if(!data){toast('Selecione a data do pedido.');return;}
-  const itens = TAMS.filter(t=>novoFinQtds[t]>0&&novoFinCliSelecionado.preços[t]>0)
-    .map(t=>({tam:t,qtd:novoFinQtds[t],preço:novoFinCliSelecionado.preços[t]}));
+  const itens = TAMS.filter(t=>novoFinQtds[t]>0&&novoFinCliSelecionado.precos[t]>0)
+    .map(t=>({tam:t,qtd:novoFinQtds[t],preço:novoFinCliSelecionado.precos[t]}));
   if(!itens.length){toast('Adicione ao menos um item.');return;}
   const total = itens.reduce((s,i)=>s+i.preço*i.qtd,0);
   const hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
@@ -5975,7 +5975,7 @@ async function salvarPedidoRetroativo(){
       hora,
       obs:document.getElementById('novo-fin-obs').value.trim(),
       itens,total,
-      preços:novoFinCliSelecionado.preços,
+      precos:novoFinCliSelecionado.precos,
       entregue:true,
       hora_entrega:hora,
       data,
@@ -6056,9 +6056,9 @@ function abrirModalEditHist(pedidoId, dataKey){
   editClienteId=p.clienteId;
   document.getElementById('modal-ped-nome').textContent=p.clienteNome;
   document.getElementById('modal-obs').value=p.obs||'';
-  const c=clientes.find(x=>x.id===p.clienteId)||{preços:p.preços||{}};
+  const c=clientes.find(x=>x.id===p.clienteId)||{precos:p.precos||{}};
   document.getElementById('modal-garrafas').innerHTML=TAMS.map(t=>{
-    const pr=(c.preços||{})[t]||(p.preços||{})[t];const ok=pr&&pr>0;
+    const pr=(c.precos||{})[t]||(p.precos||{})[t];const ok=pr&&pr>0;
     return`<div class="g-card ${ok?'has-price':'disabled'}"><div class="g-size">${TL[t]}</div>${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}<div class="qty-ctrl"><button class="qty-btn" ontouchstart="" onclick="altM('${t}',-1)">−</button><span class="qty-val" id="mq-${t}">${editPedQtds[t]||0}</span><button class="qty-btn" ontouchstart="" onclick="altM('${t}',1)">+</button></div></div>`;}).join('');
   document.getElementById('modal-edit').classList.add('open');
 }
@@ -6069,9 +6069,9 @@ function abrirModalEdit(i){
   editClienteId=p.clienteId;
   document.getElementById('modal-ped-nome').textContent=p.clienteNome;
   document.getElementById('modal-obs').value=p.obs||'';
-  const c=clientes.find(x=>x.id===p.clienteId)||{preços:p.preços||{}};
+  const c=clientes.find(x=>x.id===p.clienteId)||{precos:p.precos||{}};
   document.getElementById('modal-garrafas').innerHTML=TAMS.map(t=>{
-    const pr=c.preços[t],ok=pr&&pr>0;
+    const pr=c.precos[t],ok=pr&&pr>0;
     return`<div class="g-card ${ok?'has-price':'disabled'}"><div class="g-size">${TL[t]}</div>${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}<div class="qty-ctrl"><button class="qty-btn" ontouchstart="" onclick="altM('${t}',-1)">−</button><span class="qty-val" id="mq-${t}">${editPedQtds[t]||0}</span><button class="qty-btn" ontouchstart="" onclick="altM('${t}',1)">+</button></div></div>`;}).join('');
   document.getElementById('modal-edit').classList.add('open');
 }
@@ -6089,9 +6089,9 @@ async function salvarEdicaoPedido(){
     p=pedidos[editPedIdx];
   }else return;
 
-  const c=clientes.find(x=>x.id===editClienteId)||{preços:p.preços||{}};
-  const preços=c.preços||p.preços||{};
-  const itens=TAMS.filter(t=>editPedQtds[t]>0&&preços[t]>0).map(t=>({tam:t,qtd:editPedQtds[t],preço:preços[t]}));
+  const c=clientes.find(x=>x.id===editClienteId)||{precos:p.precos||{}};
+  const precos=c.precos||p.precos||{};
+  const itens=TAMS.filter(t=>editPedQtds[t]>0&&precos[t]>0).map(t=>({tam:t,qtd:editPedQtds[t],preco:precos[t]}));
   if(!itens.length){toast('Adicione ao menos um item.');return;}
   const total=itens.reduce((s,i)=>s+i.preço*i.qtd,0);
   const obs=document.getElementById('modal-obs').value.trim();
@@ -6154,7 +6154,7 @@ function abrirModalCliente(id){
   document.getElementById('ec-regiao').value=c.regiao||'';document.getElementById('ec-endereco').value=c.endereco||'';
   document.getElementById('ec-maps').value=c.maps||'';
   document.getElementById('ec-aniver').value=c.aniver||'';
-  TAMS.forEach(t=>document.getElementById('ec-'+t).value=c.preços[t]||'');
+  TAMS.forEach(t=>document.getElementById('ec-'+t).value=c.precos[t]||'');
   document.getElementById('ec-minimo').value=c.minimo||'';
   document.getElementById('modal-cliente').classList.add('open');
 }
@@ -6167,9 +6167,9 @@ async function salvarEdicaoCliente(){
   c.regiao=document.getElementById('ec-regiao').value.trim();c.endereco=document.getElementById('ec-endereco').value.trim();
   c.maps=document.getElementById('ec-maps').value.trim();
   c.aniver=document.getElementById('ec-aniver').value;
-  TAMS.forEach(t=>{const v=parseFloat(document.getElementById('ec-'+t).value);c.preços[t]=isNaN(v)||v<=0?null:v;});
+  TAMS.forEach(t=>{const v=parseFloat(document.getElementById('ec-'+t).value);c.precos[t]=isNaN(v)||v<=0?null:v;});
   const vm=parseFloat(document.getElementById('ec-minimo').value);c.minimo=isNaN(vm)||vm<=0?null:vm;
-  try{await sbPatch('clientes',`?id=eq.${c.id}`,{nome:c.nome,cnpj:c.cnpj,apelido:c.apelido,tel:c.tel,bairro:c.bairro,regiao:c.regiao,endereco:c.endereco,maps:c.maps,aniver:c.aniver,minimo:c.minimo,preços:c.preços});setSyncStatus('ok','Sincronizado — nuvem ativa');}
+  try{await sbPatch('clientes',`?id=eq.${c.id}`,{nome:c.nome,cnpj:c.cnpj,apelido:c.apelido,tel:c.tel,bairro:c.bairro,regiao:c.regiao,endereco:c.endereco,maps:c.maps,aniver:c.aniver,minimo:c.minimo,precos:c.precos});setSyncStatus('ok','Sincronizado — nuvem ativa');}
   catch(e){setSyncStatus('err','Erro ao sincronizar');}
   fecharModal('cliente');renderClientes();toast('Cliente atualizado.');
 }
@@ -6214,12 +6214,12 @@ async function addCliente(){
   if(!nome){toast('Informe o nome.');if(btn)btn.disabled=false;return;}
   if(!cnpj){toast('Informe o CNPJ.');if(btn)btn.disabled=false;return;}
   const apelido=document.getElementById('new-apelido')?.value.trim()||'';
-  const preços={};TAMS.forEach(t=>{const v=parseFloat(document.getElementById('np-'+t).value);preços[t]=isNaN(v)||v<=0?null:v;});
+  const precos={};TAMS.forEach(t=>{const v=parseFloat(document.getElementById('np-'+t).value);precos[t]=isNaN(v)||v<=0?null:v;});
   const vm=parseFloat(document.getElementById('np-minimo').value);
   const novoId=Date.now();
-  const novo={id:novoId,nome,cnpj,apelido,tel:document.getElementById('new-tel').value.trim(),bairro:document.getElementById('new-bairro').value.trim(),regiao:document.getElementById('new-regiao').value.trim(),endereco:document.getElementById('new-endereco').value.trim(),maps:document.getElementById('new-maps').value.trim(),aniver:document.getElementById('new-aniver').value,minimo:isNaN(vm)||vm<=0?null:vm,preços};
+  const novo={id:novoId,nome,cnpj,apelido,tel:document.getElementById('new-tel').value.trim(),bairro:document.getElementById('new-bairro').value.trim(),regiao:document.getElementById('new-regiao').value.trim(),endereco:document.getElementById('new-endereco').value.trim(),maps:document.getElementById('new-maps').value.trim(),aniver:document.getElementById('new-aniver').value,minimo:isNaN(vm)||vm<=0?null:vm,precos};
   try{
-    await sbUps('clientes',[{id:novoId,nome:novo.nome,cnpj:novo.cnpj,apelido:novo.apelido,tel:novo.tel,bairro:novo.bairro,regiao:novo.regiao,endereco:novo.endereco,maps:novo.maps,aniver:novo.aniver,minimo:novo.minimo,preços:novo.preços}]);
+    await sbUps('clientes',[{id:novoId,nome:novo.nome,cnpj:novo.cnpj,apelido:novo.apelido,tel:novo.tel,bairro:novo.bairro,regiao:novo.regiao,endereco:novo.endereco,maps:novo.maps,aniver:novo.aniver,minimo:novo.minimo,precos:novo.precos}]);
     clientes.push(novo);
     lsave('slj_cli_bk',clientes);
     setSyncStatus('ok','Sincronizado — nuvem ativa');
@@ -6271,7 +6271,7 @@ async function importarDoBlIng(){
     if(dbC&&dbC.length>0){
       clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,apelido:c.apelido||'',tel:c.tel||'',
         bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
-        maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,preços:c.preços||{}}));
+        maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos||{}}));
       lsave('slj_cli_bk',clientes);
     }
     setSyncStatus('ok','Sincronizado — nuvem ativa');
@@ -6284,7 +6284,7 @@ async function importarDoBlIng(){
 }
 function exportarClientes(){
   const header='Nome,CNPJ,Telefone,Bairro,Região,Endereço,Aniversário,200ml,300ml,500ml,1L,5L,Minimo';
-  const linhas=clientes.map(c=>[`"${c.nome}"`,c.cnpj,c.tel||'',c.bairro||'',c.regiao||'',`"${c.endereco||''}"`,c.aniver||'',c.preços['200ml']||'',c.preços['300ml']||'',c.preços['500ml']||'',c.preços['1L']||'',c.preços['5L']||'',c.minimo||''].join(','));
+  const linhas=clientes.map(c=>[`"${c.nome}"`,c.cnpj,c.tel||'',c.bairro||'',c.regiao||'',`"${c.endereco||''}"`,c.aniver||'',c.precos['200ml']||'',c.precos['300ml']||'',c.precos['500ml']||'',c.precos['1L']||'',c.precos['5L']||'',c.minimo||''].join(','));
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+[header,...linhas].join('\n')],{type:'text/csv;charset=utf-8;'}));a.download='SoLaranja_Clientes.csv';a.click();
   toast('Planilha exportada.');
 }
