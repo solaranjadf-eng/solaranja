@@ -7352,6 +7352,8 @@ function gerarPDFEvento(){
     <div class="cond-item"><div class="cond-lb">Forma de Pagamento</div>${pagamento}</div>
     <div class="cond-item"><div class="cond-lb">Validade da Proposta</div>${validade}</div>
   </div>
+  ${diferenciais.length?`<div class="section"><div class="section-title">Diferenciais Só Laranja</div><ul class="dif-list">${diferenciais.map(d=>`<li>${d}</li>`).join('')}</ul></div>`:''}
+  ${frase?`<div class="frase-box">"${frase}"</div>`:''}
 
   <div style="margin-bottom:14px;font-size:12px;line-height:1.8">
     <strong>Pagamento:</strong><br>
@@ -7364,8 +7366,6 @@ function gerarPDFEvento(){
   <div style="margin-bottom:14px;font-size:11px;font-style:italic;border:1px solid #ccc;padding:8px 12px;border-radius:4px">
     <strong>Obs.:</strong> A reserva e garantia do serviço na data do evento, só é confirmada mediante assinatura do contrato e pagamento da entrada de 65%
   </div>
-  ${diferenciais.length?`<div class="section"><div class="section-title">Diferenciais Só Laranja</div><ul class="dif-list">${diferenciais.map(d=>`<li>${d}</li>`).join('')}</ul></div>`:''}
-  ${frase?`<div class="frase-box">"${frase}"</div>`:''}
   <div class="footer">Só Laranja - Suco Natural de Laranja | CNPJ: 40.776.530/0001-40 | Tel: (61) 98562-3008 | Brasília - DF<br>Será uma honra participar deste momento tão especial. | Emitido em: ${dataAtual}</div>
   </div></body></html>`;
 
