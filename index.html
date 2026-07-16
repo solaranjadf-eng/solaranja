@@ -1577,7 +1577,7 @@ a{color:var(--orange);text-decoration:none}
     <div class="form-group"><label>Local</label><input type="text" id="ev-local" placeholder="Ex: CTG Estancia Gaucha do Planalto"></div>
     <div class="action-row" style="gap:8px;margin-bottom:10px">
       <div class="form-group" style="flex:1;margin:0"><label>Numero de Convidados</label><input type="number" id="ev-convidados" placeholder="Ex: 110" inputmode="numeric"></div>
-      <div class="form-group" style="flex:1;margin:0"><label>Tempo de Atendimento</label><input type="text" id="ev-tempo" placeholder="Ex: 4 horas"></div>
+      <div class="form-group" style="flex:1;margin:0"><label>Tempo de Atendimento (horas)</label><input type="number" id="ev-tempo" placeholder="Ex: 4" inputmode="numeric"></div>
     </div>
     <div class="action-row" style="gap:8px;margin-bottom:10px">
       <div class="form-group" style="flex:1;margin:0"><label>Validade</label><input type="date" id="ev-validade"></div>
@@ -1604,7 +1604,7 @@ a{color:var(--orange);text-decoration:none}
 
     <div class="card-title" style="margin-top:16px;font-size:14px">Servicos Inclusos</div>
     <div id="ev-servicos">
-      <div class="ev-srv-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="text" class="ev-srv-txt" placeholder="Descreva o servico incluso" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px"><button onclick="removerServicoEv(this)" style="background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer">x</button></div>
+      <div class="ev-srv-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="text" class="ev-srv-txt" value="Suqueira de Suco Natural de Laranja Só Laranja" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px"><button onclick="removerServicoEv(this)" style="background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer">x</button></div>
       <div class="ev-srv-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="text" class="ev-srv-txt" value="Suqueira de Água de Coco (BRINDE)" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px"><button onclick="removerServicoEv(this)" style="background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer">x</button></div>
       <div class="ev-srv-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="text" class="ev-srv-txt" value="Suqueira de Água Saborizada (BRINDE)" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px"><button onclick="removerServicoEv(this)" style="background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer">x</button></div>
       <div class="ev-srv-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="text" class="ev-srv-txt" value="Mesa decorada em estilo rústico e elegante" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px"><button onclick="removerServicoEv(this)" style="background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer">x</button></div>
@@ -7333,7 +7333,7 @@ function gerarPDFEvento(){
       ${horario?`<tr><td class="lb">Horario:</td><td>${horario}</td></tr>`:''}
       ${local?`<tr><td class="lb">Local:</td><td>${local}</td></tr>`:''}
       ${convidados?`<tr><td class="lb">Convidados:</td><td>${convidados} pessoas</td></tr>`:''}
-      ${tempo?`<tr><td class="lb">Atendimento:</td><td>${tempo}</td></tr>`:''}
+      ${tempo?`<tr><td class="lb">Atendimento:</td><td>${tempo} horas</td></tr>`:''}
     </table>
   </div>
   <div class="intro-box">Receba seus convidados com charme, frescor e elegância.<br>Nossa Estacao de Boas-Vindas transforma a chegada dos convidados em uma experiência acolhedora e memorável, proporcionando conforto, hidratação e uma apresentação sofisticada que harmoniza perfeitamente com a celebração.</div>
@@ -7351,6 +7351,18 @@ function gerarPDFEvento(){
   <div class="cond-box">
     <div class="cond-item"><div class="cond-lb">Forma de Pagamento</div>${pagamento}</div>
     <div class="cond-item"><div class="cond-lb">Validade da Proposta</div>${validade}</div>
+  </div>
+
+  <div style="margin-bottom:14px;font-size:12px;line-height:1.8">
+    <strong>Pagamento:</strong><br>
+    &nbsp;&nbsp;&nbsp;- Via PIX<br>
+    65% na assinatura do contrato.<br>
+    35% até uma hora antes do início do evento.<br>
+    <em style="font-size:11px">*(Valor referente a ${tempo||'__'} horas de atendimento para até ${convidados||'__'} pessoas)</em>
+  </div>
+
+  <div style="margin-bottom:14px;font-size:11px;font-style:italic;border:1px solid #ccc;padding:8px 12px;border-radius:4px">
+    <strong>Obs.:</strong> A reserva e garantia do serviço na data do evento, só é confirmada mediante assinatura do contrato e pagamento da entrada de 65%
   </div>
   ${diferenciais.length?`<div class="section"><div class="section-title">Diferenciais Só Laranja</div><ul class="dif-list">${diferenciais.map(d=>`<li>${d}</li>`).join('')}</ul></div>`:''}
   ${frase?`<div class="frase-box">"${frase}"</div>`:''}
