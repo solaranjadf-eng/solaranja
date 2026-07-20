@@ -4953,7 +4953,7 @@ function renderAcompanhamento(){
     else emDia.push(a);
   });
 
-  const renderLinha=(a,i,bg1,bg2)=>{
+  const renderLinha=(a,i,bg1,bg2,cor)=>{
     const celulasSemanas=semanas.map(s=>{
       const marcado=acompMarcados.find(m=>m.acompId===a.id&&m.semana===s);
       const cobrado=marcado?marcado.cobrado:false;
@@ -4963,7 +4963,7 @@ function renderAcompanhamento(){
     }).join('');
     const bg=i%2===0?bg1:bg2;
     return`<tr style="background:${bg};border-bottom:1px solid var(--border)">
-      <td style="padding:9px 12px;font-weight:600;color:var(--text);position:sticky;left:0;background:${bg}">${a.nome}</td>
+      <td style="padding:9px 12px;font-weight:600;color:${cor};position:sticky;left:0;background:${bg}">${a.nome}</td>
       ${celulasSemanas}
       <td style="padding:9px;text-align:center">
         <button onclick="delAcompanhamento('${a.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">✕</button>
@@ -4973,11 +4973,11 @@ function renderAcompanhamento(){
 
   if(comDebito.length){
     tbody.innerHTML+=`<tr><td colspan="${semanas.length+2}" style="padding:6px 12px;font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.05em;background:var(--red-bg)">⚠ Com débito em aberto (${comDebito.length})</td></tr>`;
-    tbody.innerHTML+=comDebito.map((a,i)=>renderLinha(a,i,'var(--white)','var(--bg)')).join('');
+    tbody.innerHTML+=comDebito.map((a,i)=>renderLinha(a,i,'var(--white)','var(--bg)','var(--red)')).join('');
   }
   if(emDia.length){
     tbody.innerHTML+=`<tr><td colspan="${semanas.length+2}" style="padding:6px 12px;font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em;background:var(--green-bg)">✓ Em dia (${emDia.length})</td></tr>`;
-    tbody.innerHTML+=emDia.map((a,i)=>renderLinha(a,i,'var(--white)','var(--bg)')).join('');
+    tbody.innerHTML+=emDia.map((a,i)=>renderLinha(a,i,'var(--white)','var(--bg)','var(--green)')).join('');
   }
 }
 
