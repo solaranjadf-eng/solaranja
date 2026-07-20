@@ -4931,7 +4931,26 @@ function renderAcompanhamento(){
     return;
   }
 
-  tbody.innerHTML=acompanhamentos.map((a,i)=>{
+  tbody.innerHTML='';
+  if(!acompanhamentos.length){
+    tbody.innerHTML=`<tr><td colspan="${semanas.length+2}" style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum cliente adicionado ainda.</td></tr>`;
+    return;
+  }
+
+  // Separar em dia vs com débito — verifica TODAS as semanas do ano, não só do mês visível
+  const emDia=[];
+  const comDebito=[];
+  const anoAtualStr=hojeKey.slice(0,4);
+  acompanhamentos.forEach(a=>{
+    // Pegar todas as semanas registradas para esse cliente no ano atual
+    const semanasDoCliente=acompMarcados.filter(m=>m.acompId===a.id&&m.semana&&m.semana.startsWith(anoAtualStr));
+    // Se tem alguma semana não cobrada OU nenhuma semana marcada = débito em aberto
+    const temDebito=semanasDoCliente.length===0||semanasDoCliente.some(m=>!m.cobrado);
+    if(temDebito) comDebito.push(a);
+    else emDia.push(a);
+  });
+
+  const renderLinha=(a,i,bg1,bg2)=>{
     const celulasSemanas=semanas.map(s=>{
       const marcado=acompMarcados.find(m=>m.acompId===a.id&&m.semana===s);
       const cobrado=marcado?marcado.cobrado:false;
@@ -4939,14 +4958,24 @@ function renderAcompanhamento(){
         <button onclick="toggleAcompCobrado('${a.id}','${s}')" style="width:26px;height:26px;border-radius:5px;cursor:pointer;border:1px solid ${cobrado?'#B8DFC8':'var(--border2)'};background:${cobrado?'var(--green)':'var(--white)'};color:${cobrado?'white':'transparent'};font-size:13px;font-weight:700">✓</button>
       </td>`;
     }).join('');
-    return`<tr style="background:${i%2===0?'var(--white)':'var(--bg)'};border-bottom:1px solid var(--border)">
-      <td style="padding:9px 12px;font-weight:600;color:var(--text);position:sticky;left:0;background:${i%2===0?'var(--white)':'var(--bg)'}">${a.nome}</td>
+    const bg=i%2===0?bg1:bg2;
+    return`<tr style="background:${bg};border-bottom:1px solid var(--border)">
+      <td style="padding:9px 12px;font-weight:600;color:var(--text);position:sticky;left:0;background:${bg}">${a.nome}</td>
       ${celulasSemanas}
       <td style="padding:9px;text-align:center">
         <button onclick="delAcompanhamento('${a.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">✕</button>
       </td>
     </tr>`;
-  }).join('');
+  };
+
+  if(comDebito.length){
+    tbody.innerHTML+=`<tr><td colspan="${semanas.length+2}" style="padding:6px 12px;font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.05em;background:var(--red-bg)">⚠ Com débito em aberto (${comDebito.length})</td></tr>`;
+    tbody.innerHTML+=comDebito.map((a,i)=>renderLinha(a,i,'var(--white)','var(--bg)')).join('');
+  }
+  if(emDia.length){
+    tbody.innerHTML+=`<tr><td colspan="${semanas.length+2}" style="padding:6px 12px;font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em;background:var(--green-bg)">✓ Em dia (${emDia.length})</td></tr>`;
+    tbody.innerHTML+=emDia.map((a,i)=>renderLinha(a,i,'var(--white)','var(--bg)')).join('');
+  }
 }
 
 function renderCobrancas(){
