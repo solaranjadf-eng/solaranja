@@ -2600,9 +2600,11 @@ function renderGraficoDash(lista){
       const mesNav=dashMesNav.getMonth();
       const diasNoMes=new Date(anoNav,mesNav+1,0).getDate();
       const dias=[],fats=[];
+      const diasSemana=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
       for(let i=1;i<=diasNoMes;i++){
         const dk=`${prefixo}-${String(i).padStart(2,'0')}`;
-        dias.push(String(i).padStart(2,'0'));
+        const diaSem=diasSemana[new Date(anoNav,mesNav,i).getDay()];
+        dias.push([String(i).padStart(2,'0'), diaSem]);
         fats.push(todos.filter(p=>p.data===dk).reduce((s,p)=>s+p.total,0));
       }
       const diaHoje=hoje.getDate();
