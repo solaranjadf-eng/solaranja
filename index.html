@@ -4937,15 +4937,18 @@ function renderAcompanhamento(){
     return;
   }
 
-  // Separar em dia vs com débito — verifica TODAS as semanas do ano, não só do mês visível
+  // Separar em dia vs com débito — baseado em pedidos entregues e não pagos
   const emDia=[];
   const comDebito=[];
-  const anoAtualStr=hojeKey.slice(0,4);
+  const todosPedidos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   acompanhamentos.forEach(a=>{
-    // Pegar todas as semanas registradas para esse cliente no ano atual
-    const semanasDoCliente=acompMarcados.filter(m=>m.acompId===a.id&&m.semana&&m.semana.startsWith(anoAtualStr));
-    // Se tem alguma semana não cobrada OU nenhuma semana marcada = débito em aberto
-    const temDebito=semanasDoCliente.length===0||semanasDoCliente.some(m=>!m.cobrado);
+    // Buscar cliente pelo nome ou clienteId
+    const cliente=clientes.find(c=>String(c.id)===String(a.clienteId)||(c.apelido||c.nome)===a.nome||c.nome===a.nome);
+    let temDebito=false;
+    if(cliente){
+      // Verificar se tem pedidos entregues não pagos
+      temDebito=todosPedidos.some(p=>String(p.clienteId)===String(cliente.id)&&p.entregue&&!p.pago);
+    }
     if(temDebito) comDebito.push(a);
     else emDia.push(a);
   });
