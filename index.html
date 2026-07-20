@@ -653,7 +653,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- GRÁFICO: Faturamento últimos 7 dias -->
   <div class="card" style="margin-bottom:12px">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">📈 Faturamento — últimos 7 dias</div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">📈 Faturamento — dias do mês</div>
     <div style="position:relative;height:180px">
       <canvas id="chart-fat-custos"></canvas>
     </div>
@@ -2590,19 +2590,25 @@ function renderDash(){
 function renderGraficoDash(lista){
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
 
-  // Gráfico 1: Faturamento últimos 7 dias
+  // Gráfico 1: Faturamento todos os dias do mês selecionado
   try{
     const ctx=document.getElementById('chart-fat-custos')?.getContext('2d');
     if(ctx){
       chartFatCustos=destroyChart(chartFatCustos);
+      const prefixo=getMesDashKey();
+      const anoNav=dashMesNav.getFullYear();
+      const mesNav=dashMesNav.getMonth();
+      const diasNoMes=new Date(anoNav,mesNav+1,0).getDate();
       const dias=[],fats=[];
-      for(let i=6;i>=0;i--){
-        const d=new Date(hoje);d.setDate(d.getDate()-i);
-        const dk=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
-        dias.push(d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}));
+      for(let i=1;i<=diasNoMes;i++){
+        const dk=`${prefixo}-${String(i).padStart(2,'0')}`;
+        dias.push(String(i).padStart(2,'0'));
         fats.push(todos.filter(p=>p.data===dk).reduce((s,p)=>s+p.total,0));
       }
-      chartFatCustos=new Chart(ctx,{type:'bar',data:{labels:dias,datasets:[{label:'Faturamento',data:fats,backgroundColor:'rgba(224,122,47,.7)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR')}}}}});
+      const diaHoje=hoje.getDate();
+      const eMesAtual=anoNav===hoje.getFullYear()&&mesNav===hoje.getMonth();
+      const cores=dias.map((_,i)=>eMesAtual&&(i+1)===diaHoje?'rgba(224,122,47,1)':'rgba(224,122,47,.6)');
+      chartFatCustos=new Chart(ctx,{type:'bar',data:{labels:dias,datasets:[{label:'Faturamento',data:fats,backgroundColor:cores,borderRadius:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'R$ '+c.raw.toLocaleString('pt-BR',{minimumFractionDigits:2})}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR')}}}}});
     }
   }catch(e){}
 
