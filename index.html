@@ -579,11 +579,14 @@ a{color:var(--orange);text-decoration:none}
     </div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
       <button class="fbtn active" id="dash-btn-hoje" onclick="setDashPeriodo('hoje',this)">Hoje</button>
-      <button class="fbtn" onclick="setDashPeriodo('mes',this)">Este mês</button>
-      <button class="fbtn" onclick="setDashPeriodo('mesant',this)">Mês anterior</button>
-      <button class="fbtn" onclick="setDashPeriodo('ano',this)">Este ano</button>
+      <button class="fbtn" id="dash-btn-ano" onclick="setDashPeriodo('ano',this)">Este ano</button>
       <button class="fbtn" id="dash-btn-custom" onclick="setDashPeriodo('custom',this)">Data</button>
       <input type="date" id="dash-data-custom" style="height:30px;font-size:11px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 6px;display:none" onchange="renderDash()">
+      <div style="display:flex;align-items:center;gap:4px;background:var(--bg2);border-radius:var(--radius);padding:3px 8px">
+        <button onclick="navegarMesDash(-1)" style="background:none;border:none;cursor:pointer;font-size:15px;color:var(--text2);padding:0 2px">◀</button>
+        <span id="dash-mes-label" style="font-size:12px;font-weight:700;color:var(--text);min-width:100px;text-align:center"></span>
+        <button onclick="navegarMesDash(1)" style="background:none;border:none;cursor:pointer;font-size:15px;color:var(--text2);padding:0 2px">▶</button>
+      </div>
     </div>
   </div>
 
@@ -2199,7 +2202,8 @@ async function sincronizar(){
       }
     }catch(e){}
     setSyncStatus('ok','✓ Conectado — dados sincronizados');
-    syncErros=0; // resetar contador de erros
+    syncErros=0;
+    _atualizarLabelMes();
     renderDash();
     renderClienteList();atualizarBadges();verificarAlertasEstoque();verificarAniversarios();
     TAMS.forEach(t=>{const el=document.getElementById('min-'+t);if(el&&estMinimos[t]>0)el.value=estMinimos[t];});
@@ -2239,7 +2243,7 @@ function setTab(t){
   if(titleEl)titleEl.textContent=TAB_LABELS[t]||t;
   // Salvar aba ativa
   localStorage.setItem('slj_aba_ativa', t);
-  if(t==='dash')     renderDash();
+  if(t==='dash')     {_atualizarLabelMes();renderDash();}
   if(t==='dia')      renderDia();
   if(t==='rota')     renderRota();
   if(t==='resumo')   {renderResumo();atualizarMeta();}
@@ -2266,25 +2270,26 @@ function destroyChart(c){if(c){try{c.destroy();}catch(e){}}return null;}
 
 function setDashPeriodo(p,btn){
   dashPeriodo=p;
+  // Sincronizar dashMesNav com o período selecionado
+  if(p==='mes') dashMesNav=new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  if(p==='mesant'){const d=new Date(hoje);d.setMonth(d.getMonth()-1);dashMesNav=new Date(d.getFullYear(),d.getMonth(),1);}
   document.querySelectorAll('#page-dash .fbtn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   const customInp=document.getElementById('dash-data-custom');
   if(customInp)customInp.style.display=p==='custom'?'':'none';
+  _atualizarLabelMes();
   renderDash();
 }
 
 function getDashPedidos(){
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
-  const mesAtual=hojeKey.slice(0,7);
   const anoAtual=hojeKey.slice(0,4);
-  const d=new Date(hoje);d.setMonth(d.getMonth()-1);
-  const mesAnt=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
-  if(dashPeriodo==='hoje')   return todos.filter(p=>p.data===hojeKey);
-  if(dashPeriodo==='mes')    return todos.filter(p=>p.data&&p.data.startsWith(mesAtual));
-  if(dashPeriodo==='mesant') return todos.filter(p=>p.data&&p.data.startsWith(mesAnt));
-  if(dashPeriodo==='ano')    return todos.filter(p=>p.data&&p.data.startsWith(anoAtual));
+  if(dashPeriodo==='hoje') return todos.filter(p=>p.data===hojeKey);
+  if(dashPeriodo==='ano')  return todos.filter(p=>p.data&&p.data.startsWith(anoAtual));
   if(dashPeriodo==='custom'){const v=document.getElementById('dash-data-custom')?.value;return v?todos.filter(p=>p.data===v):todos.filter(p=>p.data===hojeKey);}
-  return todos.filter(p=>p.data===hojeKey);
+  // mes e mesant: usar dashMesNav
+  const prefixo=getMesDashKey();
+  return todos.filter(p=>p.data&&p.data.startsWith(prefixo));
 }
 
 function verificarAlertasEstoque(){
@@ -2311,14 +2316,35 @@ function verificarAniversarios(){
   alertasEl.prepend(aviso);
 }
 
+let dashMesNav=new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+function _atualizarLabelMes(){
+  const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const el=document.getElementById('dash-mes-label');
+  if(el) el.textContent=meses[dashMesNav.getMonth()]+' '+dashMesNav.getFullYear();
+}
+
+function navegarMesDash(dir){
+  dashMesNav=new Date(dashMesNav.getFullYear(), dashMesNav.getMonth()+dir, 1);
+  // Ao navegar pelo mês, desmarcar outros botões
+  dashPeriodo='mes';
+  document.querySelectorAll('#page-dash .fbtn').forEach(b=>b.classList.remove('active'));
+  const customInp=document.getElementById('dash-data-custom');
+  if(customInp) customInp.style.display='none';
+  _atualizarLabelMes();
+  renderDash();
+}
+
 function getMesDashKey(){
-  const mesAtual=hojeKey.slice(0,7);
-  const d=new Date(hoje);d.setMonth(d.getMonth()-1);
-  const mesAnt=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
-  if(dashPeriodo==='mesant') return mesAnt;
-  if(dashPeriodo==='mes') return mesAtual;
-  if(dashPeriodo==='custom'){const v=document.getElementById('dash-data-custom')?.value;return v?v.slice(0,7):mesAtual;}
-  return mesAtual;
+  const y=dashMesNav.getFullYear();
+  const m=String(dashMesNav.getMonth()+1).padStart(2,'0');
+  if(dashPeriodo==='mes') return `${y}-${m}`;
+  if(dashPeriodo==='mesant'){
+    const d=new Date(hoje);d.setMonth(d.getMonth()-1);
+    return d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
+  }
+  if(dashPeriodo==='custom'){const v=document.getElementById('dash-data-custom')?.value;return v?v.slice(0,7):hojeKey.slice(0,7);}
+  return hojeKey.slice(0,7);
 }
 
 function recalcularImpostoLucro(){
@@ -2363,7 +2389,7 @@ function renderDash(){
   if(el('dash-arec-sub'))el('dash-arec-sub').textContent=lista.filter(p=>p.entregue&&!p.pago).length+' clientes';
 
   // Custos do mês — separados corretamente
-  const mesAtual=getMesDashKey();
+  const mesAtual=dashPeriodo==='ano'?hojeKey.slice(0,4):getMesDashKey();
   // Meta do mês — pizza chart
   const metaMes=load('slj_meta_mes',0);
   const metaMesInp=document.getElementById('meta-mes-input');
