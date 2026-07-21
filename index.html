@@ -657,7 +657,6 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- Alertas globais -->
   <div id="alerta-estoque-global" style="display:none;padding:8px 16px 0"></div>
-  <div id="alerta-devedores" style="padding:0 16px"></div>
   <div class="card" style="margin-bottom:12px">
     <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">📈 Faturamento — dias do mês</div>
     <div style="position:relative;height:180px">
@@ -2250,7 +2249,6 @@ async function sincronizar(){
     syncErros=0;
     _atualizarLabelMes();
     renderDash();
-    verificarClientesSemPagar();
     mostrarAlertaEstoque();
     renderClienteList();atualizarBadges();verificarAlertasEstoque();verificarAniversarios();
     TAMS.forEach(t=>{const el=document.getElementById('min-'+t);if(el&&estMinimos[t]>0)el.value=estMinimos[t];});
