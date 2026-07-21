@@ -2189,19 +2189,19 @@ async function sincronizar(){
       }
 
       const dbForn=await sbGet('fornecedores_laranja','?order=nome');      if(dbForn&&dbForn.length>0){
-        fornecedores=dbForn.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',preçoRef:f.preço_ref||0,obs:f.obs||''}));
+        fornecedores=dbForn.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',precoRef:f.preco_ref||0,obs:f.obs||''}));
         lsave('slj_fornecedores',fornecedores);
       } else if(fornecedores.length>0){
         // Migrar do localStorage para o banco
-        await sbUps('fornecedores_laranja',fornecedores.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',preço_ref:f.preçoRef||0,obs:f.obs||''})));
+        await sbUps('fornecedores_laranja',fornecedores.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',preco_ref:f.precoRef||0,obs:f.obs||''})));
       }
       const dbCompras=await sbGet('compras_laranja','?order=data.desc&limit=500');
       if(dbCompras&&dbCompras.length>0){
-        comprasLaranja=dbCompras.map(c=>({id:c.id,fornId:c.forn_id,qtd:c.qtd,preço:c.preço,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago||false,valorPago:c.valor_pago||0}));
+        comprasLaranja=dbCompras.map(c=>({id:c.id,fornId:c.forn_id,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago||false,valorPago:c.valor_pago||0}));
         lsave('slj_compras_lar',comprasLaranja);
       } else if(comprasLaranja.length>0){
         // Migrar do localStorage para o banco
-        await sbUps('compras_laranja',comprasLaranja.map(c=>({id:c.id,forn_id:c.fornId,qtd:c.qtd,preço:c.preço,total:c.total,data:c.data,obs:c.obs||''})));
+        await sbUps('compras_laranja',comprasLaranja.map(c=>({id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:c.obs||''})));
       }
     }catch(e){}
     setSyncStatus('ok','✓ Conectado — dados sincronizados');
@@ -2740,7 +2740,7 @@ function renderLaranjas(){
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap">${forn?forn.nome:'—'} ${pagoBadge}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:2px">${c.qtd} saco(s) · ${moeda(c.preço)}/saco · ${c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${c.qtd} saco(s) · ${moeda(c.preco)}/saco · ${c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
               ${c.obs?`<div style="font-size:11px;color:var(--text3);font-style:italic">${c.obs}</div>`:''}
               ${parcial?`<div style="font-size:11px;color:#1D4ED8;margin-top:3px">Pago: ${moeda(valorPago)} · Falta: <strong style="color:var(--red)">${moeda(falta)}</strong></div>`:''}
               ${c.pago&&valorPago>0?`<div style="font-size:11px;color:var(--green);margin-top:3px">Pago: ${moeda(valorPago)}</div>`:''}
@@ -2767,7 +2767,7 @@ function renderLaranjas(){
         <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
           <div>
             <div style="font-size:13px;font-weight:600;color:var(--text)">${f.nome}</div>
-            <div style="font-size:11px;color:var(--text3)">${f.tel?f.tel+' · ':''}${f.local||''}${f.preçoRef?' · Ref: '+moeda(f.preçoRef)+'/saco':''}</div>
+            <div style="font-size:11px;color:var(--text3)">${f.tel?f.tel+' · ':''}${f.local||''}${f.precoRef?' · Ref: '+moeda(f.precoRef)+'/saco':''}</div>
             ${f.obs?`<div style="font-size:11px;color:var(--text3);font-style:italic">${f.obs}</div>`:''}
           </div>
           <button onclick="delFornecedor('${f.id}')" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer;flex-shrink:0">✕</button>
@@ -2804,18 +2804,17 @@ function atualizarTotalLar(){
 function registrarCompraLaranja(){
   const fornId=document.getElementById('lar-forn')?.value;
   const qtd=parseFloat(document.getElementById('lar-qtd')?.value)||0;
-  const preço=parseFloat(document.getElementById('lar-preço')?.value)||0;
+  const preco=parseFloat(document.getElementById('lar-preço')?.value)||0;
   const data=document.getElementById('lar-data')?.value||hojeKey;
   if(!data){toast('Informe a data da compra.');return;}
   const obs=document.getElementById('lar-obs')?.value.trim()||'';
   if(!fornId){toast('Selecione um fornecedor.');return;}
   if(qtd<=0){toast('Informe a quantidade de sacos.');return;}
-  if(preço<=0){toast('Informe o preço por saco.');return;}
-  const compra={id:Date.now().toString(),fornId,qtd,preço,total:qtd*preço,data,obs,pago:larPagamentoSel==='pago',valorPago:larPagamentoSel==='pago'?qtd*preço:0};
+  if(preco<=0){toast('Informe o preço por saco.');return;}
+  const compra={id:Date.now().toString(),fornId,qtd,preco,total:qtd*preco,data,obs,pago:larPagamentoSel==='pago',valorPago:larPagamentoSel==='pago'?qtd*preco:0};
   comprasLaranja.unshift(compra);
   lsave('slj_compras_lar',comprasLaranja);
-  // Salvar no banco
-  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd,preço,total:compra.total,data,obs,pago:compra.pago,valor_pago:compra.valorPago}])
+  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd,preco,total:compra.total,data,obs,pago:compra.pago,valor_pago:compra.valorPago}])
     .then(()=>setSyncStatus('ok','✓ Conectado'))
     .catch(()=>setSyncStatus('err','Erro ao sincronizar'));
   document.getElementById('lar-qtd').value='';
@@ -2836,7 +2835,7 @@ function togglePagoLaranja(id){
   if(c.pago) c.valorPago=c.total; // pago total
   else c.valorPago=0;
   lsave('slj_compras_lar',comprasLaranja);
-  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preço:c.preço,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago,valor_pago:c.valorPago}])
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago,valor_pago:c.valorPago}])
     .then(()=>toast(c.pago?'✓ Marcado como pago':'Desmarcado.'))
     .catch(()=>toast('Erro ao salvar.'));
   renderLaranjas();
@@ -2864,7 +2863,7 @@ function abrirPagamentoParcialLaranja(id){
     c.pago=true;
   }
   lsave('slj_compras_lar',comprasLaranja);
-  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preço:c.preço,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago,valor_pago:c.valorPago}])
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago,valor_pago:c.valorPago}])
     .then(()=>toast('✓ Pagamento de '+moeda(valorNovo)+' registrado.'))
     .catch(()=>toast('Erro ao salvar.'));
   renderLaranjas();
@@ -2887,13 +2886,13 @@ function addFornecedor(){
     nome,
     tel:document.getElementById('forn-tel')?.value.trim()||'',
     local:document.getElementById('forn-local')?.value.trim()||'',
-    preçoRef:parseFloat(document.getElementById('forn-preço-ref')?.value)||0,
+    precoRef:parseFloat(document.getElementById('forn-preço-ref')?.value)||0,
     obs:document.getElementById('forn-obs')?.value.trim()||''
   };
   fornecedores.push(forn);
   lsave('slj_fornecedores',fornecedores);
   // Salvar no banco
-  sbUps('fornecedores_laranja',[{id:forn.id,nome:forn.nome,tel:forn.tel,local:forn.local,preço_ref:forn.preçoRef,obs:forn.obs}])
+  sbUps('fornecedores_laranja',[{id:forn.id,nome:forn.nome,tel:forn.tel,local:forn.local,preco_ref:forn.precoRef,obs:forn.obs}])
     .then(()=>setSyncStatus('ok','✓ Conectado'))
     .catch(()=>setSyncStatus('err','Erro ao sincronizar'));
   ['forn-nome','forn-tel','forn-local','forn-preço-ref','forn-obs'].forEach(id=>{
