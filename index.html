@@ -7486,17 +7486,17 @@ function gerarPDFEvento(){
       <tr><td class="lb">Contratante:</td><td><strong>${cliente}</strong></td></tr>
       <tr><td class="lb">Evento:</td><td>${nomeEvento}</td></tr>
       <tr><td class="lb">Data:</td><td>${dataEvento}</td></tr>
-      ${horario?`<tr><td class="lb">Horario:</td><td>${horario}</td></tr>`:''}
-      ${local?`<tr><td class="lb">Local:</td><td>${local}</td></tr>`:''}
-      ${convidados?`<tr><td class="lb">Convidados:</td><td>${convidados} pessoas</td></tr>`:''}
-      ${tempo?`<tr><td class="lb">Atendimento:</td><td>${tempo} horas</td></tr>`:''}
+      ${horario?'<tr><td class="lb">Horário:</td><td>'+horario+'</td></tr>':''}
+      ${local?'<tr><td class="lb">Local:</td><td>'+local+'</td></tr>':''}
+      ${convidados?'<tr><td class="lb">Convidados:</td><td>'+convidados+' pessoas</td></tr>':''}
+      ${tempo?'<tr><td class="lb">Atendimento:</td><td>'+tempo+' horas</td></tr>':''}
     </table>
   </div>
-  <div class="intro-box">Receba seus convidados com charme, frescor e elegância.<br>Nossa Estacao de Boas-Vindas transforma a chegada dos convidados em uma experiência acolhedora e memorável, proporcionando conforto, hidratação e uma apresentação sofisticada que harmoniza perfeitamente com a celebração.</div>
+  <div class="intro-box">Receba seus convidados com charme, frescor e elegância.<br>Nossa Estação de Boas-Vindas transforma a chegada dos convidados em uma experiência acolhedora e memorável, proporcionando conforto, hidratação e uma apresentação sofisticada que harmoniza perfeitamente com a celebração.</div>
   <div class="section">
-    <div class="section-title">Incluso no Servico</div>
+    <div class="section-title">Incluso no Serviço</div>
     <ul class="srv-list">
-      ${servicos.map(s=>`<li>${s}</li>`).join('')}
+      ${servicos.map(s=>'<li>'+s+'</li>').join('')}
       <li>Copos para atendimento: ${copo}</li>
     </ul>
   </div>
@@ -7508,8 +7508,8 @@ function gerarPDFEvento(){
     <div class="cond-item"><div class="cond-lb">Forma de Pagamento</div>${pagamento}</div>
     <div class="cond-item"><div class="cond-lb">Validade da Proposta</div>${validade}</div>
   </div>
-  ${diferenciais.length?`<div class="section"><div class="section-title">Diferenciais Só Laranja</div><ul class="dif-list">${diferenciais.map(d=>`<li>${d}</li>`).join('')}</ul></div>`:''}
-  ${frase?`<div class="frase-box">"${frase}"</div>`:''}
+  ${diferenciais.length?'<div class="section"><div class="section-title">Diferenciais Só Laranja</div><ul class="dif-list">'+diferenciais.map(d=>'<li>'+d+'</li>').join('')+'</ul></div>':''}
+  ${frase?'<div class="frase-box">"'+frase+'"</div>':''}
 
   <div style="margin-bottom:14px;font-size:12px;line-height:1.8">
     <strong>Pagamento:</strong><br>
@@ -7587,11 +7587,12 @@ function verificarClientesSemPagar(){
   if(!alertas.length){el.style.display='none';return;}
   alertas.sort((a,b)=>b.dias-a.dias);
   el.style.display='';
-  el.innerHTML=`<div style="background:var(--red-bg);border:1px solid var(--red);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px">
-    <div style="font-weight:700;color:var(--red);margin-bottom:6px">⚠ ${alertas.length} cliente(s) sem pagar há mais de ${diasAlerta} dias</div>
-    ${alertas.map(a=>`<div style="font-size:12px;color:var(--text2);padding:3px 0;border-bottom:1px solid var(--border)">${a.nome} — <strong>${moeda(a.total)}</strong> (${a.qtd} pedido${a.qtd>1?'s':''} · ${a.dias} dias)</div>`).join('')}
-    <div style="margin-top:8px;font-size:11px;color:var(--text3)">Alerta após: <input type="number" value="${diasAlerta}" min="1" max="90" style="width:45px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:11px" onchange="localStorage.setItem('slj_dias_sem_pagar',this.value);verificarClientesSemPagar()"> dias</div>
-  </div>`;
+  const linhas=alertas.map(a=>'<div style="font-size:12px;color:var(--text2);padding:3px 0;border-bottom:1px solid var(--border)">'+a.nome+' — <strong>'+moeda(a.total)+'</strong> ('+a.qtd+' pedido'+(a.qtd>1?'s':'')+'·'+a.dias+' dias)</div>').join('');
+  el.innerHTML='<div style="background:var(--red-bg);border:1px solid var(--red);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px">'
+    +'<div style="font-weight:700;color:var(--red);margin-bottom:6px">⚠ '+alertas.length+' cliente(s) sem pagar há mais de '+diasAlerta+' dias</div>'
+    +linhas
+    +'<div style="margin-top:8px;font-size:11px;color:var(--text3)">Alerta após: <input type="number" value="'+diasAlerta+'" min="1" max="90" style="width:45px;padding:2px 4px;border:1px solid var(--border);border-radius:3px;font-size:11px" onchange="localStorage.setItem(\'slj_dias_sem_pagar\',this.value);verificarClientesSemPagar()"> dias</div>'
+    +'</div>';
 }
 
 // ── 4. RELATÓRIO MENSAL PDF ─────────────────────────────────────────────────
@@ -7614,69 +7615,27 @@ function gerarRelatorioMensal(){
     custosPorCat[c.label||c.cat]=(custosPorCat[c.label||c.cat]||0)+c.valor;
   });
 
-  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><style>
-  *{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;color:#000;font-size:12px;padding:30px}
-  .titulo{text-align:center;font-size:18px;font-weight:700;margin-bottom:4px}
-  .subtitulo{text-align:center;font-size:13px;color:#444;margin-bottom:20px}
-  .section{margin-bottom:18px}
-  .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #000;padding-bottom:3px;margin-bottom:8px}
-  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
-  .card{border:1px solid #ccc;border-radius:4px;padding:10px;text-align:center}
-  .card-label{font-size:10px;color:#666;text-transform:uppercase;margin-bottom:4px}
-  .card-val{font-size:16px;font-weight:700}
-  .card-val.verde{color:#1a7f3c}.card-val.vermelho{color:#c0392b}
-  table{width:100%;border-collapse:collapse;margin-bottom:10px}
-  th{background:#f0f0f0;border:1px solid #ccc;padding:6px 8px;font-size:10px;text-align:left}
-  td{border:1px solid #ccc;padding:5px 8px;font-size:11px}
-  .footer{text-align:center;font-size:10px;color:#888;border-top:1px solid #ccc;padding-top:10px;margin-top:20px}
-  @media print{body{padding:15px}}
-  </style></head><body>
-  <div class="titulo">Só Laranja — Relatório Mensal</div>
-  <div class="subtitulo">${mesNome} · Gerado em ${dataAtual}</div>
-  <div class="section">
-    <div class="section-title">Resumo Financeiro</div>
-    <div class="grid">
-      <div class="card"><div class="card-label">Faturamento</div><div class="card-val">${moeda(fat)}</div></div>
-      <div class="card"><div class="card-label">Custos Totais</div><div class="card-val vermelho">${moeda(custos)}</div></div>
-      <div class="card"><div class="card-label">Lucro Líquido</div><div class="card-val ${lucro>=0?'verde':'vermelho'}">${moeda(lucro)}</div></div>
-      <div class="card"><div class="card-label">A Receber</div><div class="card-val vermelho">${moeda(receber)}</div></div>
-      <div class="card"><div class="card-label">Imposto</div><div class="card-val">${moeda(imposto)}</div></div>
-      <div class="card"><div class="card-label">Pedidos</div><div class="card-val">${lista.length}</div></div>
-    </div>
-  </div>
-  <div class="section">
-    <div class="section-title">Custos Operacionais</div>
-    <table><thead><tr><th>Categoria</th><th style="text-align:right">Valor</th></tr></thead><tbody>
-    ${Object.entries(custosPorCat).map(([k,v])=>`<tr><td>${k}</td><td style="text-align:right">${moeda(v)}</td></tr>`).join('')}
-    ${larMes>0?`<tr><td>🍊 Laranjas</td><td style="text-align:right">${moeda(larMes)}</td></tr>`:''}
-    <tr style="font-weight:700;background:#f0f0f0"><td>Total</td><td style="text-align:right">${moeda(custos+larMes)}</td></tr>
-    </tbody></table>
-  </div>
-  <div class="section">
-    <div class="section-title">Volume por Embalagem</div>
-    <table><thead><tr><th>Embalagem</th><th style="text-align:center">Quantidade</th><th style="text-align:right">Faturamento</th></tr></thead><tbody>
-    ${TAMS.map(t=>{
-      const qtd=lista.reduce((s,p)=>s+p.itens.filter(i=>i.tam===t).reduce((a,i)=>a+i.qtd,0),0);
-      const fat2=lista.reduce((s,p)=>s+p.itens.filter(i=>i.tam===t).reduce((a,i)=>a+(i.preco||i.preço||0)*i.qtd,0),0);
-      return qtd>0?`<tr><td>${TL[t]}</td><td style="text-align:center">${qtd}</td><td style="text-align:right">${moeda(fat2)}</td></tr>`:'';
-    }).join('')}
-    </tbody></table>
-  </div>
-  <div class="section">
-    <div class="section-title">Top 10 Clientes</div>
-    <table><thead><tr><th>Cliente</th><th style="text-align:center">Pedidos</th><th style="text-align:right">Total</th><th style="text-align:center">Status</th></tr></thead><tbody>
-    ${Object.entries(lista.reduce((acc,p)=>{
-      if(!acc[p.clienteNome]) acc[p.clienteNome]={total:0,qtd:0,debito:false};
-      acc[p.clienteNome].total+=(p.total||0);
-      acc[p.clienteNome].qtd++;
-      if(p.entregue&&!p.pago) acc[p.clienteNome].debito=true;
-      return acc;
-    },{})).sort((a,b)=>b[1].total-a[1].total).slice(0,10)
-    .map(([nome,d])=>`<tr><td>${nome}</td><td style="text-align:center">${d.qtd}</td><td style="text-align:right">${moeda(d.total)}</td><td style="text-align:center;color:${d.debito?'#c0392b':'#1a7f3c'}">${d.debito?'Em aberto':'Pago'}</td></tr>`).join('')}
-    </tbody></table>
-  </div>
-  <div class="footer">Só Laranja · CNPJ: 40.776.530/0001-40 · (61) 98562-3008 · Brasília - DF</div>
-  </body></html>`;
+  const css='*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;color:#000;font-size:12px;padding:30px}.titulo{text-align:center;font-size:18px;font-weight:700;margin-bottom:4px}.subtitulo{text-align:center;font-size:13px;color:#444;margin-bottom:20px}.section{margin-bottom:18px}.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #000;padding-bottom:3px;margin-bottom:8px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}.card{border:1px solid #ccc;border-radius:4px;padding:10px;text-align:center}.card-label{font-size:10px;color:#666;text-transform:uppercase;margin-bottom:4px}.card-val{font-size:16px;font-weight:700}.verde{color:#1a7f3c}.vermelho{color:#c0392b}table{width:100%;border-collapse:collapse;margin-bottom:10px}th{background:#f0f0f0;border:1px solid #ccc;padding:6px 8px;font-size:10px;text-align:left}td{border:1px solid #ccc;padding:5px 8px;font-size:11px}.footer{text-align:center;font-size:10px;color:#888;border-top:1px solid #ccc;padding-top:10px;margin-top:20px}@media print{body{padding:15px}}';
+  const linhasCustos=Object.entries(custosPorCat).map(([k,v])=>'<tr><td>'+k+'</td><td style="text-align:right">'+moeda(v)+'</td></tr>').join('')+(larMes>0?'<tr><td>Laranjas</td><td style="text-align:right">'+moeda(larMes)+'</td></tr>':'')+'<tr style="font-weight:700;background:#f0f0f0"><td>Total</td><td style="text-align:right">'+moeda(custos+larMes)+'</td></tr>';
+  const linhasEmb=TAMS.map(t=>{const qtd=lista.reduce((s,p)=>s+p.itens.filter(i=>i.tam===t).reduce((a,i)=>a+i.qtd,0),0);const fat2=lista.reduce((s,p)=>s+p.itens.filter(i=>i.tam===t).reduce((a,i)=>a+(i.preco||i.preco||0)*i.qtd,0),0);return qtd>0?'<tr><td>'+TL[t]+'</td><td style="text-align:center">'+qtd+'</td><td style="text-align:right">'+moeda(fat2)+'</td></tr>':'';}).join('');
+  const rankAcc={};lista.forEach(p=>{if(!rankAcc[p.clienteNome])rankAcc[p.clienteNome]={total:0,qtd:0,debito:false};rankAcc[p.clienteNome].total+=(p.total||0);rankAcc[p.clienteNome].qtd++;if(p.entregue&&!p.pago)rankAcc[p.clienteNome].debito=true;});
+  const linhasCli=Object.entries(rankAcc).sort((a,b)=>b[1].total-a[1].total).slice(0,10).map(([nome,d])=>'<tr><td>'+nome+'</td><td style="text-align:center">'+d.qtd+'</td><td style="text-align:right">'+moeda(d.total)+'</td><td style="text-align:center;color:'+(d.debito?'#c0392b':'#1a7f3c')+'">'+(d.debito?'Em aberto':'Pago')+'</td></tr>').join('');
+  const html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><style>'+css+'</style></head><body>'
+    +'<div class="titulo">Só Laranja — Relatório Mensal</div>'
+    +'<div class="subtitulo">'+mesNome+' · Gerado em '+dataAtual+'</div>'
+    +'<div class="section"><div class="section-title">Resumo Financeiro</div><div class="grid">'
+    +'<div class="card"><div class="card-label">Faturamento</div><div class="card-val">'+moeda(fat)+'</div></div>'
+    +'<div class="card"><div class="card-label">Custos Totais</div><div class="card-val vermelho">'+moeda(custos)+'</div></div>'
+    +'<div class="card"><div class="card-label">Lucro Líquido</div><div class="card-val '+(lucro>=0?'verde':'vermelho')+'">'+moeda(lucro)+'</div></div>'
+    +'<div class="card"><div class="card-label">A Receber</div><div class="card-val vermelho">'+moeda(receber)+'</div></div>'
+    +'<div class="card"><div class="card-label">Imposto</div><div class="card-val">'+moeda(imposto)+'</div></div>'
+    +'<div class="card"><div class="card-label">Pedidos</div><div class="card-val">'+lista.length+'</div></div>'
+    +'</div></div>'
+    +'<div class="section"><div class="section-title">Custos Operacionais</div><table><thead><tr><th>Categoria</th><th style="text-align:right">Valor</th></tr></thead><tbody>'+linhasCustos+'</tbody></table></div>'
+    +'<div class="section"><div class="section-title">Volume por Embalagem</div><table><thead><tr><th>Embalagem</th><th style="text-align:center">Quantidade</th><th style="text-align:right">Faturamento</th></tr></thead><tbody>'+linhasEmb+'</tbody></table></div>'
+    +'<div class="section"><div class="section-title">Top 10 Clientes</div><table><thead><tr><th>Cliente</th><th style="text-align:center">Pedidos</th><th style="text-align:right">Total</th><th style="text-align:center">Status</th></tr></thead><tbody>'+linhasCli+'</tbody></table></div>'
+    +'<div class="footer">Só Laranja · CNPJ: 40.776.530/0001-40 · (61) 98562-3008 · Brasília - DF</div>'
+    +'</body></html>';
   const w=window.open('','_blank');
   w.document.write(html);
   w.document.close();
@@ -7718,15 +7677,19 @@ function renderRankingClientes(){
   });
   const sorted=Object.entries(rank).sort((a,b)=>b[1].total-a[1].total).slice(0,20);
   if(!sorted.length){el.innerHTML='<p style="color:var(--text3);font-size:13px;padding:12px 0">Nenhum pedido neste período.</p>';return;}
-  el.innerHTML=sorted.map(([nome,d],i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
-      <div style="width:24px;height:24px;border-radius:50%;background:${i<3?'var(--orange)':'var(--bg2)'};color:${i<3?'#fff':'var(--text2)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${nome}</div>
-        <div style="font-size:11px;color:var(--text3)">${d.qtd} pedido${d.qtd>1?'s':''} · ${d.litros.toFixed(1)} L</div>
-      </div>
-      <div style="font-size:14px;font-weight:700;color:var(--orange)">${moeda(d.total)}</div>
-    </div>`).join('');
+  el.innerHTML=sorted.map(([nome,d],i)=>{
+    const bg=i<3?'var(--orange)':'var(--bg2)';
+    const cor=i<3?'#fff':'var(--text2)';
+    const plural=d.qtd>1?'s':'';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">'
+      +'<div style="width:24px;height:24px;border-radius:50%;background:'+bg+';color:'+cor+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">'+(i+1)+'</div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nome+'</div>'
+      +'<div style="font-size:11px;color:var(--text3)">'+d.qtd+' pedido'+plural+' · '+d.litros.toFixed(1)+' L</div>'
+      +'</div>'
+      +'<div style="font-size:14px;font-weight:700;color:var(--orange)">'+moeda(d.total)+'</div>'
+      +'</div>';
+  }).join('');
 }
 
 // ── 7. HISTÓRICO DE PREÇOS POR CLIENTE ──────────────────────────────────────
@@ -7744,11 +7707,12 @@ function verHistoricoPrecos(clienteId){
   const datas=Object.keys(precosPorData).sort((a,b)=>b.localeCompare(a));
   const tamsUsados=TAMS.filter(t=>datas.some(d=>precosPorData[d][t]>0));
   if(!tamsUsados.length){toast('Nenhum histórico de preços encontrado.');return;}
-  const linhas=datas.map(d=>`<tr><td style="padding:5px 8px;font-size:11px">${new Date(d+'T12:00:00').toLocaleDateString('pt-BR')}</td>${tamsUsados.map(t=>`<td style="padding:5px 8px;text-align:right;font-size:11px">${precosPorData[d][t]?moeda(precosPorData[d][t]):'—'}</td>`).join('')}</tr>`).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;padding:20px;font-size:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:5px 8px}th{background:#f0f0f0;font-weight:700}</style></head><body>
-  <h2 style="margin-bottom:12px">Histórico de Preços — ${c.nome}</h2>
-  <table><thead><tr><th>Data</th>${tamsUsados.map(t=>`<th style="text-align:right">${TL[t]}</th>`).join('')}</tr></thead><tbody>${linhas}</tbody></table>
-  </body></html>`;
+  const cabTams=tamsUsados.map(t=>'<th style="text-align:right">'+TL[t]+'</th>').join('');
+  const linhas=datas.map(d=>'<tr><td style="padding:5px 8px;font-size:11px">'+new Date(d+'T12:00:00').toLocaleDateString('pt-BR')+'</td>'+tamsUsados.map(t=>'<td style="padding:5px 8px;text-align:right;font-size:11px">'+(precosPorData[d][t]?moeda(precosPorData[d][t]):'—')+'</td>').join('')+'</tr>').join('');
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;padding:20px;font-size:12px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:5px 8px}th{background:#f0f0f0;font-weight:700}</style></head><body>'
+    +'<h2 style="margin-bottom:12px">Histórico de Preços — '+c.nome+'</h2>'
+    +'<table><thead><tr><th>Data</th>'+cabTams+'</tr></thead><tbody>'+linhas+'</tbody></table>'
+    +'</body></html>';
   const w=window.open('','_blank');w.document.write(html);w.document.close();
 }
 
@@ -7794,17 +7758,17 @@ function renderRascunhosOrc(){
   if(!el) return;
   const rascunhos=JSON.parse(localStorage.getItem('slj_rascunhos_orc')||'[]');
   if(!rascunhos.length){el.innerHTML='<p style="font-size:12px;color:var(--text3)">Nenhum rascunho salvo.</p>';return;}
-  el.innerHTML=rascunhos.map((r,i)=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div>
-        <div style="font-size:13px;font-weight:600">${r.nomeEvento||r.cliente||'Sem nome'} <span style="font-size:11px;color:var(--text3)">(${r.tipo})</span></div>
-        <div style="font-size:11px;color:var(--text3)">${new Date(r.ts).toLocaleString('pt-BR')}</div>
-      </div>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="carregarRascunhoOrc(${i})">Carregar</button>
-        <button style="background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);padding:4px 8px;cursor:pointer;font-size:11px" onclick="deletarRascunhoOrc(${i})">✕</button>
-      </div>
-    </div>`).join('');
+  el.innerHTML=rascunhos.map((r,i)=>{
+    const nome=r.nomeEvento||r.cliente||'Sem nome';
+    const data=new Date(r.ts).toLocaleString('pt-BR');
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">'
+      +'<div><div style="font-size:13px;font-weight:600">'+nome+' <span style="font-size:11px;color:var(--text3)">('+r.tipo+')</span></div>'
+      +'<div style="font-size:11px;color:var(--text3)">'+data+'</div></div>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="carregarRascunhoOrc('+i+')">Carregar</button>'
+      +'<button style="background:var(--red-bg);color:var(--red);border:none;border-radius:var(--radius-sm);padding:4px 8px;cursor:pointer;font-size:11px" onclick="deletarRascunhoOrc('+i+')">✕</button>'
+      +'</div></div>';
+  }).join('');
 }
 
 function deletarRascunhoOrc(i){
