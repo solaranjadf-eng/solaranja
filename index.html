@@ -5805,8 +5805,9 @@ function gerarPDFCliente(){
 
   if(!pedsCli.length){toast('Selecione ao menos um pedido para o PDF.');return;}
 
-  const totalGeral = pedsCli.reduce((s,p)=>s+p.total,0);
-  const debito = pedsCli.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
+  const calcTotal=p=>p.total||p.itens.reduce((s,i)=>s+((i.preco||i.preço||0)*i.qtd),0);
+  const totalGeral = pedsCli.reduce((s,p)=>s+calcTotal(p),0);
+  const debito = pedsCli.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+calcTotal(p),0);
 
   // Gerar um PDF por pedido (modelo Bling) ou extrato consolidado?
   // Modelo da imagem é por PEDIDO — vamos fazer extrato consolidado no mesmo estilo
@@ -5913,10 +5914,11 @@ function gerarPDFCliente(){
       const dataFmt=p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
       const itensDesc=p.itens.map(it=>{
         const NOMES={'200ml':'Garrafa 200ml','300ml':'Garrafa 300ml','500ml':'Garrafa 500ml','1L':'Garrafa 1L','5L':'Galão 5L'};
-        return (NOMES[it.tam]||TL[it.tam])+' × '+it.qtd+' = R$ '+(it.preço*it.qtd).toFixed(2).replace('.',',');
+        return (NOMES[it.tam]||TL[it.tam])+' × '+it.qtd+' = R$ '+((it.preco||it.preço||0)*it.qtd).toFixed(2).replace('.',',');
       }).join('\n');
       const situacao=p.pago?'Pago':p.entregue?'Em aberto':'Pendente';
-      return [p.numeroPedido||'—', dataFmt, itensDesc, p.total.toFixed(2).replace('.',','), situacao];
+      const totalP=p.total||p.itens.reduce((s,i)=>s+((i.preco||i.preço||0)*i.qtd),0);
+      return [p.numeroPedido||'—', dataFmt, itensDesc, totalP.toFixed(2).replace('.',','), situacao];
     }),
     foot:[
       ['','','Total de pedidos: '+pedsCli.length, moeda(totalGeral),''],
