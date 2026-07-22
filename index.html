@@ -747,6 +747,14 @@ a{color:var(--orange);text-decoration:none}
           <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-gas">R$ 0</div>
         </div>
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
+          <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">🫙 Garrafas</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-garrafas">R$ 0</div>
+        </div>
+        <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
+          <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">🏷️ Adesivos</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-adesivos">R$ 0</div>
+        </div>
+        <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
           <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">👤 Colaboradores</div>
           <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-colab">R$ 0</div>
         </div>
@@ -1269,6 +1277,8 @@ a{color:var(--orange);text-decoration:none}
         <option value="residuo">♻️ Resíduo</option>
         <option value="manutencao">🔧 Manutenção</option>
         <option value="embalagem">📦 Embalagem / Material</option>
+        <option value="garrafa">🫙 Garrafas</option>
+        <option value="adesivo">🏷️ Adesivos</option>
         <option value="diverso">💰 Gasto Diverso</option>
       </select>
     </div>
@@ -2530,6 +2540,11 @@ function renderDash(){
   // Detalhamento
   if(el('dash-custo-laranja'))     el('dash-custo-laranja').textContent=moeda(gastoLar);
   if(el('dash-custo-laranja-sub')) el('dash-custo-laranja-sub').textContent=sacosMes+' saco(s)';
+  // Garrafas e Adesivos — buscados dos custos operacionais por categoria
+  const gastoGarrafas=opMes.filter(c=>c.cat==='embalagem'||c.cat==='garrafa'||(c.label||'').toLowerCase().includes('garrafa')).reduce((s,c)=>s+(c.valor||0),0);
+  const gastoAdesivos=opMes.filter(c=>c.cat==='adesivo'||(c.label||'').toLowerCase().includes('adesivo')).reduce((s,c)=>s+(c.valor||0),0);
+  if(el('dash-custo-garrafas'))    el('dash-custo-garrafas').textContent=moeda(gastoGarrafas);
+  if(el('dash-custo-adesivos'))    el('dash-custo-adesivos').textContent=moeda(gastoAdesivos);
   if(el('dash-custo-gas'))         el('dash-custo-gas').textContent=moeda(gastoGas);
   if(el('dash-custo-colab'))       el('dash-custo-colab').textContent=moeda(gastoColab);
   if(el('dash-custo-fabio-sub'))   el('dash-custo-fabio-sub').textContent='';
@@ -7602,10 +7617,20 @@ function gerarRelatorioMensal(){
   const lista=todos.filter(p=>p.data&&p.data.startsWith(prefixo));
   const fat=lista.reduce((s,p)=>s+(p.total||0),0);
   const receber=lista.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+(p.total||0),0);
-  const custos=custosOp.filter(c=>c.data&&c.data.startsWith(prefixo)).reduce((s,c)=>s+c.valor,0);
-  const larMes=comprasLaranja.filter(c=>c.data&&c.data.startsWith(prefixo)).reduce((s,c)=>s+c.total,0);
+  const opMes=custosOp.filter(c=>c.data&&c.data.startsWith(prefixo));
+  const catExcluidas=['embalagem'];
+  const custos=opMes.filter(c=>!catExcluidas.includes(c.cat)).reduce((s,c)=>s+(c.valor||0),0);
+  const larMes=comprasLaranja.filter(c=>c.data&&c.data.startsWith(prefixo)).reduce((s,c)=>s+(c.total||0),0);
   const imposto=load('slj_valor_imposto_'+prefixo,0);
-  const lucro=fat-custos-imposto;
+  // Custo produção = mesmo cálculo do dashboard
+  const pedMes=lista;
+  const qtdMesPDF={};TAMS.forEach(t=>qtdMesPDF[t]=0);
+  pedMes.forEach(p=>p.itens.forEach(it=>{qtdMesPDF[it.tam]=(qtdMesPDF[it.tam]||0)+it.qtd;}));
+  const custoProd=TAMS.reduce((s,t)=>s+getCustoTotal(t)*qtdMesPDF[t],0);
+  // Fábio
+  const fabio=colaboradores.find(c=>c.nome.toLowerCase().includes('fabio')||c.nome.toLowerCase().includes('fábio'));
+  const gastoFabio=fabio?pagamentosColab.filter(p=>p.colabId===fabio.id&&p.dataSemana&&p.dataSemana.startsWith(prefixo)&&p.pago).reduce((s,p)=>s+(p.total||0),0):0;
+  const lucro=fat-custoProd-custos-gastoFabio;
   const dataAtual=new Date().toLocaleDateString('pt-BR');
 
   const custosPorCat={};
