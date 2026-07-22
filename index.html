@@ -743,16 +743,16 @@ a{color:var(--orange);text-decoration:none}
           <div style="font-size:10px;color:var(--text3)" id="dash-custo-laranja-sub"></div>
         </div>
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
-          <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">⛽ Gasolina</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-gas">R$ 0</div>
-        </div>
-        <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
           <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">🫙 Garrafas</div>
           <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-garrafas">R$ 0</div>
         </div>
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
           <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">🏷️ Adesivos</div>
           <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-adesivos">R$ 0</div>
+        </div>
+        <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
+          <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">⛽ Gasolina</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-gas">R$ 0</div>
         </div>
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
           <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">👤 Colaboradores</div>
@@ -2540,9 +2540,15 @@ function renderDash(){
   // Detalhamento
   if(el('dash-custo-laranja'))     el('dash-custo-laranja').textContent=moeda(gastoLar);
   if(el('dash-custo-laranja-sub')) el('dash-custo-laranja-sub').textContent=sacosMes+' saco(s)';
-  // Garrafas e Adesivos — buscados dos custos operacionais por categoria
-  const gastoGarrafas=opMes.filter(c=>c.cat==='embalagem'||c.cat==='garrafa'||(c.label||'').toLowerCase().includes('garrafa')).reduce((s,c)=>s+(c.valor||0),0);
-  const gastoAdesivos=opMes.filter(c=>c.cat==='adesivo'||(c.label||'').toLowerCase().includes('adesivo')).reduce((s,c)=>s+(c.valor||0),0);
+  // Garrafas e Adesivos — custo unitário de produção × qtd vendida no mês
+  const gastoGarrafas=TAMS.reduce((s,t)=>{
+    const c=custos[t]||{embalagem:0};
+    return s+(parseFloat(c.embalagem)||0)*(qtdMes[t]||0);
+  },0);
+  const gastoAdesivos=TAMS.reduce((s,t)=>{
+    const c=custos[t]||{adesivo:0};
+    return s+(parseFloat(c.adesivo)||0)*(qtdMes[t]||0);
+  },0);
   if(el('dash-custo-garrafas'))    el('dash-custo-garrafas').textContent=moeda(gastoGarrafas);
   if(el('dash-custo-adesivos'))    el('dash-custo-adesivos').textContent=moeda(gastoAdesivos);
   if(el('dash-custo-gas'))         el('dash-custo-gas').textContent=moeda(gastoGas);
