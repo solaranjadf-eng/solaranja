@@ -4410,22 +4410,39 @@ function abrirExtrato(){
   const idsHoje=listaRota.map(p=>p.id);
   let ordemDestaData=rotaOrdem.filter(id=>idsHoje.some(x=>String(x)===String(id)));
   idsHoje.forEach(id=>{if(!ordemDestaData.some(x=>String(x)===String(id)))ordemDestaData.push(id);});
-  const pendentes=ordemDestaData.map(id=>listaRota.find(p=>String(p.id)===String(id))).filter(p=>p&&!p.entregue&&!p.naoEntregue);
+  const todos=ordemDestaData.map(id=>listaRota.find(p=>String(p.id)===String(id))).filter(Boolean);
+  const pendentes=todos.filter(p=>!p.entregue&&!p.naoEntregue);
+  const entregues=todos.filter(p=>p.entregue);
 
   const data=new Date(_dk+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
-  let texto=`🍊 SÓ LARANJA — ROTA DO DIA\n`;
-  texto+=`📅 ${data}\n\n`;
+  let texto='🍊 SÓ LARANJA — ROTA DO DIA\n';
+  texto+='📅 '+data+'\n\n';
 
-  pendentes.forEach((p,i)=>{
-    const cliente=clientes.find(c=>c.id===p.clienteId);
-    const nome=cliente?.apelido||cliente?.nome||p.clienteNome;
-    const TL_CURTO={'200ml':'200ml','300ml':'300ml','500ml':'500ml','1L':'1L','5L':'5L'};
-    const itensOrdenados=[...p.itens].sort((a,b)=>TAMS.indexOf(a.tam)-TAMS.indexOf(b.tam));
-    const itens=itensOrdenados.map(it=>`${it.qtd}(${TL_CURTO[it.tam]||it.tam})`).join(',');
-    texto+=`📍${nome}: ${itens}\n`;
-  });
+  if(pendentes.length){
+    texto+='📦 PENDENTES ('+pendentes.length+'):\n';
+    pendentes.forEach((p,i)=>{
+      const cliente=clientes.find(c=>c.id===p.clienteId);
+      const nome=cliente?.apelido||cliente?.nome||p.clienteNome;
+      const TL_CURTO={'copo200ml':'Copo200','200ml':'200ml','300ml':'300ml','500ml':'500ml','1L':'1L','5L':'5L'};
+      const itensOrdenados=[...p.itens].sort((a,b)=>TAMS.indexOf(a.tam)-TAMS.indexOf(b.tam));
+      const itens=itensOrdenados.map(it=>(it.qtd)+'('+( TL_CURTO[it.tam]||it.tam)+')').join(',');
+      texto+='📍'+nome+': '+itens+'\n';
+    });
+  }
 
-  texto+=`\n📦 Total: ${pendentes.length} entregas`;
+  if(entregues.length){
+    texto+='\n✅ ENTREGUES ('+entregues.length+'):\n';
+    entregues.forEach(p=>{
+      const cliente=clientes.find(c=>c.id===p.clienteId);
+      const nome=cliente?.apelido||cliente?.nome||p.clienteNome;
+      const TL_CURTO={'copo200ml':'Copo200','200ml':'200ml','300ml':'300ml','500ml':'500ml','1L':'1L','5L':'5L'};
+      const itensOrdenados=[...p.itens].sort((a,b)=>TAMS.indexOf(a.tam)-TAMS.indexOf(b.tam));
+      const itens=itensOrdenados.map(it=>(it.qtd)+'('+( TL_CURTO[it.tam]||it.tam)+')').join(',');
+      texto+='✓ '+nome+': '+itens+'\n';
+    });
+  }
+
+  texto+='\n📦 Total: '+todos.length+' pedidos ('+entregues.length+' entregues, '+pendentes.length+' pendentes)';
 
   document.getElementById('extrato-texto').value=texto;
   document.getElementById('modal-extrato-rota').classList.add('open');
