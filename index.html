@@ -1583,7 +1583,11 @@ a{color:var(--orange);text-decoration:none}
   <!-- FORMULARIO GENERICO -->
   <div id="orc-form-generico" class="card">
     <div class="card-title">Orçamento Generico</div>
-    <div class="form-group"><label>Cliente / Empresa</label><input type="text" id="orc-cliente" placeholder="Nome do cliente ou empresa" autocomplete="off"></div>
+    <div class="form-group" style="position:relative">
+      <label>Cliente / Empresa</label>
+      <input type="text" id="orc-cliente" placeholder="Buscar cliente ou digitar nome manualmente..." autocomplete="off" oninput="buscarClienteOrc(this.value)" onblur="setTimeout(()=>{const d=document.getElementById('orc-cliente-lista');if(d)d.style.display='none'},200)">
+      <div id="orc-cliente-lista" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
+    </div>
     <div class="action-row" style="gap:8px;margin-bottom:10px">
       <div class="form-group" style="flex:1;margin:0"><label>CNPJ / CPF (opcional)</label><input type="text" id="orc-cnpj" placeholder="00.000.000/0001-00"></div>
       <div class="form-group" style="flex:1;margin:0"><label>Telefone (opcional)</label><input type="text" id="orc-tel" placeholder="(61) 99999-9999" oninput="mascaraTel(this)" maxlength="15" inputmode="numeric"></div>
@@ -7876,6 +7880,34 @@ function mostrarAlertaEstoque(){
   el.style.display='';
   const lista=alertas.map(t=>TL[t]+' ('+( estoque[t]||0)+' un)').join(' · ');
   el.innerHTML='<div style="background:#FFF3CD;border:1px solid #FBBF24;border-radius:var(--radius);padding:10px 14px;margin-bottom:8px;cursor:pointer" onclick="setTab(\'estoque\')">⚠ <strong>Estoque baixo:</strong> '+lista+' <span style="font-size:11px;color:#92400E;margin-left:8px">→ Ver estoque</span></div>';
+}
+
+function buscarClienteOrc(termo){
+  const lista=document.getElementById('orc-cliente-lista');
+  if(!lista) return;
+  if(!termo||termo.length<2){lista.style.display='none';return;}
+  const t=termo.toLowerCase();
+  const encontrados=clientes.filter(c=>(c.nome||'').toLowerCase().includes(t)||(c.apelido||'').toLowerCase().includes(t)).slice(0,8);
+  if(!encontrados.length){lista.style.display='none';return;}
+  lista.innerHTML=encontrados.map(c=>{
+    const nome=c.apelido||c.nome;
+    return '<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px" onmousedown="selecionarClienteOrc('+c.id+')">'
+      +'<strong>'+nome+'</strong>'+(c.cnpj?'<span style="font-size:11px;color:var(--text3);margin-left:8px">'+c.cnpj+'</span>':'')+'</div>';
+  }).join('');
+  lista.style.display='';
+}
+
+function selecionarClienteOrc(id){
+  const c=clientes.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('orc-cliente').value=c.apelido||c.nome;
+  const cnpjEl=document.getElementById('orc-cnpj');
+  const telEl=document.getElementById('orc-tel');
+  if(cnpjEl) cnpjEl.value=c.cnpj||'';
+  if(telEl) telEl.value=c.tel||'';
+  const listaEl=document.getElementById('orc-cliente-lista');
+  if(listaEl) listaEl.style.display='none';
+  toast('✓ Cliente preenchido automaticamente');
 }
 
 </script>
