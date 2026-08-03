@@ -1347,7 +1347,7 @@ a{color:var(--orange);text-decoration:none}
   <!-- KPIs do mês -->
   <div class="stats-row" style="margin-bottom:8px">
     <div class="stat-card dark">
-      <div class="stat-label">Sacos comprados — mês</div>
+      <div class="stat-label" id="lar-label-sacos">Sacos recebidos — mês</div>
       <div class="stat-val" id="lar-sacos-mes">0</div>
       <div class="stat-sub" id="lar-sacos-mes-sub"></div>
     </div>
@@ -1380,8 +1380,12 @@ a{color:var(--orange);text-decoration:none}
     </div>
     <div class="action-row" style="gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <div class="form-group" style="flex:1;min-width:100px;margin:0">
-        <label>Qtd. de sacos</label>
-        <input type="number" id="lar-qtd" min="1" placeholder="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text)">
+        <label>Qtd. comprada (sacos)</label>
+        <input type="number" id="lar-qtd" min="1" placeholder="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text)" oninput="atualizarTotalLar()">
+      </div>
+      <div class="form-group" style="flex:1;min-width:100px;margin:0">
+        <label>Bonificação (sacos)</label>
+        <input type="number" id="lar-bonificacao" min="0" placeholder="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--green-bg)" oninput="atualizarTotalLar()">
       </div>
       <div class="form-group" style="flex:1;min-width:110px;margin:0">
         <label>Preço por saco (R$)</label>
@@ -1394,8 +1398,11 @@ a{color:var(--orange);text-decoration:none}
     </div>
     <!-- Total calculado -->
     <div id="lar-total-preview" class="resumo-ped" style="display:none;margin-bottom:10px">
-      <div class="rp-row"><span>Total da compra</span><span id="lar-total-val" style="font-weight:700">R$ 0,00</span></div>
-      <div class="rp-row sub"><span>Peso total</span><span id="lar-total-kg">0 kg</span></div>
+      <div class="rp-row"><span>Sacos comprados</span><span id="lar-total-qtd-pago" style="font-weight:700">0 sacos</span></div>
+      <div class="rp-row sub"><span>Bonificação</span><span id="lar-total-bonif" style="color:var(--green)">+ 0 sacos grátis</span></div>
+      <div class="rp-row sub"><span>Total recebido</span><span id="lar-total-recebido">0 sacos</span></div>
+      <div class="rp-row"><span>Total a pagar</span><span id="lar-total-val" style="font-weight:700;color:var(--orange)">R$ 0,00</span></div>
+      <div class="rp-row sub"><span>Peso total recebido</span><span id="lar-total-kg">0 kg</span></div>
     </div>
     <div class="form-group">
       <label>Observação (opcional)</label>
@@ -1414,6 +1421,7 @@ a{color:var(--orange);text-decoration:none}
   <!-- Filtro período -->
   <div class="filter-bar">
     <button class="fbtn active" onclick="setLarFiltro('mes',this)">Este mês</button>
+    <button class="fbtn" onclick="setLarFiltro('mesant',this)">Mês anterior</button>
     <button class="fbtn" onclick="setLarFiltro('hoje',this)">Hoje</button>
     <button class="fbtn" onclick="setLarFiltro('tudo',this)">Tudo</button>
   </div>
@@ -2782,17 +2790,24 @@ function renderLaranjas(){
     if(cur) sel.value=cur;
   }
   const mesAtual=hojeKey.slice(0,7);
-  const doMes=comprasLaranja.filter(c=>c.data&&c.data.startsWith(mesAtual));
-  const sacosMes=doMes.reduce((s,c)=>s+(c.qtd||0),0);
-  const gastoMes=doMes.reduce((s,c)=>s+(c.total||0),0);
-  const preçoMed=sacosMes>0?gastoMes/sacosMes:0;
-  const sm=document.getElementById('lar-sacos-mes');if(sm)sm.textContent=sacosMes;
+  const dAnt=new Date(hoje);dAnt.setMonth(dAnt.getMonth()-1);
+  const mesAnt=dAnt.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
+  // Filtrar de acordo com larFiltro
+  const doFiltro=larFiltro==='mes'?comprasLaranja.filter(c=>c.data&&c.data.startsWith(mesAtual)):
+                 larFiltro==='mesant'?comprasLaranja.filter(c=>c.data&&c.data.startsWith(mesAnt)):
+                 larFiltro==='hoje'?comprasLaranja.filter(c=>c.data===hojeKey):
+                 [...comprasLaranja];
+  const sacosPagos=doFiltro.reduce((s,c)=>s+(c.qtd||0),0);
+  const sacosBonif=doFiltro.reduce((s,c)=>s+(c.bonif||0),0);
+  const sacosTotal=doFiltro.reduce((s,c)=>s+(c.qtdTotal||c.qtd||0),0);
+  const gastoMes=doFiltro.reduce((s,c)=>s+(c.total||0),0);
+  const preçoMed=sacosPagos>0?gastoMes/sacosPagos:0;
+  const sm=document.getElementById('lar-sacos-mes');
+  if(sm) sm.innerHTML=sacosTotal+'<div style="font-size:10px;color:var(--text3);margin-top:2px">'+sacosPagos+' pagos'+(sacosBonif>0?' + <span style="color:var(--green)">'+sacosBonif+' bonif.</span>':'')+'</div>';
   const gm=document.getElementById('lar-gasto-mes');if(gm)gm.textContent=moeda(gastoMes);
   const pm=document.getElementById('lar-preço-med');if(pm)pm.textContent=moeda(preçoMed);
-  const km=document.getElementById('lar-kg-mes');if(km)km.textContent=(sacosMes*20)+' kg';
-  let lista=larFiltro==='mes'?comprasLaranja.filter(c=>c.data&&c.data.startsWith(mesAtual)):
-            larFiltro==='hoje'?comprasLaranja.filter(c=>c.data===hojeKey):
-            [...comprasLaranja];
+  const km=document.getElementById('lar-kg-mes');if(km)km.textContent=(sacosTotal*20)+' kg';
+  let lista=doFiltro;
   lista=[...lista].sort((a,b)=>b.data.localeCompare(a.data));
   const el=document.getElementById('lar-lista');
   if(el){
@@ -2819,7 +2834,7 @@ function renderLaranjas(){
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap">${forn?forn.nome:'—'} ${pagoBadge}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:2px">${c.qtd} saco(s) · ${moeda(c.preco)}/saco · ${c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${c.qtd} saco(s) pago${c.bonif?' + <span style="color:var(--green);font-weight:600">'+c.bonif+' bonificação</span> = '+(c.qtdTotal||c.qtd)+' recebidos':''} · ${moeda(c.preco)}/saco · ${c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
               ${c.obs?`<div style="font-size:11px;color:var(--text3);font-style:italic">${c.obs}</div>`:''}
               ${parcial?`<div style="font-size:11px;color:#1D4ED8;margin-top:3px">Pago: ${moeda(valorPago)} · Falta: <strong style="color:var(--red)">${moeda(falta)}</strong></div>`:''}
               ${c.pago&&valorPago>0?`<div style="font-size:11px;color:var(--green);margin-top:3px">Pago: ${moeda(valorPago)}</div>`:''}
@@ -2871,18 +2886,31 @@ function setLarPagamento(v,btn){
 }
 
 function atualizarTotalLar(){
+  const qtd=parseFloat(document.getElementById('lar-qtd')?.value)||0;
+  const bonif=parseFloat(document.getElementById('lar-bonificacao')?.value)||0;
+  const preço=parseFloat(document.getElementById('lar-preço')?.value)||0;
+  const prev=document.getElementById('lar-total-preview');
   if(!prev)return;
   if(qtd>0&&preço>0){
     prev.style.display='block';
-    const vEl=document.getElementById('lar-total-val');const kEl=document.getElementById('lar-total-kg');
-    if(vEl)vEl.textContent=moeda(qtd*preço);
-    if(kEl)kEl.textContent=(qtd*20)+' kg';
+    const totalRecebido=qtd+bonif;
+    const vEl=document.getElementById('lar-total-val');
+    const kEl=document.getElementById('lar-total-kg');
+    const qEl=document.getElementById('lar-total-qtd-pago');
+    const bEl=document.getElementById('lar-total-bonif');
+    const rEl=document.getElementById('lar-total-recebido');
+    if(vEl) vEl.textContent=moeda(qtd*preço);
+    if(kEl) kEl.textContent=(totalRecebido*20)+' kg';
+    if(qEl) qEl.textContent=qtd+' sacos';
+    if(bEl) bEl.textContent='+ '+bonif+' sacos grátis';
+    if(rEl) rEl.textContent=totalRecebido+' sacos';
   }else{prev.style.display='none';}
 }
 
 function registrarCompraLaranja(){
   const fornId=document.getElementById('lar-forn')?.value;
   const qtd=parseFloat(document.getElementById('lar-qtd')?.value)||0;
+  const bonif=parseFloat(document.getElementById('lar-bonificacao')?.value)||0;
   const preco=parseFloat(document.getElementById('lar-preço')?.value)||0;
   const data=document.getElementById('lar-data')?.value||hojeKey;
   if(!data){toast('Informe a data da compra.');return;}
@@ -2890,13 +2918,15 @@ function registrarCompraLaranja(){
   if(!fornId){toast('Selecione um fornecedor.');return;}
   if(qtd<=0){toast('Informe a quantidade de sacos.');return;}
   if(preco<=0){toast('Informe o preço por saco.');return;}
-  const compra={id:Date.now().toString(),fornId,qtd,preco,total:qtd*preco,data,obs,pago:larPagamentoSel==='pago',valorPago:larPagamentoSel==='pago'?qtd*preco:0};
+  const qtdTotal=qtd+bonif;
+  const compra={id:Date.now().toString(),fornId,qtd,bonif,qtdTotal,preco,total:qtd*preco,data,obs,pago:larPagamentoSel==='pago',valorPago:larPagamentoSel==='pago'?qtd*preco:0};
   comprasLaranja.unshift(compra);
   lsave('slj_compras_lar',comprasLaranja);
-  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd,preco,total:compra.total,data,obs,pago:compra.pago,valor_pago:compra.valorPago}])
+  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd:qtdTotal,preco,total:compra.total,data,obs,pago:compra.pago,valor_pago:compra.valorPago}])
     .then(()=>setSyncStatus('ok','✓ Conectado'))
     .catch(()=>setSyncStatus('err','Erro ao sincronizar'));
   document.getElementById('lar-qtd').value='';
+  document.getElementById('lar-bonificacao').value='';
   document.getElementById('lar-preço').value='';
   document.getElementById('lar-obs').value='';
   larPagamentoSel='pago';
