@@ -2205,11 +2205,19 @@ async function sincronizar(){
         dbAcomp.forEach(a=>{
           const local=acompanhamentos.find(x=>x.id===a.id);
           if(!local) acompanhamentos.push({id:a.id,nome:a.nome,clienteId:'',ativo:a.ativo!==false});
-          else{local.nome=a.nome;} // preserva clienteId local
+          else{local.nome=a.nome;}
         });
-        // Deduplicar por id
-        const seen=new Set();
-        acompanhamentos=acompanhamentos.filter(a=>{if(seen.has(a.id))return false;seen.add(a.id);return true;});
+        // Deduplicar por id primeiro, depois por nome (mantém o primeiro de cada nome)
+        const seenId=new Set();
+        const seenNome=new Set();
+        acompanhamentos=acompanhamentos.filter(a=>{
+          if(seenId.has(a.id)) return false;
+          seenId.add(a.id);
+          const nomeKey=(a.nome||'').toLowerCase().trim();
+          if(seenNome.has(nomeKey)) return false;
+          seenNome.add(nomeKey);
+          return true;
+        });
         lsave('slj_acomp',acompanhamentos);
       }
       const dbAcompMarcados=await sbGet('acompanhamento_marcados','?order=semana&limit=1000');
@@ -5069,22 +5077,28 @@ function renderAcompanhamento(){
 
   const tbody=document.getElementById('acomp-tbody');
   if(!tbody)return;
-  if(!acompanhamentos.length){
-    tbody.innerHTML=`<tr><td colspan="${semanas.length+2}" style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum cliente adicionado ainda.</td></tr>`;
+
+  // Remover clientes que já estão em Estabelecimentos (cobrados via boleto/NF)
+  const nomesCobrancas=new Set(cobrancas.map(c=>(c.nome||'').toLowerCase().trim()));
+  // Deduplicar por nome E excluir estabelecimentos
+  const seenNomes=new Set();
+  const acompFiltrado=acompanhamentos.filter(a=>{
+    const k=(a.nome||'').toLowerCase().trim();
+    if(nomesCobrancas.has(k)) return false; // já está em estabelecimentos
+    if(seenNomes.has(k)) return false; // duplicado
+    seenNomes.add(k);
+    return true;
+  });
+
+  if(!acompFiltrado.length){
+    tbody.innerHTML='<tr><td colspan="'+(semanas.length+2)+'" style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum cliente adicionado ainda.</td></tr>';
     return;
   }
-
-  tbody.innerHTML='';
-  if(!acompanhamentos.length){
-    tbody.innerHTML=`<tr><td colspan="${semanas.length+2}" style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum cliente adicionado ainda.</td></tr>`;
-    return;
-  }
-
   // Separar em dia vs com débito — baseado em pedidos entregues e não pagos
   const emDia=[];
   const comDebito=[];
   const todosPedidos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
-  acompanhamentos.forEach(a=>{
+  acompFiltrado.forEach(a=>{
     // Buscar cliente pelo nome ou clienteId
     const cliente=clientes.find(c=>String(c.id)===String(a.clienteId)||(c.apelido||c.nome)===a.nome||c.nome===a.nome);
     let temDebito=false;
