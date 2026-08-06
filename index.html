@@ -583,6 +583,7 @@ a{color:var(--orange);text-decoration:none}
     </div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
       <button class="fbtn active" id="dash-btn-hoje" onclick="setDashPeriodo('hoje',this)">Hoje</button>
+      <button class="fbtn" onclick="setDashPeriodo('mes',this)">Este mês</button>
       <button class="fbtn" id="dash-btn-ano" onclick="setDashPeriodo('ano',this)">Este ano</button>
       <button class="fbtn" id="dash-btn-custom" onclick="setDashPeriodo('custom',this)">Data</button>
       <input type="date" id="dash-data-custom" style="height:30px;font-size:11px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 6px;display:none" onchange="renderDash()">
