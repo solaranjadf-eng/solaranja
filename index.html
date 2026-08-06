@@ -3427,16 +3427,14 @@ function renderDia(){
     pedidosOntem.filter(p=>p.data===dataSel).forEach(p=>{
       if(!lista.find(x=>x.id===p.id)) lista.push(p);
     });
-    // Se não encontrou nada no cache, buscar do banco
-    if(!lista.length){
-      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`).then(dbP=>{
-        if(dbP&&dbP.length){
-          if(!historico[dataSel]) historico[dataSel]=[];
-          historico[dataSel]=(dbP||[]).map(mapPedido);
-          renderDia();
-        }
-      }).catch(()=>{});
-    }
+    // Buscar do banco sempre para garantir foto atualizada
+    sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`).then(dbP=>{
+      if(dbP&&dbP.length){
+        if(!historico[dataSel]) historico[dataSel]=[];
+        historico[dataSel]=(dbP||[]).map(mapPedido);
+        renderDia();
+      }
+    }).catch(()=>{});
   }
 
   // Atualizar label
