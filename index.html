@@ -465,6 +465,10 @@ a{color:var(--orange);text-decoration:none}
       <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       <span>Anotações</span>
     </button>
+    <button class="sidebar-item" onclick="setTab('compras')">
+      <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      <span>Compras</span>
+    </button>
     <button class="sidebar-item" onclick="fazerBackup()" style="color:rgba(255,200,100,.9)">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       <span>Backup</span>
@@ -933,6 +937,21 @@ a{color:var(--orange);text-decoration:none}
       </div>
     </div>
   </div>
+
+  <!-- MODAL WHATSAPP CLIENTE -->
+  <div class="modal-bg" id="modal-wpp-cliente">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>💬 Texto para WhatsApp</h3>
+        <button class="modal-close" onclick="fecharModal('wpp-cliente')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:12px;color:var(--text3);margin-bottom:8px">Copie o texto abaixo e cole no WhatsApp do cliente:</p>
+        <textarea id="wpp-cliente-texto" rows="20" style="width:100%;font-size:13px;font-family:monospace;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px;resize:none;background:var(--bg);color:var(--text)"></textarea>
+        <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="copiarWppCliente()">📋 Copiar texto</button>
+      </div>
+    </div>
+  </div>
   <!-- Separação por rota -->
   <div class="card" style="margin-bottom:12px">
     <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">🚚 Separar por Viagem</div>
@@ -1075,6 +1094,7 @@ a{color:var(--orange);text-decoration:none}
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="gerarPDFCliente()">📄 PDF</button>
+          <button class="btn btn-outline" style="height:34px;font-size:12px;color:#25D366;border-color:#25D366" onclick="gerarTextoWhatsappCliente()">💬 WhatsApp</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="limparClienteFin()">✕ Fechar</button>
         </div>
       </div>
@@ -1569,6 +1589,83 @@ a{color:var(--orange);text-decoration:none}
       </div>
     </details>
   </div>
+</main>
+
+<!-- PÁGINA COMPRAS -->
+<main class="page" id="page-compras">
+
+  <!-- ABAS INTERNAS -->
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <button class="fbtn active" id="compras-tab-cartao" onclick="setComprasTab('cartao',this)">💳 Cartão Parcelado</button>
+    <button class="fbtn" id="compras-tab-boleto" onclick="setComprasTab('boleto',this)">📄 Boletos</button>
+  </div>
+
+  <!-- CARTÃO PARCELADO -->
+  <div id="compras-cartao">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">Nova Compra Parcelada</div>
+      <div class="form-group"><label>Nome da Compra</label><input type="text" id="cc-nome" placeholder="Ex: Parcela Zumo Nova Cartão" autocomplete="off"></div>
+      <div class="action-row" style="gap:8px;flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:120px;margin:0"><label>Valor Total (R$)</label><input type="number" id="cc-total" step="0.01" min="0" placeholder="0,00" inputmode="decimal" oninput="calcParcelaCC()"></div>
+        <div class="form-group" style="flex:1;min-width:100px;margin:0"><label>Nº de Parcelas</label><input type="number" id="cc-parcelas" min="1" max="60" placeholder="Ex: 10" inputmode="numeric" oninput="calcParcelaCC()"></div>
+        <div class="form-group" style="flex:1;min-width:110px;margin:0"><label>Valor por Parcela</label><input type="number" id="cc-valor-parcela" step="0.01" placeholder="0,00" inputmode="decimal" readonly style="background:var(--bg2)"></div>
+      </div>
+      <div class="action-row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+        <div class="form-group" style="flex:1;min-width:130px;margin:0"><label>Mês Início</label><input type="month" id="cc-mes-inicio"></div>
+        <div class="form-group" style="flex:1;min-width:110px;margin:0"><label>Dia Vencimento</label><input type="number" id="cc-vencimento" min="1" max="31" placeholder="Ex: 15" inputmode="numeric"></div>
+        <div class="form-group" style="flex:1;min-width:120px;margin:0"><label>Cartão</label><input type="text" id="cc-cartao" placeholder="Ex: Nubank, Inter..." autocomplete="off"></div>
+      </div>
+      <div style="margin-top:6px;font-size:12px;color:var(--text3)" id="cc-preview"></div>
+      <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="adicionarCompraCartao()">+ Adicionar Compra</button>
+    </div>
+
+    <!-- Resumo -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+      <div class="card" style="padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Total em aberto</div>
+        <div style="font-size:16px;font-weight:700;color:var(--red)" id="cc-total-aberto">R$ 0</div>
+      </div>
+      <div class="card" style="padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Parcelas este mês</div>
+        <div style="font-size:16px;font-weight:700;color:var(--orange)" id="cc-parcelas-mes">R$ 0</div>
+      </div>
+      <div class="card" style="padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Compras ativas</div>
+        <div style="font-size:16px;font-weight:700;color:var(--text)" id="cc-qtd-ativas">0</div>
+      </div>
+    </div>
+
+    <div id="cc-lista"></div>
+  </div>
+
+  <!-- BOLETOS -->
+  <div id="compras-boleto" style="display:none">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">Novo Boleto</div>
+      <div class="form-group"><label>Descrição</label><input type="text" id="bol-desc" placeholder="Ex: Fornecedor XYZ - Insumos" autocomplete="off"></div>
+      <div class="action-row" style="gap:8px;flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:120px;margin:0"><label>Valor (R$)</label><input type="number" id="bol-valor" step="0.01" min="0" placeholder="0,00" inputmode="decimal"></div>
+        <div class="form-group" style="flex:1;min-width:140px;margin:0"><label>Vencimento</label><input type="date" id="bol-vencimento"></div>
+        <div class="form-group" style="flex:1;min-width:120px;margin:0"><label>Fornecedor (opcional)</label><input type="text" id="bol-fornecedor" placeholder="Nome do fornecedor" autocomplete="off"></div>
+      </div>
+      <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="adicionarBoleto()">+ Adicionar Boleto</button>
+    </div>
+
+    <!-- Resumo boletos -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
+      <div class="card" style="padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Total em aberto</div>
+        <div style="font-size:16px;font-weight:700;color:var(--red)" id="bol-total-aberto">R$ 0</div>
+      </div>
+      <div class="card" style="padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Vencendo em 7 dias</div>
+        <div style="font-size:16px;font-weight:700;color:var(--orange)" id="bol-vencendo">R$ 0</div>
+      </div>
+    </div>
+
+    <div id="bol-lista"></div>
+  </div>
+
 </main>
 
 <!-- PÁGINA ANOTAÇÕES -->
@@ -2361,6 +2458,7 @@ function setTab(t){
   // Salvar aba ativa
   localStorage.setItem('slj_aba_ativa', t);
   if(t==='notas')     renderNotas();
+  if(t==='compras')   renderComprasCartao();
   if(t==='dash')     {_atualizarLabelMes();renderDash();}
   if(t==='dia')      renderDia();
   if(t==='rota')     renderRota();
@@ -6809,7 +6907,7 @@ function verificarSenhaGerente(){
   }
 }
 
-const ABAS_GERENTE_TABS=['dash','pedido','dia','rota','producao','clientes','orcamento','notas'];
+const ABAS_GERENTE_TABS=['dash','pedido','dia','rota','producao','clientes','orcamento','notas','compras'];
 
 function aplicarPerfil(perfil){
   // Restaurar todas as abas primeiro
@@ -8031,6 +8129,264 @@ function renderNotas(){
   }).join('');
 }
 
+// ── COMPRAS (CARTÃO + BOLETO) ─────────────────────────────────────────────
+let comprasCartao=JSON.parse(localStorage.getItem('slj_compras_cartao')||'[]');
+let boletos=JSON.parse(localStorage.getItem('slj_boletos')||'[]');
+
+function salvarComprasCartao(){localStorage.setItem('slj_compras_cartao',JSON.stringify(comprasCartao));}
+function salvarBoletos(){localStorage.setItem('slj_boletos',JSON.stringify(boletos));}
+
+function setComprasTab(tab,btn){
+  document.getElementById('compras-cartao').style.display=tab==='cartao'?'':'none';
+  document.getElementById('compras-boleto').style.display=tab==='boleto'?'':'none';
+  document.querySelectorAll('#page-compras .fbtn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(tab==='cartao') renderComprasCartao();
+  else renderBoletos();
+}
+
+function calcParcelaCC(){
+  const total=parseFloat(document.getElementById('cc-total')?.value)||0;
+  const parc=parseInt(document.getElementById('cc-parcelas')?.value)||0;
+  const vpEl=document.getElementById('cc-valor-parcela');
+  const prev=document.getElementById('cc-preview');
+  if(total>0&&parc>0){
+    const vp=total/parc;
+    if(vpEl) vpEl.value=vp.toFixed(2);
+    if(prev) prev.textContent=parc+'x de '+moeda(vp)+' = '+moeda(total)+' no total';
+  }else{
+    if(vpEl) vpEl.value='';
+    if(prev) prev.textContent='';
+  }
+}
+
+function adicionarCompraCartao(){
+  const nome=document.getElementById('cc-nome')?.value.trim();
+  const total=parseFloat(document.getElementById('cc-total')?.value)||0;
+  const nParcelas=parseInt(document.getElementById('cc-parcelas')?.value)||0;
+  const mesInicio=document.getElementById('cc-mes-inicio')?.value;
+  const diaVenc=parseInt(document.getElementById('cc-vencimento')?.value)||15;
+  const cartao=document.getElementById('cc-cartao')?.value.trim();
+  if(!nome){toast('Informe o nome da compra.');return;}
+  if(total<=0){toast('Informe o valor total.');return;}
+  if(nParcelas<=0){toast('Informe o número de parcelas.');return;}
+  if(!mesInicio){toast('Informe o mês de início.');return;}
+  const valorParcela=total/nParcelas;
+  const parcelas=[];
+  for(let i=0;i<nParcelas;i++){
+    const d=new Date(mesInicio+'-01');
+    d.setMonth(d.getMonth()+i);
+    const mes=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
+    parcelas.push({mes,valor:valorParcela,pago:false});
+  }
+  const nova={id:Date.now().toString(),nome,total,nParcelas,valorParcela,mesInicio,diaVenc,cartao,parcelas,criada:new Date().toISOString()};
+  comprasCartao.unshift(nova);
+  salvarComprasCartao();
+  document.getElementById('cc-nome').value='';
+  document.getElementById('cc-total').value='';
+  document.getElementById('cc-parcelas').value='';
+  document.getElementById('cc-valor-parcela').value='';
+  document.getElementById('cc-mes-inicio').value='';
+  document.getElementById('cc-preview').textContent='';
+  renderComprasCartao();
+  toast('✓ Compra adicionada!');
+}
+
+function toggleParcelaCC(compraId,idx){
+  const c=comprasCartao.find(x=>x.id===compraId);
+  if(c&&c.parcelas[idx]) c.parcelas[idx].pago=!c.parcelas[idx].pago;
+  salvarComprasCartao();
+  renderComprasCartao();
+}
+
+function deletarCompraCartao(id){
+  if(!confirm('Remover esta compra parcelada?')) return;
+  comprasCartao=comprasCartao.filter(x=>x.id!==id);
+  salvarComprasCartao();
+  renderComprasCartao();
+}
+
+function renderComprasCartao(){
+  const el=document.getElementById('cc-lista');
+  if(!el) return;
+  const mesAtualCC=hojeKey.slice(0,7);
+
+  // Calcular resumo
+  let totalAberto=0, parcelasMes=0, ativas=0;
+  comprasCartao.forEach(c=>{
+    const abertas=c.parcelas.filter(p=>!p.pago);
+    if(abertas.length>0) ativas++;
+    totalAberto+=abertas.reduce((s,p)=>s+p.valor,0);
+    const doMes=c.parcelas.find(p=>p.mes===mesAtualCC&&!p.pago);
+    if(doMes) parcelasMes+=doMes.valor;
+  });
+  const taEl=document.getElementById('cc-total-aberto');if(taEl)taEl.textContent=moeda(totalAberto);
+  const pmEl=document.getElementById('cc-parcelas-mes');if(pmEl)pmEl.textContent=moeda(parcelasMes);
+  const qaEl=document.getElementById('cc-qtd-ativas');if(qaEl)qaEl.textContent=ativas;
+
+  if(!comprasCartao.length){el.innerHTML='<p style="color:var(--text3);font-size:13px;padding:16px 0;text-align:center">Nenhuma compra parcelada cadastrada.</p>';return;}
+
+  el.innerHTML=comprasCartao.map(c=>{
+    const pagas=c.parcelas.filter(p=>p.pago).length;
+    const total=c.parcelas.length;
+    const pct=Math.round(pagas/total*100);
+    const linhasParcelas=c.parcelas.map((p,i)=>{
+      const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      const [y,m]=p.mes.split('-');
+      const mesLabel=meses[parseInt(m)-1]+'/'+y.slice(2);
+      const atrasado=!p.pago&&p.mes<mesAtualCC;
+      const esteMs=p.mes===mesAtualCC;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">'
+        +'<input type="checkbox" '+(p.pago?'checked':'')+' onchange="toggleParcelaCC(\''+c.id+'\','+i+')" style="width:16px;height:16px;cursor:pointer;accent-color:var(--orange)">'
+        +'<span style="width:30px;font-size:11px;color:var(--text3)">'+(i+1)+'</span>'
+        +'<span style="width:55px;font-size:12px;font-weight:600;color:'+(esteMs?'var(--orange)':atrasado?'var(--red)':'var(--text)')+'">'+mesLabel+'</span>'
+        +'<span style="flex:1;font-size:12px">'+moeda(p.valor)+'</span>'
+        +'<span style="font-size:11px;font-weight:600;color:'+(p.pago?'var(--green)':atrasado?'var(--red)':esteMs?'var(--orange)':'var(--text2)')+';">'+(p.pago?'Pago':atrasado?'Atrasado':esteMs?'Este mês':'Aberto')+'</span>'
+        +'</div>';
+    }).join('');
+
+    return '<div class="card" style="margin-bottom:10px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
+      +'<div><div style="font-size:14px;font-weight:700">'+c.nome+'</div>'
+      +(c.cartao?'<div style="font-size:11px;color:var(--text3)">'+c.cartao+' · Vence dia '+c.diaVenc+'</div>':'')
+      +'</div>'
+      +'<button onclick="deletarCompraCartao(\''+c.id+'\')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px">✕</button>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:8px">'
+      +'<span>'+moeda(c.valorParcela)+'/parcela · '+pagas+'/'+total+' pagas</span>'
+      +'<span style="font-weight:700;color:var(--text)">Total: '+moeda(c.total)+'</span>'
+      +'</div>'
+      +'<div style="background:var(--border);border-radius:99px;height:6px;margin-bottom:10px">'
+      +'<div style="background:var(--green);height:6px;border-radius:99px;width:'+pct+'%"></div>'
+      +'</div>'
+      +'<details><summary style="font-size:12px;cursor:pointer;color:var(--orange);user-select:none">Ver parcelas</summary>'
+      +'<div style="margin-top:8px">'+linhasParcelas+'</div></details>'
+      +'</div>';
+  }).join('');
+}
+
+// ── BOLETOS ──────────────────────────────────────────────────────────────────
+function adicionarBoleto(){
+  const desc=document.getElementById('bol-desc')?.value.trim();
+  const valor=parseFloat(document.getElementById('bol-valor')?.value)||0;
+  const venc=document.getElementById('bol-vencimento')?.value;
+  const forn=document.getElementById('bol-fornecedor')?.value.trim();
+  if(!desc){toast('Informe a descrição.');return;}
+  if(valor<=0){toast('Informe o valor.');return;}
+  if(!venc){toast('Informe o vencimento.');return;}
+  const novo={id:Date.now().toString(),desc,valor,vencimento:venc,fornecedor:forn,pago:false,criada:new Date().toISOString()};
+  boletos.unshift(novo);
+  salvarBoletos();
+  document.getElementById('bol-desc').value='';
+  document.getElementById('bol-valor').value='';
+  document.getElementById('bol-vencimento').value='';
+  document.getElementById('bol-fornecedor').value='';
+  renderBoletos();
+  toast('✓ Boleto adicionado!');
+}
+
+function toggleBoleto(id){
+  const b=boletos.find(x=>x.id===id);
+  if(b){b.pago=!b.pago;salvarBoletos();renderBoletos();}
+}
+
+function deletarBoleto(id){
+  if(!confirm('Remover este boleto?')) return;
+  boletos=boletos.filter(x=>x.id!==id);
+  salvarBoletos();
+  renderBoletos();
+}
+
+function renderBoletos(){
+  const el=document.getElementById('bol-lista');
+  if(!el) return;
+  const agora=new Date();
+  const em7=new Date(agora);em7.setDate(em7.getDate()+7);
+
+  let totalAberto=0,vencendo=0;
+  boletos.filter(b=>!b.pago).forEach(b=>{
+    totalAberto+=b.valor;
+    const vd=new Date(b.vencimento+'T12:00:00');
+    if(vd<=em7) vencendo+=b.valor;
+  });
+  const taEl=document.getElementById('bol-total-aberto');if(taEl)taEl.textContent=moeda(totalAberto);
+  const vEl=document.getElementById('bol-vencendo');if(vEl)vEl.textContent=moeda(vencendo);
+
+  if(!boletos.length){el.innerHTML='<p style="color:var(--text3);font-size:13px;padding:16px 0;text-align:center">Nenhum boleto cadastrado.</p>';return;}
+
+  const sorted=[...boletos].sort((a,b)=>{
+    if(a.pago!==b.pago) return a.pago?1:-1;
+    return a.vencimento.localeCompare(b.vencimento);
+  });
+
+  el.innerHTML=sorted.map(b=>{
+    const vd=new Date(b.vencimento+'T12:00:00');
+    const vdStr=vd.toLocaleDateString('pt-BR');
+    const atrasado=!b.pago&&vd<agora;
+    const vence7=!b.pago&&vd<=em7&&vd>=agora;
+    const corStatus=b.pago?'var(--green)':atrasado?'var(--red)':vence7?'var(--orange)':'var(--text2)';
+    const status=b.pago?'✓ Pago':atrasado?'⚠ Atrasado':vence7?'⏰ Vence em breve':'Aberto';
+    return '<div class="card" style="margin-bottom:8px;border-left:3px solid '+(b.pago?'var(--green)':atrasado?'var(--red)':vence7?'var(--orange)':'var(--border)')+';">'
+      +'<div style="display:flex;align-items:center;gap:10px">'
+      +'<input type="checkbox" '+(b.pago?'checked':'')+' onchange="toggleBoleto(\''+b.id+'\')" style="width:18px;height:18px;cursor:pointer;accent-color:var(--orange);flex-shrink:0">'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:600;text-decoration:'+(b.pago?'line-through':'none')+';color:'+(b.pago?'var(--text3)':'var(--text)')+'">'+b.desc+'</div>'
+      +(b.fornecedor?'<div style="font-size:11px;color:var(--text3)">'+b.fornecedor+'</div>':'')
+      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">Vence: '+vdStr+'</div>'
+      +'</div>'
+      +'<div style="text-align:right;flex-shrink:0">'
+      +'<div style="font-size:14px;font-weight:700">'+moeda(b.valor)+'</div>'
+      +'<div style="font-size:11px;font-weight:600;color:'+corStatus+'">'+status+'</div>'
+      +'</div>'
+      +'<button onclick="deletarBoleto(\''+b.id+'\')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;flex-shrink:0">✕</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+function gerarTextoWhatsappCliente(){
+  const cliId=finCliSelecionado?.id||finCliSelecionado;
+  if(!cliId){toast('Selecione um cliente primeiro.');return;}
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const pedsCli=todos.filter(p=>String(p.clienteId)===String(cliId)).sort((a,b)=>b.data.localeCompare(a.data));
+  const cli=clientes.find(c=>c.id===cliId);
+  const nome=cli?.apelido||cli?.nome||pedsCli[0]?.clienteNome||'Cliente';
+
+  // Pedidos em aberto (entregues mas não pagos)
+  const emAberto=pedsCli.filter(p=>p.entregue&&!p.pago);
+  const totalAberto=emAberto.reduce((s,p)=>s+(p.total||0),0);
+
+  let texto='*Só Laranja - Extrato de Pedidos*\n';
+  texto+='Cliente: *'+nome+'*\n';
+  texto+='Data: '+new Date().toLocaleDateString('pt-BR')+'\n\n';
+
+  if(emAberto.length){
+    texto+='*📦 Pedidos em aberto:*\n';
+    emAberto.forEach(p=>{
+      const dt=new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR');
+      const itens=p.itens.map(it=>it.qtd+'x '+TL[it.tam]).join(', ');
+      texto+='• '+dt+' — '+itens+' — *'+moeda(p.total||0)+'*\n';
+    });
+    texto+='\n*Total em aberto: '+moeda(totalAberto)+'*\n';
+    texto+='\nChave PIX: (61) 98562-3008\n';
+  }else{
+    texto+='✅ Nenhum pedido em aberto.\n';
+  }
+
+  texto+='\nAtenciosamente,\nSó Laranja 🍊';
+
+  const el=document.getElementById('wpp-cliente-texto');
+  if(el) el.value=texto;
+  document.getElementById('modal-wpp-cliente').classList.add('open');
+}
+
+function copiarWppCliente(){
+  const el=document.getElementById('wpp-cliente-texto');
+  if(!el) return;
+  el.select();
+  document.execCommand('copy');
+  toast('✓ Texto copiado!');
+}
+
 function buscarClienteOrc(termo){
   const lista=document.getElementById('orc-cliente-lista');
   if(!lista) return;
@@ -8056,7 +8412,7 @@ function selecionarClienteOrc(id){
   if(telEl) telEl.value=c.tel||'';
   const listaEl=document.getElementById('orc-cliente-lista');
   if(listaEl) listaEl.style.display='none';
-  toast('✓ Cliente preenchido automaticamente');
+  toast('\u2713 Cliente preenchido automaticamente');
 }
 
 </script>
