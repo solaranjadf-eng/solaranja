@@ -8343,13 +8343,15 @@ function renderBoletos(){
 
 function gerarTextoWhatsappCliente(){
   if(!finCliSelecionado){toast('Selecione um cliente primeiro.');return;}
+
+  // Pegar apenas os pedidos marcados com checkbox
+  const checkboxes=[...document.querySelectorAll('.fin-sel-ped:checked')];
+  if(!checkboxes.length){toast('Selecione ao menos um pedido.');return;}
+  const idsSelecionados=new Set(checkboxes.map(c=>String(c.dataset.id)));
+
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
-  const pedsCli=todos.filter(p=>String(p.clienteId)===String(finCliSelecionado.id)).sort((a,b)=>a.data.localeCompare(b.data));
-  const emAberto=pedsCli.filter(p=>p.entregue&&!p.pago);
+  const emAberto=todos.filter(p=>idsSelecionados.has(String(p.id))).sort((a,b)=>a.data.localeCompare(b.data));
   const nome=finCliSelecionado.apelido||finCliSelecionado.nome;
-
-  if(!emAberto.length){toast('Nenhum pedido em aberto para este cliente.');return;}
-
   const totalAberto=emAberto.reduce((s,p)=>s+(p.total||0),0);
 
   const hora=new Date().getHours();
@@ -8365,7 +8367,7 @@ function gerarTextoWhatsappCliente(){
     texto+='🗓️ '+dt+' – '+itens+': '+moeda(p.total||0)+'\n';
   });
 
-  texto+='\nTotal: '+moeda(totalAberto);
+  texto+='\n*Total: '+moeda(totalAberto)+'*';
 
   const el=document.getElementById('wpp-cliente-texto');
   if(el) el.value=texto;
