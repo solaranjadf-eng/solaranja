@@ -8344,35 +8344,30 @@ function renderBoletos(){
 }
 
 function gerarTextoWhatsappCliente(){
-  const cliId=finCliSelecionado?.id||finCliSelecionado;
-  if(!cliId){toast('Selecione um cliente primeiro.');return;}
+  if(!finCliSelecionado){toast('Selecione um cliente primeiro.');return;}
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
-  const pedsCli=todos.filter(p=>String(p.clienteId)===String(cliId)).sort((a,b)=>b.data.localeCompare(a.data));
-  const cli=clientes.find(c=>c.id===cliId);
-  const nome=cli?.apelido||cli?.nome||pedsCli[0]?.clienteNome||'Cliente';
-
-  // Pedidos em aberto (entregues mas não pagos)
+  const pedsCli=todos.filter(p=>String(p.clienteId)===String(finCliSelecionado.id)).sort((a,b)=>a.data.localeCompare(b.data));
   const emAberto=pedsCli.filter(p=>p.entregue&&!p.pago);
+  const nome=finCliSelecionado.apelido||finCliSelecionado.nome;
+
+  if(!emAberto.length){toast('Nenhum pedido em aberto para este cliente.');return;}
+
   const totalAberto=emAberto.reduce((s,p)=>s+(p.total||0),0);
 
-  let texto='*Só Laranja - Extrato de Pedidos*\n';
-  texto+='Cliente: *'+nome+'*\n';
-  texto+='Data: '+new Date().toLocaleDateString('pt-BR')+'\n\n';
+  const hora=new Date().getHours();
+  const saudacao=hora<12?'Bom dia':hora<18?'Boa tarde':'Boa noite';
 
-  if(emAberto.length){
-    texto+='*📦 Pedidos em aberto:*\n';
-    emAberto.forEach(p=>{
-      const dt=new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR');
-      const itens=p.itens.map(it=>it.qtd+'x '+TL[it.tam]).join(', ');
-      texto+='• '+dt+' — '+itens+' — *'+moeda(p.total||0)+'*\n';
-    });
-    texto+='\n*Total em aberto: '+moeda(totalAberto)+'*\n';
-    texto+='\nChave PIX: (61) 98562-3008\n';
-  }else{
-    texto+='✅ Nenhum pedido em aberto.\n';
-  }
+  let texto='🍊 SÓ LARANJA 🍊\n';
+  texto+=saudacao+'! Segue o resumo das entregas realizadas:\n\n';
+  texto+='📍 '+nome.toUpperCase()+'\n';
 
-  texto+='\nAtenciosamente,\nSó Laranja 🍊';
+  emAberto.forEach(p=>{
+    const dt=new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    const itens=p.itens.map(it=>it.qtd+' unidades ('+TL[it.tam]+')').join(', ');
+    texto+='🗓️ '+dt+' – '+itens+': '+moeda(p.total||0)+'\n';
+  });
+
+  texto+='\nTotal: '+moeda(totalAberto);
 
   const el=document.getElementById('wpp-cliente-texto');
   if(el) el.value=texto;
