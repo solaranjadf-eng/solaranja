@@ -1096,6 +1096,17 @@ a{color:var(--orange);text-decoration:none}
           <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="limparClienteFin()">✕ Fechar</button>
         </div>
       </div>
+      <!-- Área WhatsApp -->
+      <div id="wpp-area" style="display:none;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;font-weight:600;color:var(--text)">💬 Texto para WhatsApp</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="copiarWppCliente()">📋 Copiar</button>
+            <button style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--text3)" onclick="document.getElementById('wpp-area').style.display='none'">✕</button>
+          </div>
+        </div>
+        <textarea id="wpp-cliente-texto" rows="12" style="width:100%;font-size:13px;font-family:monospace;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;resize:vertical;background:var(--bg);color:var(--text)"></textarea>
+      </div>
       <!-- KPIs do cliente -->
       <div class="stats-grid" style="margin-bottom:12px">
         <div class="stat-card"><div class="stat-label">Total</div><div class="stat-val" id="fin-cli-total">R$ 0</div></div>
@@ -8369,7 +8380,8 @@ function gerarTextoWhatsappCliente(){
 
   const el=document.getElementById('wpp-cliente-texto');
   if(el) el.value=texto;
-  document.getElementById('modal-wpp-cliente').style.display='flex';
+  const area=document.getElementById('wpp-area');
+  if(area){area.style.display='block';area.scrollIntoView({behavior:'smooth',block:'nearest'});}
 }
 
 function copiarWppCliente(){
