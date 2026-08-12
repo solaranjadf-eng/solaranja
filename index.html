@@ -8391,12 +8391,26 @@ function copiarWppCliente(){
 // ── BLING NF-e INTEGRATION ───────────────────────────────────────────────────
 const BLING_WORKER='https://solaranja-bling.solaranjadf.workers.dev';
 const BLING_PRODUTO={
-  codigo:'0042882898382',
-  descricao:'Garrafa de suco de laranja 1l natural',
   ncm:'20091900',
   csosn:'0102',
   cfop:'5102',
-  unidade:'UN'
+  unidade:'UN',
+  codigos:{
+    'copo200ml':'SLJ-200ML',
+    '200ml':'0042882898375',
+    '300ml':'0042882751151',
+    '500ml':'042882898405',
+    '1L':'0042882898382',
+    '5L':'0042882898399'
+  },
+  nomes:{
+    'copo200ml':'Suco Natural de Laranja 200ml',
+    '200ml':'Garrafa de suco de laranja 200ml natural',
+    '300ml':'Garrafa de suco de laranja 300ml natural',
+    '500ml':'Garrafa de suco de laranja 500ml natural',
+    '1L':'Garrafa de suco de laranja 1l natural',
+    '5L':'Garrafa de suco de laranja 5l natural'
+  }
 };
 
 function blingGetTokens(){return JSON.parse(localStorage.getItem('slj_bling_tokens')||'null');}
@@ -8481,8 +8495,8 @@ async function emitirNFeCliente(){
 
   const itensNF=Object.entries(qtdPorTam).map(([tam,qtd])=>({
     item:{
-      codigo: '0042882898382',
-      descricao: 'Garrafa de suco de laranja '+TL[tam]+' natural',
+      codigo: BLING_PRODUTO.codigos[tam]||'0042882898382',
+      descricao: BLING_PRODUTO.nomes[tam]||('Garrafa de suco de laranja '+TL[tam]+' natural'),
       unidade: BLING_PRODUTO.unidade,
       ncm: BLING_PRODUTO.ncm,
       origem: 0,
