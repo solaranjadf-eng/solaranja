@@ -473,6 +473,10 @@ a{color:var(--orange);text-decoration:none}
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       <span>Backup</span>
     </button>
+    <button class="sidebar-item" onclick="blingAuth()" style="color:rgba(100,180,255,.9)" title="Autenticar Bling">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      <span>Bling NF</span>
+    </button>
   </nav>
   <div class="sidebar-footer" style="background:#2D3139">
       <div class="sidebar-sync" id="sync-bar" style="margin-bottom:0">
@@ -1082,6 +1086,7 @@ a{color:var(--orange);text-decoration:none}
         <div style="display:flex;gap:8px">
           <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="gerarPDFCliente()">📄 PDF</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px;color:#25D366;border-color:#25D366" onclick="gerarTextoWhatsappCliente()">💬 WhatsApp</button>
+          <button class="btn btn-outline" style="height:34px;font-size:12px;color:#0066cc;border-color:#0066cc" onclick="emitirNFeCliente()">🧾 Emitir NF-e</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="limparClienteFin()">✕ Fechar</button>
         </div>
       </div>
@@ -8381,6 +8386,175 @@ function copiarWppCliente(){
   el.select();
   document.execCommand('copy');
   toast('✓ Texto copiado!');
+}
+
+// ── BLING NF-e INTEGRATION ───────────────────────────────────────────────────
+const BLING_WORKER='https://solaranja-bling.solaranjadf.workers.dev';
+const BLING_PRODUTO={
+  codigo:'0042882898382',
+  descricao:'Garrafa de suco de laranja 1l natural',
+  ncm:'20091900',
+  csosn:'0102',
+  cfop:'5102',
+  unidade:'UN'
+};
+
+function blingGetTokens(){return JSON.parse(localStorage.getItem('slj_bling_tokens')||'null');}
+function blingSaveTokens(t){localStorage.setItem('slj_bling_tokens',JSON.stringify(t));}
+
+async function blingRefreshToken(){
+  const tokens=blingGetTokens();
+  if(!tokens?.refresh_token) return null;
+  try{
+    const r=await fetch(BLING_WORKER+'/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:tokens.refresh_token})});
+    const d=await r.json();
+    if(d.access_token){blingSaveTokens(d);return d.access_token;}
+    return null;
+  }catch(e){return null;}
+}
+
+async function blingGetToken(){
+  const tokens=blingGetTokens();
+  if(!tokens) return null;
+  // Se expirou (guardamos timestamp de quando salvou)
+  const salvoEm=tokens.saved_at||0;
+  const expiresIn=(tokens.expires_in||21600)*1000;
+  if(Date.now()-salvoEm>expiresIn-60000){
+    return await blingRefreshToken();
+  }
+  return tokens.access_token;
+}
+
+async function blingAuth(){
+  // Verificar se já tem token válido
+  const token=await blingGetToken();
+  if(token){toast('✓ Bling já autenticado!');return;}
+  // Abrir fluxo OAuth
+  const url='https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=017840c85f70865a76ae30219d7d8f4e345b1302&state=solaranja-auth';
+  window.open(url,'_blank');
+  toast('Autorize o app no Bling e cole o code aqui.');
+  const code=prompt('Cole o código (code=XXXX da URL após autorizar):');
+  if(!code) return;
+  try{
+    const r=await fetch(BLING_WORKER+'/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code.trim()})});
+    const d=await r.json();
+    if(d.access_token){
+      d.saved_at=Date.now();
+      blingSaveTokens(d);
+      toast('✓ Bling autenticado com sucesso!');
+    }else{
+      toast('Erro: '+( d.error?.description||'Falha na autenticação'));
+    }
+  }catch(e){toast('Erro ao autenticar com Bling.');}
+}
+
+async function emitirNFeCliente(){
+  if(!finCliSelecionado){toast('Selecione um cliente no financeiro.');return;}
+
+  const token=await blingGetToken();
+  if(!token){
+    toast('Bling não autenticado. Autentique primeiro.');
+    return;
+  }
+
+  // Pegar pedidos selecionados
+  const checkboxes=[...document.querySelectorAll('.fin-sel-ped:checked')];
+  if(!checkboxes.length){toast('Selecione ao menos um pedido.');return;}
+  const idsSel=new Set(checkboxes.map(c=>String(c.dataset.id)));
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const pedsSel=todos.filter(p=>idsSel.has(String(p.id)));
+
+  const cli=finCliSelecionado;
+  const totalNF=pedsSel.reduce((s,p)=>s+(p.total||0),0);
+
+  // Montar itens — agrupa por tamanho
+  const qtdPorTam={};
+  const precoPorTam={};
+  pedsSel.forEach(p=>p.itens.forEach(it=>{
+    qtdPorTam[it.tam]=(qtdPorTam[it.tam]||0)+it.qtd;
+    precoPorTam[it.tam]=it.preco||it.preço||0;
+  }));
+
+  const itensNF=Object.entries(qtdPorTam).map(([tam,qtd],i)=>({
+    item:{
+      codigo: BLING_PRODUTO.codigo,
+      descricao: 'Garrafa de suco de laranja '+TL[tam]+' natural',
+      unidade: BLING_PRODUTO.unidade,
+      ncm: BLING_PRODUTO.ncm,
+      origem: 0,
+      quantidade: qtd,
+      valorUnitario: precoPorTam[tam]||0,
+      tipo: 'P',
+      cfop: BLING_PRODUTO.cfop,
+      impostos:[{
+        tipo:'S',
+        csosn: BLING_PRODUTO.csosn
+      }]
+    }
+  }));
+
+  const payload={
+    tipo: 1,
+    finalidade: 1,
+    naturezaOperacao: 'Venda de mercadoria a não contribuinte',
+    contato:{
+      nome: cli.nome,
+      tipoPessoa: cli.cnpj&&cli.cnpj.length>14?'J':'J',
+      numeroDocumento: (cli.cnpj||'').replace(/\D/g,''),
+      ie: cli.ie||'',
+      email: cli.email||'',
+      telefone: (cli.tel||'').replace(/\D/g,''),
+      endereco:{
+        endereco: cli.endereco||'',
+        numero: cli.numero||'SN',
+        complemento: cli.complemento||'',
+        bairro: cli.bairro||'',
+        municipio: cli.cidade||'Brasília',
+        uf: cli.uf||'DF',
+        cep: (cli.cep||'').replace(/\D/g,''),
+        pais: 'Brasil'
+      }
+    },
+    itens: itensNF,
+    parcelas:[{
+      dias: 0,
+      valor: totalNF,
+      observacoes: 'A vista'
+    }]
+  };
+
+  if(!confirm('Emitir NF-e para '+cli.nome+' no valor de '+moeda(totalNF)+'?')) return;
+  toast('Enviando NF-e para o Bling...');
+
+  try{
+    const r=await fetch(BLING_WORKER+'/bling/nfe',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({access_token:token,payload})
+    });
+    const d=await r.json();
+    if(d.data?.id){
+      toast('✓ NF-e gerada no Bling! ID: '+d.data.id);
+      // Tentar emitir (enviar para SEFAZ)
+      setTimeout(async()=>{
+        const r2=await fetch(BLING_WORKER+'/bling/nfe/'+d.data.id+'/emitir',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({access_token:token,payload:{}})
+        });
+        const d2=await r2.json();
+        if(d2.data){toast('✓ NF-e emitida e enviada para SEFAZ!');}
+        else{toast('NF-e gerada! Acesse o Bling para emitir.');}
+      },2000);
+    }else{
+      const msg=d.error?.description||d.errors?.[0]?.description||JSON.stringify(d);
+      toast('Erro Bling: '+msg);
+      console.error('Bling NF-e error:', d);
+    }
+  }catch(e){
+    toast('Erro ao emitir NF-e.');
+    console.error(e);
+  }
 }
 
 function buscarClienteOrc(termo){
