@@ -8486,7 +8486,7 @@ async function emitirNFeCliente(){
   const precoPorTam={};
   pedsSel.forEach(p=>p.itens.forEach(it=>{
     qtdPorTam[it.tam]=(qtdPorTam[it.tam]||0)+it.qtd;
-    precoPorTam[it.tam]=it.preco||it.preço||0;
+    if(!precoPorTam[it.tam]) precoPorTam[it.tam]=parseFloat(it.preco||it['preço']||0);
   }));
 
   const hoje2=new Date();
@@ -8494,24 +8494,17 @@ async function emitirNFeCliente(){
   const dataVenc=dataOp;
 
   const itensNF=Object.entries(qtdPorTam).map(([tam,qtd])=>({
-    item:{
-      codigo: BLING_PRODUTO.codigos[tam]||'0042882898382',
-      descricao: BLING_PRODUTO.nomes[tam]||('Garrafa de suco de laranja '+TL[tam]+' natural'),
-      unidade: BLING_PRODUTO.unidade,
-      ncm: BLING_PRODUTO.ncm,
-      origem: 0,
-      quantidade: qtd,
-      valorUnitario: precoPorTam[tam]||0,
-      tipo: 'P',
-      cfop: BLING_PRODUTO.cfop,
-      impostos:[{
-        tipo:'S',
-        csosn: BLING_PRODUTO.csosn
-      }]
-    }
+    descricao: BLING_PRODUTO.nomes[tam]||('Garrafa de suco de laranja '+TL[tam]+' natural'),
+    unidade: BLING_PRODUTO.unidade,
+    codigo: BLING_PRODUTO.codigos[tam]||'0042882898382',
+    ncm: BLING_PRODUTO.ncm,
+    origem: 0,
+    quantidade: qtd,
+    valorUnitario: precoPorTam[tam]||0,
+    tipo: 'P',
+    cfop: BLING_PRODUTO.cfop,
+    impostos:[{tipo:'S',csosn:BLING_PRODUTO.csosn}]
   }));
-
-  const totalNota=itensNF.reduce((s,i)=>s+i.item.quantidade*i.item.valorUnitario,0);
 
   const payload={
     tipo: 1,
@@ -8536,13 +8529,7 @@ async function emitirNFeCliente(){
         pais: 'Brasil'
       }
     },
-    itens: itensNF,
-    parcelas:[{
-      dias: 0,
-      data: dataVenc,
-      valor: Math.round(totalNota*100)/100,
-      observacoes: 'A vista'
-    }]
+    itens: itensNF
   };
 
   if(!confirm('Emitir NF-e para '+cli.nome+' no valor de '+moeda(totalNF)+'?')) return;
