@@ -8475,9 +8475,13 @@ async function emitirNFeCliente(){
     precoPorTam[it.tam]=it.preco||it.preço||0;
   }));
 
-  const itensNF=Object.entries(qtdPorTam).map(([tam,qtd],i)=>({
+  const hoje2=new Date();
+  const dataOp=hoje2.toISOString().slice(0,10);
+  const dataVenc=dataOp;
+
+  const itensNF=Object.entries(qtdPorTam).map(([tam,qtd])=>({
     item:{
-      codigo: BLING_PRODUTO.codigo,
+      codigo: '0042882898382',
       descricao: 'Garrafa de suco de laranja '+TL[tam]+' natural',
       unidade: BLING_PRODUTO.unidade,
       ncm: BLING_PRODUTO.ncm,
@@ -8493,22 +8497,25 @@ async function emitirNFeCliente(){
     }
   }));
 
+  const totalNota=itensNF.reduce((s,i)=>s+i.item.quantidade*i.item.valorUnitario,0);
+
   const payload={
     tipo: 1,
     finalidade: 1,
+    dataOperacao: dataOp,
     naturezaOperacao: 'Venda de mercadoria a não contribuinte',
     contato:{
       nome: cli.nome,
-      tipoPessoa: cli.cnpj&&cli.cnpj.length>14?'J':'J',
+      tipoPessoa: cli.cnpj&&cli.cnpj.replace(/\D/g,'').length>11?'J':'F',
       numeroDocumento: (cli.cnpj||'').replace(/\D/g,''),
       ie: cli.ie||'',
       email: cli.email||'',
       telefone: (cli.tel||'').replace(/\D/g,''),
       endereco:{
-        endereco: cli.endereco||'',
+        endereco: (cli.endereco||'Não informado').slice(0,100),
         numero: cli.numero||'SN',
         complemento: cli.complemento||'',
-        bairro: cli.bairro||'',
+        bairro: cli.bairro||'Centro',
         municipio: cli.cidade||'Brasília',
         uf: cli.uf||'DF',
         cep: (cli.cep||'').replace(/\D/g,''),
@@ -8518,7 +8525,8 @@ async function emitirNFeCliente(){
     itens: itensNF,
     parcelas:[{
       dias: 0,
-      valor: totalNF,
+      data: dataVenc,
+      valor: Math.round(totalNota*100)/100,
       observacoes: 'A vista'
     }]
   };
