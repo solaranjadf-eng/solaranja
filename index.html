@@ -8540,36 +8540,14 @@ async function emitirNFeCliente(){
     });
     const d=await r.json();
     if(d.data?.id){
-      const nfeId=d.data.id;
-      const nfeNum=d.data.numero;
-      toast('NF-e '+nfeNum+' gerada! Enviando para SEFAZ...');
-      // Emitir para SEFAZ
-      setTimeout(async()=>{
-        try{
-          const r2=await fetch(BLING_WORKER+'/bling/nfe/'+nfeId+'/emitir',{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({access_token:token,payload:{}})
-          });
-          const d2=await r2.json();
-          if(d2.data||d2.success){
-            toast('✓ NF-e '+nfeNum+' emitida e enviada para SEFAZ!');
-          }else{
-            const msg=d2.error?.description||JSON.stringify(d2);
-            toast('NF-e '+nfeNum+' gerada. Erro ao emitir: '+msg);
-            console.warn('Erro ao emitir NF-e:', d2);
-          }
-        }catch(e){
-          toast('NF-e '+nfeNum+' gerada. Acesse o Bling para emitir.');
-        }
-      },1500);
+      toast('✓ NF-e '+d.data.numero+' gerada no Bling! O sistema emitirá automaticamente.');
     }else{
       const msg=d.error?.description||d.errors?.[0]?.description||JSON.stringify(d);
       toast('Erro Bling: '+msg);
       console.error('Bling NF-e error:', d);
     }
   }catch(e){
-    toast('Erro ao emitir NF-e.');
+    toast('Erro ao gerar NF-e.');
     console.error(e);
   }
 }
