@@ -1197,6 +1197,22 @@ a{color:var(--orange);text-decoration:none}
     </div>
   </div>
 
+  <!-- Modal editar estabelecimento -->
+  <div id="modal-editar-cob" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--white);border-radius:var(--radius);padding:20px;width:100%;max-width:420px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <strong style="font-size:15px">✏️ Editar Estabelecimento</strong>
+        <button onclick="document.getElementById('modal-editar-cob').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">✕</button>
+      </div>
+      <input type="hidden" id="edit-cob-id">
+      <div class="form-group"><label>Nome</label><input type="text" id="edit-cob-nome" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px"></div>
+      <div class="form-group"><label>E-mail</label><input type="text" id="edit-cob-email" placeholder="email@..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px"></div>
+      <div class="form-group"><label>Dias NF/Boleto (ex: 15, 30)</label><input type="text" id="edit-cob-dias" placeholder="ex: 15, 30" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px"></div>
+      <div class="form-group"><label>Observação</label><input type="text" id="edit-cob-obs" placeholder="Observação..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px"></div>
+      <button class="btn btn-primary btn-full" onclick="salvarEdicaoCobranca()">Salvar</button>
+    </div>
+  </div>
+
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
     <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança</div>
@@ -1603,75 +1619,124 @@ a{color:var(--orange);text-decoration:none}
 <main class="page" id="page-compras">
 
   <!-- ABAS INTERNAS -->
-  <div style="display:flex;gap:8px;margin-bottom:14px">
-    <button class="fbtn active" id="compras-tab-cartao" onclick="setComprasTab('cartao',this)">💳 Cartão Parcelado</button>
-    <button class="fbtn" id="compras-tab-boleto" onclick="setComprasTab('boleto',this)">📄 Boletos</button>
+  <div style="display:flex;gap:6px;margin-bottom:16px;background:var(--bg2);padding:4px;border-radius:var(--radius)">
+    <button id="compras-tab-cartao" onclick="setComprasTab('cartao',this)" style="flex:1;padding:8px;border:none;border-radius:calc(var(--radius) - 2px);font-size:13px;font-weight:600;cursor:pointer;background:var(--orange);color:#fff;font-family:'DM Sans',sans-serif">💳 Cartão Parcelado</button>
+    <button id="compras-tab-boleto" onclick="setComprasTab('boleto',this)" style="flex:1;padding:8px;border:none;border-radius:calc(var(--radius) - 2px);font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif">📄 Boletos</button>
   </div>
 
   <!-- CARTÃO PARCELADO -->
   <div id="compras-cartao">
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-title">Nova Compra Parcelada</div>
-      <div class="form-group"><label>Nome da Compra</label><input type="text" id="cc-nome" placeholder="Ex: Parcela Zumo Nova Cartão" autocomplete="off"></div>
-      <div class="action-row" style="gap:8px;flex-wrap:wrap">
-        <div class="form-group" style="flex:1;min-width:120px;margin:0"><label>Valor Total (R$)</label><input type="number" id="cc-total" step="0.01" min="0" placeholder="0,00" inputmode="decimal" oninput="calcParcelaCC()"></div>
-        <div class="form-group" style="flex:1;min-width:100px;margin:0"><label>Nº de Parcelas</label><input type="number" id="cc-parcelas" min="1" max="60" placeholder="Ex: 10" inputmode="numeric" oninput="calcParcelaCC()"></div>
-        <div class="form-group" style="flex:1;min-width:110px;margin:0"><label>Valor por Parcela</label><input type="number" id="cc-valor-parcela" step="0.01" placeholder="0,00" inputmode="decimal" readonly style="background:var(--bg2)"></div>
+
+    <!-- Resumo topo -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:linear-gradient(135deg,#c0392b,#e74c3c);border-radius:var(--radius);padding:14px;color:#fff;text-align:center">
+        <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Em aberto</div>
+        <div style="font-size:18px;font-weight:700" id="cc-total-aberto">R$ 0</div>
       </div>
-      <div class="action-row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
-        <div class="form-group" style="flex:1;min-width:130px;margin:0"><label>Mês Início</label><input type="month" id="cc-mes-inicio"></div>
-        <div class="form-group" style="flex:1;min-width:110px;margin:0"><label>Dia Vencimento</label><input type="number" id="cc-vencimento" min="1" max="31" placeholder="Ex: 15" inputmode="numeric"></div>
-        <div class="form-group" style="flex:1;min-width:120px;margin:0"><label>Cartão</label><input type="text" id="cc-cartao" placeholder="Ex: Nubank, Inter..." autocomplete="off"></div>
+      <div style="background:linear-gradient(135deg,#d35400,#e67e22);border-radius:var(--radius);padding:14px;color:#fff;text-align:center">
+        <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Este mês</div>
+        <div style="font-size:18px;font-weight:700" id="cc-parcelas-mes">R$ 0</div>
       </div>
-      <div style="margin-top:6px;font-size:12px;color:var(--text3)" id="cc-preview"></div>
-      <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="adicionarCompraCartao()">+ Adicionar Compra</button>
+      <div style="background:linear-gradient(135deg,#1a7f3c,#27ae60);border-radius:var(--radius);padding:14px;color:#fff;text-align:center">
+        <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Compras ativas</div>
+        <div style="font-size:18px;font-weight:700" id="cc-qtd-ativas">0</div>
+      </div>
     </div>
 
-    <!-- Resumo -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-      <div class="card" style="padding:10px;text-align:center">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Total em aberto</div>
-        <div style="font-size:16px;font-weight:700;color:var(--red)" id="cc-total-aberto">R$ 0</div>
+    <!-- Form nova compra -->
+    <details class="card" style="margin-bottom:16px">
+      <summary style="font-size:13px;font-weight:700;cursor:pointer;padding:2px 0;list-style:none;display:flex;align-items:center;gap:8px">
+        <span style="background:var(--orange);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">+</span>
+        Nova compra parcelada
+      </summary>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <div class="form-group"><label>Nome da Compra</label><input type="text" id="cc-nome" placeholder="Ex: Zumo Nova Cartão - Parcelado" autocomplete="off"></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+          <div class="form-group" style="margin:0"><label>Valor Total (R$)</label><input type="number" id="cc-total" step="0.01" min="0" placeholder="0,00" inputmode="decimal" oninput="calcParcelaCC()"></div>
+          <div class="form-group" style="margin:0"><label>Nº Parcelas</label><input type="number" id="cc-parcelas" min="1" max="60" placeholder="10" inputmode="numeric" oninput="calcParcelaCC()"></div>
+          <div class="form-group" style="margin:0"><label>Valor/Parcela</label><input type="number" id="cc-valor-parcela" step="0.01" placeholder="0,00" readonly style="background:var(--bg2)"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+          <div class="form-group" style="margin:0"><label>Mês Início</label><input type="month" id="cc-mes-inicio"></div>
+          <div class="form-group" style="margin:0"><label>Dia Vencimento</label><input type="number" id="cc-vencimento" min="1" max="31" placeholder="15" inputmode="numeric"></div>
+          <div class="form-group" style="margin:0"><label>Cartão</label><input type="text" id="cc-cartao" placeholder="Nubank, Inter..." autocomplete="off"></div>
+        </div>
+        <div id="cc-preview" style="font-size:12px;color:var(--orange);font-weight:600;margin-bottom:10px"></div>
+        <button class="btn btn-primary btn-full" onclick="adicionarCompraCartao()">+ Adicionar Compra</button>
       </div>
-      <div class="card" style="padding:10px;text-align:center">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Parcelas este mês</div>
-        <div style="font-size:16px;font-weight:700;color:var(--orange)" id="cc-parcelas-mes">R$ 0</div>
-      </div>
-      <div class="card" style="padding:10px;text-align:center">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Compras ativas</div>
-        <div style="font-size:16px;font-weight:700;color:var(--text)" id="cc-qtd-ativas">0</div>
-      </div>
-    </div>
+    </details>
 
     <div id="cc-lista"></div>
   </div>
 
   <!-- BOLETOS -->
   <div id="compras-boleto" style="display:none">
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-title">Novo Boleto</div>
-      <div class="form-group"><label>Descrição</label><input type="text" id="bol-desc" placeholder="Ex: Fornecedor XYZ - Insumos" autocomplete="off"></div>
-      <div class="action-row" style="gap:8px;flex-wrap:wrap">
-        <div class="form-group" style="flex:1;min-width:120px;margin:0"><label>Valor (R$)</label><input type="number" id="bol-valor" step="0.01" min="0" placeholder="0,00" inputmode="decimal"></div>
-        <div class="form-group" style="flex:1;min-width:140px;margin:0"><label>Vencimento</label><input type="date" id="bol-vencimento"></div>
-        <div class="form-group" style="flex:1;min-width:120px;margin:0"><label>Fornecedor (opcional)</label><input type="text" id="bol-fornecedor" placeholder="Nome do fornecedor" autocomplete="off"></div>
-      </div>
-      <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="adicionarBoleto()">+ Adicionar Boleto</button>
-    </div>
 
     <!-- Resumo boletos -->
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
-      <div class="card" style="padding:10px;text-align:center">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Total em aberto</div>
-        <div style="font-size:16px;font-weight:700;color:var(--red)" id="bol-total-aberto">R$ 0</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:linear-gradient(135deg,#c0392b,#e74c3c);border-radius:var(--radius);padding:14px;color:#fff;text-align:center">
+        <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Total em aberto</div>
+        <div style="font-size:18px;font-weight:700" id="bol-total-aberto">R$ 0</div>
       </div>
-      <div class="card" style="padding:10px;text-align:center">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Vencendo em 7 dias</div>
-        <div style="font-size:16px;font-weight:700;color:var(--orange)" id="bol-vencendo">R$ 0</div>
+      <div style="background:linear-gradient(135deg,#d35400,#e67e22);border-radius:var(--radius);padding:14px;color:#fff;text-align:center">
+        <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Vencendo em 7 dias</div>
+        <div style="font-size:18px;font-weight:700" id="bol-vencendo">R$ 0</div>
       </div>
     </div>
 
+    <!-- Form novo boleto -->
+    <details class="card" style="margin-bottom:16px">
+      <summary style="font-size:13px;font-weight:700;cursor:pointer;padding:2px 0;list-style:none;display:flex;align-items:center;gap:8px">
+        <span style="background:var(--orange);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">+</span>
+        Novo boleto
+      </summary>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <div class="form-group"><label>Descrição</label><input type="text" id="bol-desc" placeholder="Ex: Fornecedor XYZ - Insumos" autocomplete="off"></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
+          <div class="form-group" style="margin:0"><label>Valor (R$)</label><input type="number" id="bol-valor" step="0.01" min="0" placeholder="0,00" inputmode="decimal"></div>
+          <div class="form-group" style="margin:0"><label>Vencimento</label><input type="date" id="bol-vencimento"></div>
+          <div class="form-group" style="margin:0"><label>Fornecedor</label><input type="text" id="bol-fornecedor" placeholder="Nome do fornecedor" autocomplete="off"></div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="adicionarBoleto()">+ Adicionar Boleto</button>
+      </div>
+    </details>
+
     <div id="bol-lista"></div>
+  </div>
+
+  <!-- Modal editar compra parcelada -->
+  <div id="modal-editar-cc" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--white);border-radius:var(--radius);padding:20px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <strong style="font-size:15px">✏️ Editar Compra</strong>
+        <button onclick="document.getElementById('modal-editar-cc').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">✕</button>
+      </div>
+      <input type="hidden" id="edit-cc-id">
+      <div class="form-group"><label>Nome</label><input type="text" id="edit-cc-nome"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="form-group"><label>Cartão</label><input type="text" id="edit-cc-cartao"></div>
+        <div class="form-group"><label>Dia Vencimento</label><input type="number" id="edit-cc-venc" min="1" max="31"></div>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="salvarEdicaoCC()">Salvar</button>
+    </div>
+  </div>
+
+  <!-- Modal editar boleto -->
+  <div id="modal-editar-bol" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--white);border-radius:var(--radius);padding:20px;width:100%;max-width:420px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <strong style="font-size:15px">✏️ Editar Boleto</strong>
+        <button onclick="document.getElementById('modal-editar-bol').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">✕</button>
+      </div>
+      <input type="hidden" id="edit-bol-id">
+      <div class="form-group"><label>Descrição</label><input type="text" id="edit-bol-desc"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="form-group"><label>Valor (R$)</label><input type="number" id="edit-bol-valor" step="0.01"></div>
+        <div class="form-group"><label>Vencimento</label><input type="date" id="edit-bol-venc"></div>
+      </div>
+      <div class="form-group"><label>Fornecedor</label><input type="text" id="edit-bol-forn"></div>
+      <button class="btn btn-primary btn-full" onclick="salvarEdicaoBoleto()">Salvar</button>
+    </div>
   </div>
 
 </main>
@@ -5295,7 +5360,8 @@ function renderCobrancas(){
   if(theadRow){
     let headerHtml=`<th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600;position:sticky;left:0;background:var(--text)">Estabelecimento</th>`+
                     `<th style="padding:9px 12px;text-align:center;font-size:11px;font-weight:600">Dia NF/Boleto</th>`+
-                    `<th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600">E-mail</th>`;
+                    `<th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600">E-mail</th>`+
+                    `<th style="padding:9px 12px;text-align:left;font-size:11px;font-weight:600">Observação</th>`;
     if(datas.length){
       headerHtml+=datas.map(d=>{
         const dataFmt=new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
@@ -5324,17 +5390,23 @@ function renderCobrancas(){
       </td>`;
     }).join(''):'<td style="padding:9px;text-align:center;color:var(--text3);font-size:11px">—</td>';
 
-    return`<tr style="background:${i%2===0?'var(--white)':'var(--bg)'};border-bottom:1px solid var(--border)">
-      <td style="padding:9px 12px;font-weight:600;color:var(--text);white-space:nowrap;position:sticky;left:0;background:${i%2===0?'var(--white)':'var(--bg)'}">${c.nome}</td>
+    return`<tr draggable="true" data-id="${c.id}" ondragstart="cobDragStart(event,'${c.id}')" ondragover="cobDragOver(event)" ondrop="cobDrop(event,'${c.id}')" ondragend="cobDragEnd()" style="background:${i%2===0?'var(--white)':'var(--bg)'};border-bottom:1px solid var(--border);cursor:grab">
+      <td style="padding:9px 12px;font-weight:600;color:var(--text);white-space:nowrap;position:sticky;left:0;background:${i%2===0?'var(--white)':'var(--bg)'}">
+        <span style="color:var(--text3);margin-right:6px;cursor:grab">⠿</span>${c.nome}
+      </td>
       <td style="padding:6px 8px;text-align:center">
         <input type="text" value="${(c.diasVencimento||[c.diaVencimento]).filter(Boolean).join(', ')}" placeholder="—" onchange="salvarDiaVencimento('${c.id}',this.value)" style="width:70px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px 6px;font-size:12px;text-align:center;background:${(c.diasVencimento||[]).length||(c.diaVencimento)?'#FFF3CD':'var(--bg)'}">
       </td>
       <td style="padding:9px 12px;min-width:160px">
         <input type="text" value="${c.email||''}" placeholder="email@..." onchange="salvarEmailCobranca('${c.id}',this.value)" style="width:100%;border:none;background:none;font-size:12px;color:var(--text2)">
       </td>
+      <td style="padding:9px 12px;min-width:180px">
+        <input type="text" value="${c.obs||''}" placeholder="Observação..." onchange="salvarObsCobranca('${c.id}',this.value)" style="width:100%;border:none;background:none;font-size:12px;color:var(--text2)">
+      </td>
       ${celulasDatas}
-      <td style="padding:9px;text-align:center">
-        <button onclick="delClienteCobranca('${c.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">✕</button>
+      <td style="padding:9px;text-align:center;white-space:nowrap">
+        <button onclick="editarClienteCobranca('${c.id}')" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:13px;margin-right:4px" title="Editar">✏️</button>
+        <button onclick="delClienteCobranca('${c.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px" title="Remover">✕</button>
       </td>
     </tr>`;
   }).join('');
@@ -8155,10 +8227,61 @@ function salvarBoletos(){localStorage.setItem('slj_boletos',JSON.stringify(bolet
 function setComprasTab(tab,btn){
   document.getElementById('compras-cartao').style.display=tab==='cartao'?'':'none';
   document.getElementById('compras-boleto').style.display=tab==='boleto'?'':'none';
-  document.querySelectorAll('#page-compras .fbtn').forEach(b=>b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
+  // Estilo aba ativa
+  const btnCartao=document.getElementById('compras-tab-cartao');
+  const btnBoleto=document.getElementById('compras-tab-boleto');
+  if(btnCartao){btnCartao.style.background=tab==='cartao'?'var(--orange)':'transparent';btnCartao.style.color=tab==='cartao'?'#fff':'var(--text2)';}
+  if(btnBoleto){btnBoleto.style.background=tab==='boleto'?'var(--orange)':'transparent';btnBoleto.style.color=tab==='boleto'?'#fff':'var(--text2)';}
   if(tab==='cartao') renderComprasCartao();
   else renderBoletos();
+}
+
+function editarCC(id){
+  const c=comprasCartao.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('edit-cc-id').value=id;
+  document.getElementById('edit-cc-nome').value=c.nome||'';
+  document.getElementById('edit-cc-cartao').value=c.cartao||'';
+  document.getElementById('edit-cc-venc').value=c.diaVenc||'';
+  document.getElementById('modal-editar-cc').style.display='flex';
+}
+
+function salvarEdicaoCC(){
+  const id=document.getElementById('edit-cc-id').value;
+  const c=comprasCartao.find(x=>x.id===id);
+  if(!c) return;
+  c.nome=document.getElementById('edit-cc-nome').value.trim();
+  c.cartao=document.getElementById('edit-cc-cartao').value.trim();
+  c.diaVenc=parseInt(document.getElementById('edit-cc-venc').value)||c.diaVenc;
+  salvarComprasCartao();
+  document.getElementById('modal-editar-cc').style.display='none';
+  renderComprasCartao();
+  toast('✓ Compra atualizada!');
+}
+
+function editarBoleto(id){
+  const b=boletos.find(x=>x.id===id);
+  if(!b) return;
+  document.getElementById('edit-bol-id').value=id;
+  document.getElementById('edit-bol-desc').value=b.desc||'';
+  document.getElementById('edit-bol-valor').value=b.valor||'';
+  document.getElementById('edit-bol-venc').value=b.vencimento||'';
+  document.getElementById('edit-bol-forn').value=b.fornecedor||'';
+  document.getElementById('modal-editar-bol').style.display='flex';
+}
+
+function salvarEdicaoBoleto(){
+  const id=document.getElementById('edit-bol-id').value;
+  const b=boletos.find(x=>x.id===id);
+  if(!b) return;
+  b.desc=document.getElementById('edit-bol-desc').value.trim();
+  b.valor=parseFloat(document.getElementById('edit-bol-valor').value)||0;
+  b.vencimento=document.getElementById('edit-bol-venc').value;
+  b.fornecedor=document.getElementById('edit-bol-forn').value.trim();
+  salvarBoletos();
+  document.getElementById('modal-editar-bol').style.display='none';
+  renderBoletos();
+  toast('✓ Boleto atualizado!');
 }
 
 function calcParcelaCC(){
@@ -8261,21 +8384,24 @@ function renderComprasCartao(){
         +'</div>';
     }).join('');
 
-    return '<div class="card" style="margin-bottom:10px">'
+    return '<div class="card" style="margin-bottom:10px;border-left:4px solid '+(pct===100?'var(--green)':pct>0?'var(--orange)':'var(--border)')+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
       +'<div><div style="font-size:14px;font-weight:700">'+c.nome+'</div>'
-      +(c.cartao?'<div style="font-size:11px;color:var(--text3)">'+c.cartao+' · Vence dia '+c.diaVenc+'</div>':'')
+      +(c.cartao?'<div style="font-size:11px;color:var(--text3)">'+c.cartao+(c.diaVenc?' · Vence dia '+c.diaVenc:'')+'</div>':'')
       +'</div>'
-      +'<button onclick="deletarCompraCartao(\''+c.id+'\')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px">✕</button>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button onclick="editarCC(\''+c.id+'\')" style="background:var(--bg2);border:none;border-radius:var(--radius-sm);padding:4px 8px;cursor:pointer;font-size:12px;color:var(--text2)">✏️ Editar</button>'
+      +'<button onclick="deletarCompraCartao(\''+c.id+'\')" style="background:var(--red-bg);border:none;border-radius:var(--radius-sm);padding:4px 8px;cursor:pointer;font-size:12px;color:var(--red)">✕</button>'
+      +'</div>'
       +'</div>'
       +'<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:8px">'
       +'<span>'+moeda(c.valorParcela)+'/parcela · '+pagas+'/'+total+' pagas</span>'
       +'<span style="font-weight:700;color:var(--text)">Total: '+moeda(c.total)+'</span>'
       +'</div>'
       +'<div style="background:var(--border);border-radius:99px;height:6px;margin-bottom:10px">'
-      +'<div style="background:var(--green);height:6px;border-radius:99px;width:'+pct+'%"></div>'
+      +'<div style="background:'+(pct===100?'var(--green)':'var(--orange)')+';height:6px;border-radius:99px;width:'+pct+'%;transition:width .3s"></div>'
       +'</div>'
-      +'<details><summary style="font-size:12px;cursor:pointer;color:var(--orange);user-select:none">Ver parcelas</summary>'
+      +'<details><summary style="font-size:12px;cursor:pointer;color:var(--orange);user-select:none">Ver parcelas ('+pagas+'/'+total+')</summary>'
       +'<div style="margin-top:8px">'+linhasParcelas+'</div></details>'
       +'</div>';
   }).join('');
@@ -8354,7 +8480,10 @@ function renderBoletos(){
       +'<div style="font-size:14px;font-weight:700">'+moeda(b.valor)+'</div>'
       +'<div style="font-size:11px;font-weight:600;color:'+corStatus+'">'+status+'</div>'
       +'</div>'
-      +'<button onclick="deletarBoleto(\''+b.id+'\')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;flex-shrink:0">✕</button>'
+      +'<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">'
+      +'<button onclick="editarBoleto(\''+b.id+'\')" style="background:var(--bg2);border:none;border-radius:var(--radius-sm);padding:3px 8px;cursor:pointer;font-size:11px;color:var(--text2)">✏️</button>'
+      +'<button onclick="deletarBoleto(\''+b.id+'\')" style="background:var(--red-bg);border:none;border-radius:var(--radius-sm);padding:3px 8px;cursor:pointer;font-size:11px;color:var(--red)">✕</button>'
+      +'</div>'
       +'</div></div>';
   }).join('');
 }
@@ -8563,6 +8692,61 @@ async function emitirNFeCliente(){
     toast('Erro ao gerar NF-e.');
     console.error(e);
   }
+}
+
+// Drag & Drop cobrancas
+let cobDragId=null;
+function cobDragStart(e,id){cobDragId=id;e.currentTarget.style.opacity='0.5';}
+function cobDragOver(e){e.preventDefault();}
+function cobDragEnd(){document.querySelectorAll('#cob-tbody tr').forEach(r=>r.style.opacity='1');cobDragId=null;}
+function cobDrop(e,targetId){
+  e.preventDefault();
+  if(!cobDragId||cobDragId===targetId) return;
+  const fromIdx=cobrancas.findIndex(c=>c.id===cobDragId);
+  const toIdx=cobrancas.findIndex(c=>c.id===targetId);
+  if(fromIdx<0||toIdx<0) return;
+  const [moved]=cobrancas.splice(fromIdx,1);
+  cobrancas.splice(toIdx,0,moved);
+  lsave('slj_cobrancas',cobrancas);
+  renderCobrancas();
+}
+
+// Editar estabelecimento
+function editarClienteCobranca(id){
+  const c=cobrancas.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('edit-cob-id').value=id;
+  document.getElementById('edit-cob-nome').value=c.nome||'';
+  document.getElementById('edit-cob-email').value=c.email||'';
+  document.getElementById('edit-cob-dias').value=(c.diasVencimento||[c.diaVencimento]).filter(Boolean).join(', ');
+  document.getElementById('edit-cob-obs').value=c.obs||'';
+  document.getElementById('modal-editar-cob').style.display='flex';
+}
+
+function salvarEdicaoCobranca(){
+  const id=document.getElementById('edit-cob-id').value;
+  const c=cobrancas.find(x=>x.id===id);
+  if(!c) return;
+  c.nome=document.getElementById('edit-cob-nome').value.trim();
+  c.email=document.getElementById('edit-cob-email').value.trim();
+  c.obs=document.getElementById('edit-cob-obs').value.trim();
+  const diasStr=document.getElementById('edit-cob-dias').value;
+  const dias=diasStr?diasStr.split(',').map(d=>parseInt(d.trim())).filter(d=>d>=1&&d<=31):[];
+  c.diasVencimento=dias;
+  c.diaVencimento=dias[0]||null;
+  lsave('slj_cobrancas',cobrancas);
+  sbUps('cobrancas',[{id:c.id,nome:c.nome,email:c.email,ativo:true}]).catch(()=>{});
+  document.getElementById('modal-editar-cob').style.display='none';
+  renderCobrancas();
+  verificarAlertasVencimento();
+  toast('✓ Estabelecimento atualizado!');
+}
+
+function salvarObsCobranca(id,val){
+  const c=cobrancas.find(x=>x.id===id);
+  if(!c) return;
+  c.obs=val.trim();
+  lsave('slj_cobrancas',cobrancas);
 }
 
 function salvarDiaVencimento(id,val){
