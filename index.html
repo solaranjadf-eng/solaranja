@@ -8364,6 +8364,9 @@ function renderComprasCartao(){
   const qaEl=document.getElementById('cc-qtd-ativas');if(qaEl)qaEl.textContent=ativas;
 
   if(!comprasCartao.length){el.innerHTML='<p style="color:var(--text3);font-size:13px;padding:16px 0;text-align:center">Nenhuma compra parcelada cadastrada.</p>';return;}
+  el.style.display='grid';
+  el.style.gridTemplateColumns='repeat(3,1fr)';
+  el.style.gap='10px';
 
   el.innerHTML=comprasCartao.map(c=>{
     const pagas=c.parcelas.filter(p=>p.pago).length;
@@ -8401,8 +8404,7 @@ function renderComprasCartao(){
       +'<div style="background:var(--border);border-radius:99px;height:6px;margin-bottom:10px">'
       +'<div style="background:'+(pct===100?'var(--green)':'var(--orange)')+';height:6px;border-radius:99px;width:'+pct+'%;transition:width .3s"></div>'
       +'</div>'
-      +'<details><summary style="font-size:12px;cursor:pointer;color:var(--orange);user-select:none">Ver parcelas ('+pagas+'/'+total+')</summary>'
-      +'<div style="margin-top:8px">'+linhasParcelas+'</div></details>'
+      +'<div style="margin-top:8px">'+linhasParcelas+'</div>'
       +'</div>';
   }).join('');
 }
