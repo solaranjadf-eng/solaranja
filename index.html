@@ -8471,8 +8471,7 @@ async function emitirNFeCliente(){
   const idsSel=new Set(checkboxes.map(c=>String(c.dataset.id)));
 
   const token=await blingGetToken();
-  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
-  const pedsSel=todos.filter(p=>idsSel.has(String(p.id)));
+  if(!token){toast('Bling não autenticado.');return;}
 
   const cli=finCliSelecionado;
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
