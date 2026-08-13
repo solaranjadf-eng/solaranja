@@ -1153,7 +1153,7 @@ a{color:var(--orange);text-decoration:none}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <input type="text" id="cob-novo-nome" placeholder="Nome do estabelecimento" style="flex:2;min-width:150px;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px">
       <input type="text" id="cob-novo-email" placeholder="E-mail" style="flex:2;min-width:150px;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px">
-      <input type="number" id="cob-novo-dia" placeholder="Dia NF/Boleto (ex: 15)" min="1" max="31" inputmode="numeric" style="flex:1;min-width:120px;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px">
+      <input type="text" id="cob-novo-dia" placeholder="Dias NF/Boleto (ex: 15, 30)" style="flex:1;min-width:150px;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px">
       <button class="btn btn-primary" onclick="addClienteCobranca()" style="height:36px">Adicionar</button>
     </div>
   </div>
@@ -4995,9 +4995,10 @@ function mudarMesCobranca(delta){
 function addClienteCobranca(){
   const nome=document.getElementById('cob-novo-nome')?.value.trim();
   const email=document.getElementById('cob-novo-email')?.value.trim();
-  const dia=parseInt(document.getElementById('cob-novo-dia')?.value)||0;
+  const diaStr=document.getElementById('cob-novo-dia')?.value.trim();
+  const dias=diaStr?diaStr.split(',').map(d=>parseInt(d.trim())).filter(d=>d>=1&&d<=31):[];
   if(!nome){toast('Informe o nome do estabelecimento.');return;}
-  const cob={id:Date.now().toString(),nome,email:email||'',diaVencimento:dia||null,ativo:true};
+  const cob={id:Date.now().toString(),nome,email:email||'',diasVencimento:dias,diaVencimento:dias[0]||null,ativo:true};
   cobrancas.push(cob);
   lsave('slj_cobrancas',cobrancas);
   sbUps('cobrancas',[{id:cob.id,nome:cob.nome,email:cob.email,ativo:true}]).catch(()=>{});
@@ -5326,7 +5327,7 @@ function renderCobrancas(){
     return`<tr style="background:${i%2===0?'var(--white)':'var(--bg)'};border-bottom:1px solid var(--border)">
       <td style="padding:9px 12px;font-weight:600;color:var(--text);white-space:nowrap;position:sticky;left:0;background:${i%2===0?'var(--white)':'var(--bg)'}">${c.nome}</td>
       <td style="padding:6px 8px;text-align:center">
-        <input type="number" value="${c.diaVencimento||''}" min="1" max="31" placeholder="—" onchange="salvarDiaVencimento('${c.id}',this.value)" style="width:50px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px 6px;font-size:12px;text-align:center;background:${c.diaVencimento?'#FFF3CD':'var(--bg)'}">
+        <input type="text" value="${(c.diasVencimento||[c.diaVencimento]).filter(Boolean).join(', ')}" placeholder="—" onchange="salvarDiaVencimento('${c.id}',this.value)" style="width:70px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px 6px;font-size:12px;text-align:center;background:${(c.diasVencimento||[]).length||(c.diaVencimento)?'#FFF3CD':'var(--bg)'}">
       </td>
       <td style="padding:9px 12px;min-width:160px">
         <input type="text" value="${c.email||''}" placeholder="email@..." onchange="salvarEmailCobranca('${c.id}',this.value)" style="width:100%;border:none;background:none;font-size:12px;color:var(--text2)">
@@ -8567,7 +8568,9 @@ async function emitirNFeCliente(){
 function salvarDiaVencimento(id,val){
   const c=cobrancas.find(x=>x.id===id);
   if(!c) return;
-  c.diaVencimento=parseInt(val)||null;
+  const dias=val?val.split(',').map(d=>parseInt(d.trim())).filter(d=>d>=1&&d<=31):[];
+  c.diasVencimento=dias;
+  c.diaVencimento=dias[0]||null;
   lsave('slj_cobrancas',cobrancas);
   verificarAlertasVencimento();
 }
@@ -8577,19 +8580,23 @@ function verificarAlertasVencimento(){
   if(!el) return;
   const diaHoje=hoje.getDate();
   const alertas=[];
-  cobrancas.filter(c=>c.diaVencimento&&c.ativo).forEach(c=>{
-    const diff=c.diaVencimento-diaHoje;
-    if(diff===0) alertas.push({nome:c.nome,dia:c.diaVencimento,tipo:'hoje'});
-    else if(diff>0&&diff<=3) alertas.push({nome:c.nome,dia:c.diaVencimento,tipo:'breve',diff});
+  cobrancas.filter(c=>c.ativo).forEach(c=>{
+    const dias=(c.diasVencimento||[c.diaVencimento]).filter(Boolean);
+    dias.forEach(dia=>{
+      const diff=dia-diaHoje;
+      if(diff===0) alertas.push({nome:c.nome,dia,tipo:'hoje'});
+      else if(diff>0&&diff<=3) alertas.push({nome:c.nome,dia,tipo:'breve',diff});
+    });
   });
   if(!alertas.length){el.innerHTML='';return;}
+  alertas.sort((a,b)=>a.dia-b.dia);
   el.innerHTML=alertas.map(a=>{
     const cor=a.tipo==='hoje'?'var(--red)':'var(--orange)';
     const bg=a.tipo==='hoje'?'var(--red-bg)':'#FFF3CD';
     const border=a.tipo==='hoje'?'var(--red)':'#FBBF24';
     const msg=a.tipo==='hoje'
-      ?'🔴 <strong>HOJE</strong> — Gerar boleto/NF para <strong>'+a.nome+'</strong> (dia '+a.dia+')'
-      :'⚠ Em <strong>'+a.diff+' dia'+(a.diff>1?'s':'')+'</strong> — Gerar boleto/NF para <strong>'+a.nome+'</strong> (dia '+a.dia+')';
+      ?'🔴 <strong>HOJE dia '+a.dia+'</strong> — Gerar boleto/NF para <strong>'+a.nome+'</strong>'
+      :'⚠ Em <strong>'+a.diff+' dia'+(a.diff>1?'s':'')+'</strong> (dia '+a.dia+') — Gerar boleto/NF para <strong>'+a.nome+'</strong>';
     return '<div style="background:'+bg+';border:1px solid '+border+';border-radius:var(--radius);padding:10px 14px;margin-bottom:6px;font-size:13px;color:'+cor+'">'+msg+'</div>';
   }).join('');
 }
