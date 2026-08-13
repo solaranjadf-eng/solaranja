@@ -8486,7 +8486,9 @@ async function emitirNFeCliente(){
   const precoPorTam={};
   pedsSel.forEach(p=>p.itens.forEach(it=>{
     qtdPorTam[it.tam]=(qtdPorTam[it.tam]||0)+it.qtd;
-    if(!precoPorTam[it.tam]) precoPorTam[it.tam]=parseFloat(it.preco||it['preço']||0);
+    // Pegar preço independente do nome do campo (com ou sem acento)
+    const preco=it.preco||Object.entries(it).find(([k])=>k.startsWith('pre'))?.[1]||0;
+    if(!precoPorTam[it.tam]) precoPorTam[it.tam]=parseFloat(preco)||0;
   }));
 
   const hoje2=new Date();
