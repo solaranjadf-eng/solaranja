@@ -8465,16 +8465,12 @@ async function blingAuth(){
 async function emitirNFeCliente(){
   if(!finCliSelecionado){toast('Selecione um cliente no financeiro.');return;}
 
-  const token=await blingGetToken();
-  if(!token){
-    toast('Bling não autenticado. Autentique primeiro.');
-    return;
-  }
-
-  // Pegar pedidos selecionados
+  // Pegar pedidos selecionados ANTES do await para não perder com re-render
   const checkboxes=[...document.querySelectorAll('.fin-sel-ped:checked')];
   if(!checkboxes.length){toast('Selecione ao menos um pedido.');return;}
   const idsSel=new Set(checkboxes.map(c=>String(c.dataset.id)));
+
+  const token=await blingGetToken();
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const pedsSel=todos.filter(p=>idsSel.has(String(p.id)));
 
