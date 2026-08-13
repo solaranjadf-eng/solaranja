@@ -8530,7 +8530,7 @@ async function emitirNFeCliente(){
   };
 
   if(!confirm('Emitir NF-e para '+cli.nome+' no valor de '+moeda(totalNF)+'?')) return;
-  toast('Enviando NF-e para o Bling...');
+  toast('Gerando NF-e no Bling...');
 
   try{
     const r=await fetch(BLING_WORKER+'/bling/nfe',{
@@ -8540,18 +8540,29 @@ async function emitirNFeCliente(){
     });
     const d=await r.json();
     if(d.data?.id){
-      toast('✓ NF-e gerada no Bling! ID: '+d.data.id);
-      // Tentar emitir (enviar para SEFAZ)
+      const nfeId=d.data.id;
+      const nfeNum=d.data.numero;
+      toast('NF-e '+nfeNum+' gerada! Enviando para SEFAZ...');
+      // Emitir para SEFAZ
       setTimeout(async()=>{
-        const r2=await fetch(BLING_WORKER+'/bling/nfe/'+d.data.id+'/emitir',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({access_token:token,payload:{}})
-        });
-        const d2=await r2.json();
-        if(d2.data){toast('✓ NF-e emitida e enviada para SEFAZ!');}
-        else{toast('NF-e gerada! Acesse o Bling para emitir.');}
-      },2000);
+        try{
+          const r2=await fetch(BLING_WORKER+'/bling/nfe/'+nfeId+'/emitir',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({access_token:token,payload:{}})
+          });
+          const d2=await r2.json();
+          if(d2.data||d2.success){
+            toast('✓ NF-e '+nfeNum+' emitida e enviada para SEFAZ!');
+          }else{
+            const msg=d2.error?.description||JSON.stringify(d2);
+            toast('NF-e '+nfeNum+' gerada. Erro ao emitir: '+msg);
+            console.warn('Erro ao emitir NF-e:', d2);
+          }
+        }catch(e){
+          toast('NF-e '+nfeNum+' gerada. Acesse o Bling para emitir.');
+        }
+      },1500);
     }else{
       const msg=d.error?.description||d.errors?.[0]?.description||JSON.stringify(d);
       toast('Erro Bling: '+msg);
