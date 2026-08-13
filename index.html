@@ -8475,21 +8475,20 @@ async function emitirNFeCliente(){
   const pedsSel=todos.filter(p=>idsSel.has(String(p.id)));
 
   const cli=finCliSelecionado;
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const pedsSel=todos.filter(p=>idsSel.has(String(p.id)));
   const totalNF=pedsSel.reduce((s,p)=>s+(p.total||0),0);
 
-  // Montar itens — agrupa por tamanho
   const qtdPorTam={};
   const precoPorTam={};
   pedsSel.forEach(p=>p.itens.forEach(it=>{
     qtdPorTam[it.tam]=(qtdPorTam[it.tam]||0)+it.qtd;
-    // Pegar preço independente do nome do campo (com ou sem acento)
     const preco=it.preco||Object.entries(it).find(([k])=>k.startsWith('pre'))?.[1]||0;
     if(!precoPorTam[it.tam]) precoPorTam[it.tam]=parseFloat(preco)||0;
   }));
 
   const hoje2=new Date();
   const dataOp=hoje2.toISOString().slice(0,10);
-  const dataVenc=dataOp;
 
   const itensNF=Object.entries(qtdPorTam).map(([tam,qtd])=>({
     descricao: BLING_PRODUTO.nomes[tam]||('Garrafa de suco de laranja '+TL[tam]+' natural'),
@@ -8511,17 +8510,17 @@ async function emitirNFeCliente(){
     naturezaOperacao: 'Venda de mercadoria a não contribuinte',
     contato:{
       nome: cli.nome,
-      tipoPessoa: cli.cnpj&&cli.cnpj.replace(/\D/g,'').length>11?'J':'F',
+      tipoPessoa: (cli.cnpj||'').replace(/\D/g,'').length>11?'J':'F',
       numeroDocumento: (cli.cnpj||'').replace(/\D/g,''),
       ie: cli.ie||'',
       email: cli.email||'',
       telefone: (cli.tel||'').replace(/\D/g,''),
       endereco:{
-        endereco: (cli.endereco||'Não informado').slice(0,100),
+        endereco: (cli.endereco||'Nao informado').slice(0,100),
         numero: cli.numero||'SN',
         complemento: cli.complemento||'',
         bairro: cli.bairro||'Centro',
-        municipio: cli.cidade||'Brasília',
+        municipio: cli.cidade||'Brasilia',
         uf: cli.uf||'DF',
         cep: (cli.cep||'').replace(/\D/g,''),
         pais: 'Brasil'
