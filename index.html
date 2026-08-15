@@ -902,6 +902,9 @@ a{color:var(--orange);text-decoration:none}
     <button class="fbtn" onclick="setFiltro('pago',this)">Pagos</button>
     <button class="fbtn" onclick="setFiltro('debito',this)">Em Débito</button>
   </div>
+  <div style="margin-bottom:10px">
+    <input type="text" id="dia-busca" placeholder="🔍 Buscar cliente..." oninput="renderDia()" style="width:100%;height:36px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 12px;font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg)">
+  </div>
   <p class="sec-label" id="dia-sec-label">Pedidos confirmados</p>
   <div id="pedidos-list"></div>
 </main>
@@ -3732,6 +3735,9 @@ function renderDia(){
   if(filtroAtual==='entregue') lista=lista.filter(p=>p.entregue);
   if(filtroAtual==='pago')     lista=lista.filter(p=>p.pago);
   if(filtroAtual==='debito')   lista=lista.filter(p=>p.entregue&&!p.pago);
+  // Filtro de busca por nome
+  const buscaDia=(document.getElementById('dia-busca')?.value||'').toLowerCase().trim();
+  if(buscaDia) lista=lista.filter(p=>(p.clienteNome||'').toLowerCase().includes(buscaDia));
 
   if(!lista.length){
     el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido'+(filtroAtual!=='todos'?' nesta categoria':' nesta data')+'.</p></div>';
@@ -8815,7 +8821,7 @@ function salvarEdicaoCobranca(){
   c.diasVencimento=dias;
   c.diaVencimento=dias[0]||null;
   salvarCobrancasExtra();
-  sbUps('cobrancas',[{id:c.id,nome:c.nome,email:c.email,ativo:true}]).catch(()={});
+  sbUps('cobrancas',[{id:c.id,nome:c.nome,email:c.email,ativo:true}]).catch(()=>{});
   document.getElementById('modal-editar-cob').style.display='none';
   renderCobrancas();
   verificarAlertasVencimento();
