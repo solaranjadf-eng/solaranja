@@ -2574,6 +2574,24 @@ async function sincronizar(){
     renderDash();
     mostrarAlertaEstoque();
     verificarAlertasVencimento();
+    // Carregar compras, boletos e notas do banco
+    try{
+      const dbCC=await sbGet('compras_cartao','?order=created_at');
+      if(dbCC&&dbCC.length){
+        comprasCartao=dbCC.map(c=>({id:c.id,nome:c.nome,total:c.total,nParcelas:c.n_parcelas,valorParcela:c.valor_parcela,mesInicio:c.mes_inicio,diaVenc:c.dia_venc,cartao:c.cartao||'',parcelas:c.parcelas||[]}));
+        localStorage.setItem('slj_compras_cartao',JSON.stringify(comprasCartao));
+      }
+      const dbBol=await sbGet('boletos','?order=created_at');
+      if(dbBol&&dbBol.length){
+        boletos=dbBol.map(b=>({id:b.id,desc:b.descricao,valor:b.valor,vencimento:b.vencimento,fornecedor:b.fornecedor||'',pago:b.pago||false}));
+        localStorage.setItem('slj_boletos',JSON.stringify(boletos));
+      }
+      const dbNotas=await sbGet('notas','?order=created_at&limit=200');
+      if(dbNotas&&dbNotas.length){
+        notas=dbNotas.map(n=>({id:n.id,texto:n.texto,prioridade:n.prioridade,feita:n.feita||false,criada:n.criada||''}));
+        localStorage.setItem('slj_notas',JSON.stringify(notas));
+      }
+    }catch(e){console.warn('Erro ao carregar compras/notas:',e);}
     // Renovar token Bling automaticamente
     (async()=>{
       const tokens=blingGetTokens();
@@ -8238,7 +8256,12 @@ function mostrarAlertaEstoque(){
 let notaFiltro='todas';
 let notas=JSON.parse(localStorage.getItem('slj_notas')||'[]');
 
-function salvarNotas(){localStorage.setItem('slj_notas',JSON.stringify(notas));}
+function salvarNotas(){
+  localStorage.setItem('slj_notas',JSON.stringify(notas));
+  notas.forEach(n=>{
+    sbUps('notas',[{id:n.id,texto:n.texto,prioridade:n.prioridade,feita:n.feita||false,criada:n.criada||''}]).catch(()=>{});
+  });
+}
 
 function adicionarNota(){
   const txt=document.getElementById('nota-texto')?.value.trim();
@@ -8260,6 +8283,7 @@ function toggleNota(id){
 function deletarNota(id){
   notas=notas.filter(x=>x.id!==id);
   salvarNotas();
+  sbDel('notas',`?id=eq.${id}`).catch(()=>{});
   renderNotas();
 }
 
@@ -8311,8 +8335,18 @@ function renderNotas(){
 let comprasCartao=JSON.parse(localStorage.getItem('slj_compras_cartao')||'[]');
 let boletos=JSON.parse(localStorage.getItem('slj_boletos')||'[]');
 
-function salvarComprasCartao(){localStorage.setItem('slj_compras_cartao',JSON.stringify(comprasCartao));}
-function salvarBoletos(){localStorage.setItem('slj_boletos',JSON.stringify(boletos));}
+function salvarComprasCartao(){
+  localStorage.setItem('slj_compras_cartao',JSON.stringify(comprasCartao));
+  comprasCartao.forEach(c=>{
+    sbUps('compras_cartao',[{id:c.id,nome:c.nome,total:c.total,n_parcelas:c.nParcelas,valor_parcela:c.valorParcela,mes_inicio:c.mesInicio,dia_venc:c.diaVenc||null,cartao:c.cartao||'',parcelas:c.parcelas}]).catch(()=>{});
+  });
+}
+function salvarBoletos(){
+  localStorage.setItem('slj_boletos',JSON.stringify(boletos));
+  boletos.forEach(b=>{
+    sbUps('boletos',[{id:b.id,descricao:b.desc,valor:b.valor,vencimento:b.vencimento,fornecedor:b.fornecedor||'',pago:b.pago||false}]).catch(()=>{});
+  });
+}
 
 function setComprasTab(tab,btn){
   document.getElementById('compras-cartao').style.display=tab==='cartao'?'':'none';
@@ -8432,6 +8466,7 @@ function deletarCompraCartao(id){
   if(!confirm('Remover esta compra parcelada?')) return;
   comprasCartao=comprasCartao.filter(x=>x.id!==id);
   salvarComprasCartao();
+  sbDel('compras_cartao',`?id=eq.${id}`).catch(()=>{});
   renderComprasCartao();
 }
 
@@ -8528,6 +8563,7 @@ function deletarBoleto(id){
   if(!confirm('Remover este boleto?')) return;
   boletos=boletos.filter(x=>x.id!==id);
   salvarBoletos();
+  sbDel('boletos',`?id=eq.${id}`).catch(()=>{});
   renderBoletos();
 }
 
