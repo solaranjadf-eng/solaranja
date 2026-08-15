@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
 <!-- COLABORADORES -->
 <main class="page" id="page-colaboradores">
-  <!-- Cadastrar colaborador -->
+  <!-- Cadastrar colaborador (Fábio) -->
   <div class="card" style="margin-bottom:12px">
     <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">👤 Adicionar Colaborador</div>
     <div style="display:flex;gap:8px">
@@ -1386,8 +1386,64 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- Seletor de colaborador -->
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="colab-tabs"></div>
-
   <div id="colab-conteudo"></div>
+
+  <!-- SEPARADOR -->
+  <div style="border-top:2px solid var(--border);margin:20px 0 16px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap">📅 Diaristas</span>
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+  </div>
+
+  <!-- Navegador de mês -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px;background:var(--bg2);border-radius:var(--radius);padding:4px 10px">
+      <button onclick="navegarMesDiarista(-1)" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--text2)">◀</button>
+      <span id="diarista-mes-label" style="font-size:13px;font-weight:700;min-width:110px;text-align:center"></span>
+      <button onclick="navegarMesDiarista(1)" style="background:none;border:none;cursor:pointer;font-size:16px;color:var(--text2)">▶</button>
+    </div>
+    <button class="btn btn-outline" style="font-size:12px" onclick="abrirCadastroDiarista()">+ Novo diarista</button>
+  </div>
+
+  <!-- Lista de diaristas -->
+  <div id="diaristas-lista"></div>
+
+  <!-- Modal cadastro diarista -->
+  <div id="modal-cad-diarista" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--white);border-radius:var(--radius);padding:20px;width:100%;max-width:380px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <strong>👤 Cadastrar Diarista</strong>
+        <button onclick="document.getElementById('modal-cad-diarista').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <input type="hidden" id="cad-diarista-id">
+      <div class="form-group"><label>Nome</label><input type="text" id="cad-diarista-nome" placeholder="Ex: Valdeci"></div>
+      <div class="form-group"><label>Valor por dia (R$)</label><input type="number" id="cad-diarista-valor" step="0.01" min="0" placeholder="0,00" inputmode="decimal"></div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="cad-diarista-tipo">
+          <option value="fixo">Fixo (trabalha regularmente)</option>
+          <option value="eventual">Eventual (aparece às vezes)</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="salvarCadastroDiarista()">Salvar</button>
+    </div>
+  </div>
+
+  <!-- Modal adiantamento -->
+  <div id="modal-adiantamento" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--white);border-radius:var(--radius);padding:20px;width:100%;max-width:360px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <strong>💸 Adiantamento</strong>
+        <button onclick="document.getElementById('modal-adiantamento').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px" id="adiant-nome-label"></div>
+      <input type="hidden" id="adiant-diarista-id">
+      <div class="form-group"><label>Valor (R$)</label><input type="number" id="adiant-valor" step="0.01" min="0" placeholder="0,00" inputmode="decimal"></div>
+      <div class="form-group"><label>Data</label><input type="date" id="adiant-data"></div>
+      <div class="form-group"><label>Observação (opcional)</label><input type="text" id="adiant-obs" placeholder="Ex: pedido pelo WhatsApp"></div>
+      <button class="btn btn-primary btn-full" onclick="registrarAdiantamento()">Registrar</button>
+    </div>
+  </div>
+
 </main>
 
 <!-- LARANJAS -->
@@ -2453,6 +2509,28 @@ async function sincronizar(){
           custos=JSON.parse(dbCustosProd[0].access_token||'{}');
           lsave('slj_custos',custos);
         }
+        // Carregar dados extras de cobranças (dias, obs, ordem)
+        const dbCobExtra=await sbGet('bling_tokens','?id=eq.5&refresh_token=eq.cobrancas_extra');
+        if(dbCobExtra&&dbCobExtra.length){
+          const extras=JSON.parse(dbCobExtra[0].access_token||'[]');
+          if(Array.isArray(extras)&&extras.length){
+            // Reordenar cobrancas conforme salvo
+            const cobOrdenadas=[];
+            extras.forEach(ex=>{
+              const c=cobrancas.find(x=>x.id===ex.id);
+              if(c){
+                c.diasVencimento=ex.diasVencimento||[];
+                c.diaVencimento=ex.diaVencimento||null;
+                c.obs=ex.obs||'';
+                cobOrdenadas.push(c);
+              }
+            });
+            // Adicionar qualquer cobrança nova não incluída nos extras
+            cobrancas.forEach(c=>{if(!cobOrdenadas.find(x=>x.id===c.id))cobOrdenadas.push(c);});
+            cobrancas=cobOrdenadas;
+            lsave('slj_cobrancas',cobrancas);
+          }
+        }
       }catch(e){}
 
       // Colaboradores
@@ -2546,7 +2624,7 @@ function setTab(t){
   if(t==='estoque')  renderEstoque();
   if(t==='custos')   renderCustos();
   if(t==='cobrancas') {renderCobrancas();renderAcompanhamento();verificarAlertasVencimento();}
-  if(t==='colaboradores') renderColaboradores();
+  if(t==='colaboradores') {renderColaboradores();renderDiaristasMesLabel();renderDiaristas();}
   if(t==='laranjas') renderLaranjas();
   if(t==='historico')renderHistorico();
   if(t==='ranking')  renderRanking();
@@ -8709,7 +8787,7 @@ function cobDrop(e,targetId){
   if(fromIdx<0||toIdx<0) return;
   const [moved]=cobrancas.splice(fromIdx,1);
   cobrancas.splice(toIdx,0,moved);
-  lsave('slj_cobrancas',cobrancas);
+  salvarCobrancasExtra();
   renderCobrancas();
 }
 
@@ -8736,8 +8814,8 @@ function salvarEdicaoCobranca(){
   const dias=diasStr?diasStr.split(',').map(d=>parseInt(d.trim())).filter(d=>d>=1&&d<=31):[];
   c.diasVencimento=dias;
   c.diaVencimento=dias[0]||null;
-  lsave('slj_cobrancas',cobrancas);
-  sbUps('cobrancas',[{id:c.id,nome:c.nome,email:c.email,ativo:true}]).catch(()=>{});
+  salvarCobrancasExtra();
+  sbUps('cobrancas',[{id:c.id,nome:c.nome,email:c.email,ativo:true}]).catch(()={});
   document.getElementById('modal-editar-cob').style.display='none';
   renderCobrancas();
   verificarAlertasVencimento();
@@ -8748,7 +8826,20 @@ function salvarObsCobranca(id,val){
   const c=cobrancas.find(x=>x.id===id);
   if(!c) return;
   c.obs=val.trim();
+  salvarCobrancasExtra();
+}
+
+function salvarCobrancasExtra(){
   lsave('slj_cobrancas',cobrancas);
+  // Salvar dados extras (ordem, dias, obs) no banco via bling_tokens
+  const dados=cobrancas.map(c=>({id:c.id,diasVencimento:c.diasVencimento||[],diaVencimento:c.diaVencimento||null,obs:c.obs||''}));
+  sbUps('bling_tokens',[{
+    id:5,
+    access_token:JSON.stringify(dados),
+    refresh_token:'cobrancas_extra',
+    expires_at:Date.now(),
+    updated_at:new Date().toISOString()
+  }]).catch(()=>{});
 }
 
 function salvarDiaVencimento(id,val){
@@ -8757,7 +8848,7 @@ function salvarDiaVencimento(id,val){
   const dias=val?val.split(',').map(d=>parseInt(d.trim())).filter(d=>d>=1&&d<=31):[];
   c.diasVencimento=dias;
   c.diaVencimento=dias[0]||null;
-  lsave('slj_cobrancas',cobrancas);
+  salvarCobrancasExtra();
   verificarAlertasVencimento();
 }
 
@@ -8784,6 +8875,206 @@ function verificarAlertasVencimento(){
       ?'🔴 <strong>HOJE dia '+a.dia+'</strong> — Gerar boleto/NF para <strong>'+a.nome+'</strong>'
       :'⚠ Em <strong>'+a.diff+' dia'+(a.diff>1?'s':'')+'</strong> (dia '+a.dia+') — Gerar boleto/NF para <strong>'+a.nome+'</strong>';
     return '<div style="background:'+bg+';border:1px solid '+border+';border-radius:var(--radius);padding:10px 14px;margin-bottom:6px;font-size:13px;color:'+cor+'">'+msg+'</div>';
+  }).join('');
+}
+
+// ── DIARISTAS ────────────────────────────────────────────────────────────────
+let diaristas=JSON.parse(localStorage.getItem('slj_diaristas')||'[]');
+let diaristasMesNav=new Date(hoje.getFullYear(),hoje.getMonth(),1);
+
+// Inicializar Valdeci e Késia se não existirem
+(()=>{
+  if(!diaristas.length){
+    diaristas=[
+      {id:'diarista_valdeci',nome:'Valdeci',valorDia:0,tipo:'fixo',ativo:true},
+      {id:'diarista_kesia',nome:'Késia',valorDia:0,tipo:'fixo',ativo:true}
+    ];
+    localStorage.setItem('slj_diaristas',JSON.stringify(diaristas));
+  }
+})();
+
+function salvarDiaristas(){localStorage.setItem('slj_diaristas',JSON.stringify(diaristas));}
+
+function _diaristasMesPrefixo(){
+  const y=diaristasMesNav.getFullYear();
+  const m=String(diaristasMesNav.getMonth()+1).padStart(2,'0');
+  return `${y}-${m}`;
+}
+
+function navegarMesDiarista(dir){
+  diaristasMesNav=new Date(diaristasMesNav.getFullYear(),diaristasMesNav.getMonth()+dir,1);
+  renderDiaristasMesLabel();
+  renderDiaristas();
+}
+
+function renderDiaristasMesLabel(){
+  const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const el=document.getElementById('diarista-mes-label');
+  if(el) el.textContent=meses[diaristasMesNav.getMonth()]+' '+diaristasMesNav.getFullYear();
+}
+
+function abrirCadastroDiarista(id){
+  const d=id?diaristas.find(x=>x.id===id):null;
+  document.getElementById('cad-diarista-id').value=id||'';
+  document.getElementById('cad-diarista-nome').value=d?d.nome:'';
+  document.getElementById('cad-diarista-valor').value=d?d.valorDia:'';
+  document.getElementById('cad-diarista-tipo').value=d?d.tipo:'fixo';
+  document.getElementById('modal-cad-diarista').style.display='flex';
+}
+
+function salvarCadastroDiarista(){
+  const id=document.getElementById('cad-diarista-id').value;
+  const nome=document.getElementById('cad-diarista-nome').value.trim();
+  const valor=parseFloat(document.getElementById('cad-diarista-valor').value)||0;
+  const tipo=document.getElementById('cad-diarista-tipo').value;
+  if(!nome){toast('Informe o nome.');return;}
+  if(id){
+    const d=diaristas.find(x=>x.id===id);
+    if(d){d.nome=nome;d.valorDia=valor;d.tipo=tipo;}
+  }else{
+    diaristas.push({id:'diarista_'+Date.now(),nome,valorDia:valor,tipo,ativo:true});
+  }
+  salvarDiaristas();
+  document.getElementById('modal-cad-diarista').style.display='none';
+  renderDiaristas();
+  toast('✓ Diarista salvo!');
+}
+
+function deletarDiarista(id){
+  if(!confirm('Remover este diarista?')) return;
+  diaristas=diaristas.filter(x=>x.id!==id);
+  salvarDiaristas();
+  renderDiaristas();
+}
+
+function getDiaristasDias(){
+  return JSON.parse(localStorage.getItem('slj_diaristas_dias')||'{}');
+}
+
+function salvarDiaristasDias(dias){
+  localStorage.setItem('slj_diaristas_dias',JSON.stringify(dias));
+}
+
+function toggleDiaDiarista(diaristaId,data,status){
+  const dias=getDiaristasDias();
+  const key=diaristaId+'_'+data;
+  if(dias[key]===status) delete dias[key]; // toggle off
+  else dias[key]=status;
+  salvarDiaristasDias(dias);
+  renderDiaristas();
+}
+
+function abrirAdiantamento(id){
+  const d=diaristas.find(x=>x.id===id);
+  if(!d) return;
+  document.getElementById('adiant-diarista-id').value=id;
+  document.getElementById('adiant-nome-label').textContent=d.nome;
+  document.getElementById('adiant-valor').value='';
+  document.getElementById('adiant-data').value=hojeKey;
+  document.getElementById('adiant-obs').value='';
+  document.getElementById('modal-adiantamento').style.display='flex';
+}
+
+function registrarAdiantamento(){
+  const id=document.getElementById('adiant-diarista-id').value;
+  const valor=parseFloat(document.getElementById('adiant-valor').value)||0;
+  const data=document.getElementById('adiant-data').value;
+  const obs=document.getElementById('adiant-obs').value.trim();
+  if(valor<=0){toast('Informe o valor.');return;}
+  if(!data){toast('Informe a data.');return;}
+  const adiantamentos=JSON.parse(localStorage.getItem('slj_diaristas_adiant')||'[]');
+  adiantamentos.push({id:Date.now().toString(),diaristaId:id,valor,data,obs,pago:false});
+  localStorage.setItem('slj_diaristas_adiant',JSON.stringify(adiantamentos));
+  document.getElementById('modal-adiantamento').style.display='none';
+  renderDiaristas();
+  toast('✓ Adiantamento registrado!');
+}
+
+function deletarAdiantamento(id){
+  const adiantamentos=JSON.parse(localStorage.getItem('slj_diaristas_adiant')||'[]');
+  const novo=adiantamentos.filter(x=>x.id!==id);
+  localStorage.setItem('slj_diaristas_adiant',JSON.stringify(novo));
+  renderDiaristas();
+}
+
+function renderDiaristas(){
+  const el=document.getElementById('diaristas-lista');
+  if(!el) return;
+  renderDiaristasMesLabel();
+  const prefixo=_diaristasMesPrefixo();
+  const ano=diaristasMesNav.getFullYear();
+  const mes=diaristasMesNav.getMonth();
+  const diasNoMes=new Date(ano,mes+1,0).getDate();
+  const dias=getDiaristasDias();
+  const adiantamentos=JSON.parse(localStorage.getItem('slj_diaristas_adiant')||'[]');
+  const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const diasSemana=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+  if(!diaristas.length){el.innerHTML='<p style="color:var(--text3);font-size:13px;padding:16px 0;text-align:center">Nenhum diarista cadastrado.</p>';return;}
+
+  el.innerHTML=diaristas.filter(d=>d.ativo).map(d=>{
+    const adiantMes=adiantamentos.filter(a=>a.diaristaId===d.id&&a.data.startsWith(prefixo));
+    const totalAdiant=adiantMes.reduce((s,a)=>s+a.valor,0);
+    let diasTrab=0;
+    // Montar calendário
+    const calRows=[];
+    for(let i=1;i<=diasNoMes;i++){
+      const dk=`${prefixo}-${String(i).padStart(2,'0')}`;
+      const key=d.id+'_'+dk;
+      const status=dias[key]||'';
+      const diaSem=diasSemana[new Date(ano,mes,i).getDay()];
+      const eDom=new Date(ano,mes,i).getDay()===0;
+      if(status==='ok') diasTrab++;
+      calRows.push({i,dk,status,diaSem,eDom});
+    }
+    const totalBruto=diasTrab*(d.valorDia||0);
+    const saldoPagar=totalBruto-totalAdiant;
+
+    const calHtml=calRows.map(({i,dk,status,diaSem,eDom})=>{
+      const corFundo=status==='ok'?'var(--green)':status==='faltou'?'var(--red)':eDom?'var(--bg2)':'var(--bg)';
+      const corTexto=status==='ok'||status==='faltou'?'#fff':'var(--text2)';
+      return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:32px">'
+        +'<div style="font-size:9px;color:var(--text3)">'+diaSem+'</div>'
+        +'<div style="font-size:11px;font-weight:600;background:'+corFundo+';color:'+corTexto+';width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer"'
+        +' onclick="toggleDiaDiarista(\''+d.id+'\',\''+dk+'\',\''+(status==='ok'?'faltou':status==='faltou'?'':' ok')+'\')" title="'+(status==='ok'?'✓ Trabalhou':status==='faltou'?'✗ Faltou':'—')+'">'+i+'</div>'
+        +'</div>';
+    }).join('');
+
+    const adiantHtml=adiantMes.length?adiantMes.map(a=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">'
+      +'<span>'+new Date(a.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+(a.obs?' — '+a.obs:'')+'</span>'
+      +'<div style="display:flex;align-items:center;gap:8px"><span style="color:var(--red);font-weight:600">−'+moeda(a.valor)+'</span>'
+      +'<button onclick="deletarAdiantamento(\''+a.id+'\')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px">✕</button></div>'
+      +'</div>').join(''):'<div style="font-size:12px;color:var(--text3)">Nenhum adiantamento</div>';
+
+    return '<div class="card" style="margin-bottom:14px">'
+      // Header
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+      +'<div>'
+      +'<div style="font-size:15px;font-weight:700">'+d.nome+'</div>'
+      +'<div style="font-size:12px;color:var(--text3)">'+moeda(d.valorDia)+'/dia · '+d.tipo+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button onclick="abrirAdiantamento(\''+d.id+'\')" style="background:#FFF3CD;border:1px solid #FBBF24;border-radius:var(--radius-sm);padding:5px 10px;font-size:12px;cursor:pointer;color:#92400E">💸 Adiantamento</button>'
+      +'<button onclick="abrirCadastroDiarista(\''+d.id+'\')" style="background:var(--bg2);border:none;border-radius:var(--radius-sm);padding:5px 10px;font-size:12px;cursor:pointer;color:var(--text2)">✏️</button>'
+      +'<button onclick="deletarDiarista(\''+d.id+'\')" style="background:var(--red-bg);border:none;border-radius:var(--radius-sm);padding:5px 10px;font-size:12px;cursor:pointer;color:var(--red)">✕</button>'
+      +'</div></div>'
+      // Resumo
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">'
+      +'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Dias trabalhados</div><div style="font-size:16px;font-weight:700;color:var(--green)">'+diasTrab+'</div></div>'
+      +'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Adiantamentos</div><div style="font-size:16px;font-weight:700;color:var(--red)">'+moeda(totalAdiant)+'</div></div>'
+      +'<div style="background:'+(saldoPagar>0?'var(--orange)':'var(--green)')+';border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:#fff;opacity:.8;margin-bottom:2px">Saldo a pagar</div><div style="font-size:16px;font-weight:700;color:#fff">'+moeda(saldoPagar)+'</div></div>'
+      +'</div>'
+      // Calendário
+      +'<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;display:flex;gap:10px">'
+      +'<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:var(--green);border-radius:3px;display:inline-block"></span>Trabalhou</span>'
+      +'<span style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:var(--red);border-radius:3px;display:inline-block"></span>Faltou</span>'
+      +'<span style="font-size:10px;color:var(--text3)">(clique para alternar)</span>'
+      +'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:14px">'+calHtml+'</div>'
+      // Adiantamentos
+      +'<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px">💸 Adiantamentos do mês</div>'
+      +adiantHtml
+      +'</div>';
   }).join('');
 }
 
