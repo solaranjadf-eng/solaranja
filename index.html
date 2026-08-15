@@ -2574,6 +2574,14 @@ async function sincronizar(){
     renderDash();
     mostrarAlertaEstoque();
     verificarAlertasVencimento();
+    // Renovar token Bling automaticamente
+    (async()=>{
+      const tokens=blingGetTokens();
+      if(tokens?.refresh_token){
+        const t=await blingGetToken();
+        if(!t) await blingRefreshToken().catch(()=>{});
+      }
+    })();
     renderClienteList();atualizarBadges();verificarAlertasEstoque();verificarAniversarios();
     TAMS.forEach(t=>{const el=document.getElementById('min-'+t);if(el&&estMinimos[t]>0)el.value=estMinimos[t];});
     // Se entregador, atualizar rota
