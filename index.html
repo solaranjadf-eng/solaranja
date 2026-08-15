@@ -2217,7 +2217,7 @@ a{color:var(--orange);text-decoration:none}
 <script>
 // ── SUPABASE ───────────────────────────────────────────────────────────────
 const SB_URL='https://sbqzoljcohzaokkdtsaq.supabase.co/rest/v1';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNicXpvbGpjb2h6YW9ra2R0c2FxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwNDk5MTQsImV4cCI6MjA5NDYyNTkxNH0.P8Gb8B3KMDSnPgVWf2FipVvYURNpvRhg8unjtrSI6UY';
+const SB_KEY='sb_publishable_Hey5dk7q7WHpgKhnmnte2g_X-jIbE83';
 const HDR={'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=representation'};
 async function sb(m,t,b,q=''){
   const r=await fetch(`${SB_URL}/${t}${q}`,{method:m,headers:HDR,body:b?JSON.stringify(b):null});
