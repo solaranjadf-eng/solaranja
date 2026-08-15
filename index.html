@@ -1380,7 +1380,7 @@ a{color:var(--orange);text-decoration:none}
 <main class="page" id="page-colaboradores">
   <!-- Cadastrar colaborador (Fábio) -->
   <div class="card" style="margin-bottom:12px">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">👤 Adicionar Colaborador</div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">👤 Adicionar Diarista</div>
     <div style="display:flex;gap:8px">
       <input type="text" id="colab-novo-nome" placeholder="Nome do colaborador" style="flex:1;height:36px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 10px;font-size:13px">
       <button class="btn btn-primary" onclick="addColaborador()" style="height:36px">Adicionar</button>
@@ -4972,14 +4972,12 @@ function getSemanaKey(d){
 async function addColaborador(){
   const nome=document.getElementById('colab-novo-nome')?.value.trim();
   if(!nome){toast('Informe o nome.');return;}
-  const colab={id:Date.now().toString(),nome,ativo:true};
-  colaboradores.push(colab);
-  lsave('slj_colaboradores',colaboradores);
-  sbUps('colaboradores',[{id:colab.id,nome:colab.nome,ativo:true}]).catch(()=>{});
+  // Adiciona como diarista em vez de colaborador semanal
+  diaristas.push({id:'diarista_'+Date.now(),nome,valorDia:0,tipo:'eventual',ativo:true});
+  salvarDiaristas();
   document.getElementById('colab-novo-nome').value='';
-  colabSelecionado=colab.id;
-  toast('✓ Colaborador adicionado!');
-  renderColaboradores();
+  toast('✓ '+nome+' adicionado como diarista!');
+  renderDiaristas();
 }
 
 function delColaborador(id){
@@ -9042,7 +9040,7 @@ function renderDiaristas(){
       return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:32px">'
         +'<div style="font-size:9px;color:var(--text3)">'+diaSem+'</div>'
         +'<div style="font-size:11px;font-weight:600;background:'+corFundo+';color:'+corTexto+';width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer"'
-        +' onclick="toggleDiaDiarista(\''+d.id+'\',\''+dk+'\',\''+(status==='ok'?'faltou':status==='faltou'?'':' ok')+'\')" title="'+(status==='ok'?'✓ Trabalhou':status==='faltou'?'✗ Faltou':'—')+'">'+i+'</div>'
+        +' onclick="toggleDiaDiarista(\''+d.id+'\',\''+dk+'\',\''+(status==='ok'?'faltou':status==='faltou'?'':'ok')+'\')" title="'+(status==='ok'?'✓ Trabalhou':status==='faltou'?'✗ Faltou':'—')+'">'+i+'</div>'
         +'</div>';
     }).join('');
 
