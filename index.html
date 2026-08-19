@@ -6844,7 +6844,6 @@ async function delCliente(id){
 async function importarDoBlIng(){
   const token=await blingGetToken();
   if(!token){toast('Bling não autenticado. Clique em Bling NF primeiro.');return;}
-  if(!confirm('Importar clientes do Bling com IE?\n\nPode levar 3-5 minutos.')) return;
   setSyncStatus('loading','Importando do Bling...');
   let novos=0, atualizados=0, erros=0;
   const todosContatos=[];
