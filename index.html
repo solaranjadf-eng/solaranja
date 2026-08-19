@@ -6904,6 +6904,8 @@ async function importarDoBlIng(){
           novos++;
         }
       }catch(e){console.warn('Erro contato',ct.id,e.message);}
+    }
+    lsave('slj_cli_bk',clientes);
     await sbUps('clientes',clientes.map(c=>({
       id:c.id,nome:c.nome,apelido:c.apelido||'',cnpj:c.cnpj||'',
       tel:c.tel||'',email:c.email||'',ie:c.ie||'',bairro:c.bairro||'',
