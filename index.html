@@ -8783,23 +8783,7 @@ async function emitirNFeCliente(){
     dataOperacao: dataOp,
     naturezaOperacao: 'Venda de mercadoria a não contribuinte',
     contato:{
-      nome: cli.nome,
-      tipoPessoa: (cli.cnpj||'').replace(/\D/g,'').length>11?'J':'F',
       numeroDocumento: (cli.cnpj||'').replace(/\D/g,''),
-      ie: cli.ie||'',
-      indicadorIE: 9,
-      email: cli.email||'',
-      telefone: (cli.tel||'').replace(/\D/g,''),
-      endereco:{
-        endereco: (cli.endereco||'Nao informado').slice(0,100),
-        numero: cli.numero||'SN',
-        complemento: cli.complemento||'',
-        bairro: cli.bairro||'Centro',
-        municipio: cli.cidade||'Brasilia',
-        uf: cli.uf||'DF',
-        cep: (cli.cep||'').replace(/\D/g,''),
-        pais: 'Brasil'
-      }
     },
     itens: itensNF
   };
