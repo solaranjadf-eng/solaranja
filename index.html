@@ -2176,7 +2176,10 @@ a{color:var(--orange);text-decoration:none}
       <div class="form-group" style="flex:1;margin:0"><label>Bairro</label><input type="text" id="ec-bairro"></div>
       <div class="form-group" style="flex:1;margin:0"><label>Região</label><input type="text" id="ec-regiao"></div>
     </div>
-    <div class="form-group"><label>Endereço</label><input type="text" id="ec-endereco"></div>
+    <div class="action-row" style="margin-bottom:10px;gap:8px">
+      <div class="form-group" style="flex:2;margin:0"><label>Endereço</label><input type="text" id="ec-endereco"></div>
+      <div class="form-group" style="flex:1;margin:0"><label>CEP</label><input type="text" id="ec-cep" placeholder="00000-000" maxlength="9" inputmode="numeric"></div>
+    </div>
     <div class="form-group">
       <label>Link do Google Maps 📍</label>
       <input type="text" id="ec-maps" placeholder="Cole aqui o link do Google Maps">
@@ -6747,6 +6750,7 @@ function abrirModalCliente(id){
   const apelidoEl=document.getElementById('ec-apelido');if(apelidoEl)apelidoEl.value=c.apelido||'';
   document.getElementById('ec-tel').value=c.tel||'';document.getElementById('ec-bairro').value=c.bairro||'';
   const ieEl=document.getElementById('ec-ie');if(ieEl)ieEl.value=c.ie||'';
+  const cepEl=document.getElementById('ec-cep');if(cepEl)cepEl.value=c.cep||'';
   document.getElementById('ec-regiao').value=c.regiao||'';document.getElementById('ec-endereco').value=c.endereco||'';
   document.getElementById('ec-maps').value=c.maps||'';
   document.getElementById('ec-aniver').value=c.aniver||'';
@@ -6761,6 +6765,7 @@ async function salvarEdicaoCliente(){
   c.apelido=document.getElementById('ec-apelido')?.value.trim()||'';
   c.tel=document.getElementById('ec-tel').value.trim();c.bairro=document.getElementById('ec-bairro').value.trim();
   c.ie=document.getElementById('ec-ie')?.value.trim()||'';
+  c.cep=document.getElementById('ec-cep')?.value.trim()||'';
   c.regiao=document.getElementById('ec-regiao').value.trim();c.endereco=document.getElementById('ec-endereco').value.trim();
   c.maps=document.getElementById('ec-maps').value.trim();
   c.aniver=document.getElementById('ec-aniver').value;
@@ -6863,6 +6868,7 @@ async function importarDoBlIng(){
     for(let i=0;i<todosContatos.length;i++){
       const ct=todosContatos[i];
       if(i%10===0) setSyncStatus('loading',`Detalhes ${i}/${todosContatos.length}...`);
+      await new Promise(r=>setTimeout(r,200)); // delay para evitar rate limit
       try{
         const r2=await fetch(`${BLING_WORKER}/bling/contatos/${ct.id}?access_token=${token}`,{method:'GET'});
         const d2=await r2.json();
@@ -6893,17 +6899,14 @@ async function importarDoBlIng(){
             cnpj:doc?doc.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):'',
             tel:tel?'('+tel.slice(0,2)+') '+tel.slice(2,7)+'-'+tel.slice(7):'',
             ie,bairro:end.bairro||'',regiao:'',
-            endereco:end.endereco?(end.endereco+', '+end.numero+', '+end.bairro+', '+end.municipio+', '+end.uf+' — CEP: '+end.cep):'',
+            endereco:end.endereco?(end.endereco+', '+end.numero+', '+end.bairro+', '+end.municipio+', '+end.uf):'',
             cidade:end.municipio||'Brasília',uf:end.uf||'DF',cep:end.cep||'',
             maps:'',aniver:'',minimo:0,precos:{},ativo:true
           };
           clientes.push(novo);
           novos++;
         }
-      }catch(e){}
-    }
-
-    lsave('slj_cli_bk',clientes);
+      }catch(e){console.warn('Erro contato',ct.id,e.message);}
     await sbUps('clientes',clientes.map(c=>({
       id:c.id,nome:c.nome,apelido:c.apelido||'',cnpj:c.cnpj||'',
       tel:c.tel||'',email:c.email||'',ie:c.ie||'',bairro:c.bairro||'',
