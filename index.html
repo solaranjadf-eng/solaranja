@@ -477,10 +477,6 @@ a{color:var(--orange);text-decoration:none}
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
       <span>Bling NF</span>
     </button>
-    <button class="sidebar-item" onclick="importarIEsBling()" style="color:rgba(100,220,100,.9)" title="Importar IEs do Bling">
-      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      <span>Import IE</span>
-    </button>
   </nav>
   <div class="sidebar-footer" style="background:#2D3139">
       <div class="sidebar-sync" id="sync-bar" style="margin-bottom:0">
@@ -6844,44 +6840,84 @@ async function delCliente(id){
 }
 
 async function importarDoBlIng(){
-  if(!confirm('Importar todos os clientes do Bling com endereço completo?\n\nIsso processa em lotes pequenos e pode levar 2-3 minutos.')) return;
+  const token=await blingGetToken();
+  if(!token){toast('Bling não autenticado. Clique em Bling NF primeiro.');return;}
+  if(!confirm('Importar todos os clientes do Bling incluindo IE?\n\nPode levar 2-3 minutos.')) return;
   setSyncStatus('loading','Importando do Bling...');
-  let pagina=1, lote=1;
-  let totalImportados=0, totalAtualizados=0;
-  let continuar=true;
+  let pagina=1, novos=0, atualizados=0;
   try{
-    while(continuar){
-      setSyncStatus('loading','Importando... pág.'+pagina+' lote '+lote);
-      const res=await fetch(SUPABASE_FUNCTIONS_URL+'/bling-importar-clientes?pagina='+pagina+'&lote='+lote,{
-        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
-      });
-      const data=await res.json();
-      if(!data.success) throw new Error(data.erro||'Erro ao importar');
-      totalImportados+=data.importados||0;
-      totalAtualizados+=data.atualizados||0;
-      if(data.proximoLote){
-        lote=data.proximoLote;
-      }else if(data.proximaPagina){
-        pagina=data.proximaPagina;
-        lote=1;
-      }else{
-        continuar=false;
-      }
+    const todosContatos=[];
+    while(true){
+      const r=await fetch(`${BLING_WORKER}/bling/contatos?access_token=${token}&pagina=${pagina}&limite=100`,{method:'GET'});
+      const d=await r.json();
+      const contatos=d.data||[];
+      if(!contatos.length) break;
+      todosContatos.push(...contatos);
+      setSyncStatus('loading',`Importando... ${todosContatos.length} contatos`);
+      if(contatos.length<100) break;
+      pagina++;
     }
-    // Recarregar clientes do banco
-    const dbC=await sbGet('clientes','?order=nome');
-    if(dbC&&dbC.length>0){
-      clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,apelido:c.apelido||'',tel:c.tel||'',
-        bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
-        maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos||{}}));
-      lsave('slj_cli_bk',clientes);
+
+    toast(`${todosContatos.length} contatos encontrados. Buscando detalhes...`);
+
+    for(let i=0;i<todosContatos.length;i++){
+      const ct=todosContatos[i];
+      if(i%10===0) setSyncStatus('loading',`Detalhes ${i}/${todosContatos.length}...`);
+      try{
+        const r2=await fetch(`${BLING_WORKER}/bling/contatos/${ct.id}?access_token=${token}`,{method:'GET'});
+        const d2=await r2.json();
+        const det=d2.data;
+        if(!det) continue;
+        const doc=(det.numeroDocumento||'').replace(/\D/g,'');
+        const ie=(det.ie||'').trim();
+        const nome=det.nome||det.fantasia||'';
+        const tel=(det.telefone||det.celular||'').replace(/\D/g,'');
+        const end=det.endereco?.geral||{};
+        if(!doc&&!nome) continue;
+
+        const existing=clientes.find(c=>(c.cnpj||'').replace(/\D/g,'')===doc||(doc&&c.cnpj===doc));
+        if(existing){
+          // Atualizar IE e outros dados
+          if(ie) existing.ie=ie;
+          existing.nome=existing.nome||nome;
+          existing.bairro=existing.bairro||end.bairro||'';
+          existing.cidade=existing.cidade||end.municipio||'Brasília';
+          existing.uf=existing.uf||end.uf||'DF';
+          existing.cep=existing.cep||end.cep||'';
+          atualizados++;
+        }else{
+          // Novo cliente
+          const novo={
+            id:Date.now()+i,
+            nome,apelido:'',
+            cnpj:doc?doc.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):'',
+            tel:tel?'('+tel.slice(0,2)+') '+tel.slice(2,7)+'-'+tel.slice(7):'',
+            ie,bairro:end.bairro||'',regiao:'',
+            endereco:end.endereco?(end.endereco+', '+end.numero+', '+end.bairro+', '+end.municipio+', '+end.uf+' — CEP: '+end.cep):'',
+            cidade:end.municipio||'Brasília',uf:end.uf||'DF',cep:end.cep||'',
+            maps:'',aniver:'',minimo:0,precos:{},ativo:true
+          };
+          clientes.push(novo);
+          novos++;
+        }
+      }catch(e){}
     }
+
+    lsave('slj_cli_bk',clientes);
+    await sbUps('clientes',clientes.map(c=>({
+      id:c.id,nome:c.nome,apelido:c.apelido||'',cnpj:c.cnpj||'',
+      tel:c.tel||'',email:c.email||'',ie:c.ie||'',bairro:c.bairro||'',
+      regiao:c.regiao||'',endereco:c.endereco||'',maps:c.maps||'',
+      aniver:c.aniver||'',minimo:c.minimo||0,precos:c.precos||{},ativo:true
+    }))).catch(()=>{});
+
     setSyncStatus('ok','Sincronizado — nuvem ativa');
-    toast('✅ '+totalImportados+' novos · '+totalAtualizados+' atualizados do Bling!');
+    toast(`✅ ${novos} novos · ${atualizados} atualizados · IEs importadas!`);
     renderClientes();renderClienteList();
   }catch(e){
     setSyncStatus('err','Erro ao importar');
     toast('Erro: '+e.message);
+    console.error(e);
   }
 }
 function exportarClientes(){
@@ -8744,33 +8780,45 @@ async function importarIEsBling(){
   const token=await blingGetToken();
   if(!token){toast('Bling não autenticado.');return;}
   toast('Buscando contatos no Bling...');
-  let pagina=1, total=0, atualizados=0;
+  let pagina=1, totalContatos=0, atualizados=0;
   try{
+    // Primeiro buscar lista de todos os contatos
+    const todosContatos=[];
     while(true){
       const r=await fetch(`${BLING_WORKER}/bling/contatos?access_token=${token}&pagina=${pagina}&limite=100`,{method:'GET'});
       const d=await r.json();
       const contatos=d.data||[];
       if(!contatos.length) break;
-      for(const ct of contatos){
-        const doc=(ct.numeroDocumento||'').replace(/\D/g,'');
-        const ie=(ct.ie||'').trim();
-        if(!doc||!ie) continue;
-        // Buscar cliente pelo CNPJ
-        const cli=clientes.find(c=>(c.cnpj||'').replace(/\D/g,'')=== doc);
-        if(cli&&(!cli.ie||cli.ie!==ie)){
-          cli.ie=ie;
-          atualizados++;
-        }
-      }
-      total+=contatos.length;
+      todosContatos.push(...contatos);
       if(contatos.length<100) break;
       pagina++;
     }
+    totalContatos=todosContatos.length;
+    toast(`Encontrados ${totalContatos} contatos. Buscando IEs...`);
+
+    // Buscar detalhes de cada contato para pegar a IE
+    for(const ct of todosContatos){
+      const doc=(ct.numeroDocumento||'').replace(/\D/g,'');
+      if(!doc) continue;
+      const cli=clientes.find(c=>(c.cnpj||'').replace(/\D/g,'')=== doc);
+      if(!cli) continue;
+      // Buscar detalhes do contato
+      try{
+        const r2=await fetch(`${BLING_WORKER}/bling/contatos/${ct.id}?access_token=${token}`,{method:'GET'});
+        const d2=await r2.json();
+        const ie=(d2.data?.ie||'').trim();
+        if(ie&&cli.ie!==ie){
+          cli.ie=ie;
+          atualizados++;
+        }
+      }catch(e){}
+    }
+
     if(atualizados>0){
       lsave('slj_clientes',clientes);
       sbUps('clientes',clientes.map(c=>({id:c.id,nome:c.nome,apelido:c.apelido||'',cnpj:c.cnpj||'',tel:c.tel||'',email:c.email||'',ie:c.ie||'',ativo:true}))).catch(()=>{});
     }
-    toast(`✓ ${total} contatos verificados, ${atualizados} IEs importadas!`);
+    toast(`✓ ${totalContatos} contatos verificados, ${atualizados} IEs importadas!`);
   }catch(e){
     toast('Erro ao importar IEs: '+e.message);
     console.error(e);
