@@ -477,6 +477,10 @@ a{color:var(--orange);text-decoration:none}
       <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
       <span>Bling NF</span>
     </button>
+    <button class="sidebar-item" onclick="importarIEsBling()" style="color:rgba(100,220,100,.9)" title="Importar IEs do Bling">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span>Import IE</span>
+    </button>
   </nav>
   <div class="sidebar-footer" style="background:#2D3139">
       <div class="sidebar-sync" id="sync-bar" style="margin-bottom:0">
@@ -8670,7 +8674,7 @@ const BLING_PRODUTO={
   cfop:'5102',
   unidade:'UN',
   codigos:{
-    'copo200ml':'SLJ-200ML',
+    'copo200ml':'0035399103872',
     '200ml':'0042882898375',
     '300ml':'0042882751151',
     '500ml':'042882898405',
@@ -8678,7 +8682,7 @@ const BLING_PRODUTO={
     '5L':'0042882898399'
   },
   nomes:{
-    'copo200ml':'Suco Natural de Laranja 200ml',
+    'copo200ml':'Copo de suco de laranja 200ml natural',
     '200ml':'Garrafa de suco de laranja 200ml natural',
     '300ml':'Garrafa de suco de laranja 300ml natural',
     '500ml':'Garrafa de suco de laranja 500ml natural',
@@ -8736,7 +8740,43 @@ async function blingAuth(){
   }catch(e){toast('Erro ao autenticar com Bling.');}
 }
 
-async function emitirNFeCliente(){
+async function importarIEsBling(){
+  const token=await blingGetToken();
+  if(!token){toast('Bling não autenticado.');return;}
+  toast('Buscando contatos no Bling...');
+  let pagina=1, total=0, atualizados=0;
+  try{
+    while(true){
+      const r=await fetch(`${BLING_WORKER}/bling/contatos?access_token=${token}&pagina=${pagina}&limite=100`,{method:'GET'});
+      const d=await r.json();
+      const contatos=d.data||[];
+      if(!contatos.length) break;
+      for(const ct of contatos){
+        const doc=(ct.numeroDocumento||'').replace(/\D/g,'');
+        const ie=(ct.ie||'').trim();
+        if(!doc||!ie) continue;
+        // Buscar cliente pelo CNPJ
+        const cli=clientes.find(c=>(c.cnpj||'').replace(/\D/g,'')=== doc);
+        if(cli&&(!cli.ie||cli.ie!==ie)){
+          cli.ie=ie;
+          atualizados++;
+        }
+      }
+      total+=contatos.length;
+      if(contatos.length<100) break;
+      pagina++;
+    }
+    if(atualizados>0){
+      lsave('slj_clientes',clientes);
+      sbUps('clientes',clientes.map(c=>({id:c.id,nome:c.nome,apelido:c.apelido||'',cnpj:c.cnpj||'',tel:c.tel||'',email:c.email||'',ie:c.ie||'',ativo:true}))).catch(()=>{});
+    }
+    toast(`✓ ${total} contatos verificados, ${atualizados} IEs importadas!`);
+  }catch(e){
+    toast('Erro ao importar IEs: '+e.message);
+    console.error(e);
+  }
+}
+
   if(!finCliSelecionado){toast('Selecione um cliente no financeiro.');return;}
 
   // Pegar pedidos selecionados ANTES do await para não perder com re-render
@@ -8783,7 +8823,22 @@ async function emitirNFeCliente(){
     dataOperacao: dataOp,
     naturezaOperacao: 'Venda de mercadoria a não contribuinte',
     contato:{
+      nome: cli.nome,
+      tipoPessoa: (cli.cnpj||'').replace(/\D/g,'').length>11?'J':'F',
       numeroDocumento: (cli.cnpj||'').replace(/\D/g,''),
+      indicadorIE: 9,
+      email: cli.email||'',
+      telefone: (cli.tel||'').replace(/\D/g,''),
+      endereco:{
+        endereco: (cli.endereco||'Nao informado').slice(0,100),
+        numero: cli.numero||'SN',
+        complemento: cli.complemento||'',
+        bairro: cli.bairro||'Centro',
+        municipio: cli.cidade||'Brasilia',
+        uf: cli.uf||'DF',
+        cep: (cli.cep||'').replace(/\D/g,''),
+        pais: 'Brasil'
+      }
     },
     itens: itensNF
   };
@@ -9115,6 +9170,7 @@ function renderDiaristas(){
   }).join('');
 }
 
+function buscarClienteOrc(termo){
 function buscarClienteOrc(termo){
   const lista=document.getElementById('orc-cliente-lista');
   if(!lista) return;
