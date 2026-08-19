@@ -2169,6 +2169,7 @@ a{color:var(--orange);text-decoration:none}
     <div class="form-group"><label>Apelido / Nome interno <span style="font-size:10px;color:var(--text3)">(usado na rota do WhatsApp)</span></label><input type="text" id="ec-apelido" placeholder="Ex: nome curto para uso interno"></div>
     <div class="action-row" style="margin-bottom:10px;gap:8px">
       <div class="form-group" style="flex:1;margin:0"><label>CNPJ</label><input type="text" id="ec-cnpj" oninput="mascaraCNPJ(this)" maxlength="18" inputmode="numeric"></div>
+      <div class="form-group" style="flex:1;margin:0"><label>Insc. Estadual</label><input type="text" id="ec-ie" placeholder="Ex: 0803414500127"></div>
       <div class="form-group" style="flex:1;margin:0"><label>Telefone</label><input type="text" id="ec-tel" oninput="mascaraTel(this)" maxlength="15" inputmode="numeric"></div>
     </div>
     <div class="action-row" style="margin-bottom:10px;gap:8px">
@@ -3692,12 +3693,13 @@ async function confirmar(){
     document.getElementById('no-client').style.display='block';
     renderClienteList();
   }catch(e){
+    console.error('ERRO AO SALVAR PEDIDO:', e, JSON.stringify(e));
     if(pedidoSalvo){
       setSyncStatus('ok','Sincronizado — nuvem ativa');
     }else{
       setSyncStatus('err','Erro ao salvar pedido');
       toast('Erro de conexão. Tente novamente.');
-      _ultimoPedidoHash=''; // Liberar para tentar de novo
+      _ultimoPedidoHash='';
     }
   }finally{
     // SEMPRE liberar o botão, com ou sem erro
@@ -6744,6 +6746,7 @@ function abrirModalCliente(id){
   document.getElementById('ec-nome').value=c.nome;document.getElementById('ec-cnpj').value=c.cnpj;
   const apelidoEl=document.getElementById('ec-apelido');if(apelidoEl)apelidoEl.value=c.apelido||'';
   document.getElementById('ec-tel').value=c.tel||'';document.getElementById('ec-bairro').value=c.bairro||'';
+  const ieEl=document.getElementById('ec-ie');if(ieEl)ieEl.value=c.ie||'';
   document.getElementById('ec-regiao').value=c.regiao||'';document.getElementById('ec-endereco').value=c.endereco||'';
   document.getElementById('ec-maps').value=c.maps||'';
   document.getElementById('ec-aniver').value=c.aniver||'';
@@ -6757,6 +6760,7 @@ async function salvarEdicaoCliente(){
   c.cnpj=document.getElementById('ec-cnpj').value.trim()||c.cnpj;
   c.apelido=document.getElementById('ec-apelido')?.value.trim()||'';
   c.tel=document.getElementById('ec-tel').value.trim();c.bairro=document.getElementById('ec-bairro').value.trim();
+  c.ie=document.getElementById('ec-ie')?.value.trim()||'';
   c.regiao=document.getElementById('ec-regiao').value.trim();c.endereco=document.getElementById('ec-endereco').value.trim();
   c.maps=document.getElementById('ec-maps').value.trim();
   c.aniver=document.getElementById('ec-aniver').value;
