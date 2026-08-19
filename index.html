@@ -4094,8 +4094,7 @@ function confirmarEntrega(){
 
 async function marcarPago(i){
   pedidos[i].pago=true;
-  try{await sbPatch('pedidos',`?id=eq.${pedidos[i].id}`,{pago:true});setSyncStatus('ok','Sincronizado — nuvem ativa');}
-  catch(e){setSyncStatus('err','Erro ao sincronizar');}
+  try{await sbPatch('pedidos',`?id=eq.${pedidos[i].id}`,{pago:true});setSyncStatus('ok','Sincronizado — nuvem ativa');}catch(e){setSyncStatus('err','Erro ao sincronizar');}
   atualizarBadges();renderDia();toast('Pagamento confirmado.');
 }
 
@@ -6771,8 +6770,7 @@ async function salvarEdicaoCliente(){
   c.aniver=document.getElementById('ec-aniver').value;
   TAMS.forEach(t=>{const v=parseFloat(document.getElementById('ec-'+t).value);c.precos[t]=isNaN(v)||v<=0?null:v;});
   const vm=parseFloat(document.getElementById('ec-minimo').value);c.minimo=isNaN(vm)||vm<=0?null:vm;
-  try{await sbPatch('clientes',`?id=eq.${c.id}`,{nome:c.nome,cnpj:c.cnpj,apelido:c.apelido,tel:c.tel,bairro:c.bairro,regiao:c.regiao,endereco:c.endereco,maps:c.maps,aniver:c.aniver,minimo:c.minimo,precos:c.precos});setSyncStatus('ok','Sincronizado — nuvem ativa');}
-  catch(e){setSyncStatus('err','Erro ao sincronizar');}
+  try{await sbPatch('clientes',`?id=eq.${c.id}`,{nome:c.nome,cnpj:c.cnpj,apelido:c.apelido,tel:c.tel,bairro:c.bairro,regiao:c.regiao,endereco:c.endereco,maps:c.maps,aniver:c.aniver,minimo:c.minimo,precos:c.precos});setSyncStatus('ok','Sincronizado — nuvem ativa');}catch(e){setSyncStatus('err','Erro ao sincronizar');}
   fecharModal('cliente');renderClientes();toast('Cliente atualizado.');
 }
 function fecharModal(m){document.getElementById('modal-'+m).classList.remove('open');}
@@ -6839,8 +6837,7 @@ async function addCliente(){
 
 async function delCliente(id){
   if(!confirm('Remover este cliente?'))return;
-  try{await sbDel('clientes',`?id=eq.${id}`);clientes=clientes.filter(c=>c.id!==id);if(sel&&sel.id===id){sel=null;document.getElementById('order-area').style.display='none';document.getElementById('no-client').style.display='block';}setSyncStatus('ok','Sincronizado — nuvem ativa');}
-  catch(e){setSyncStatus('err','Erro ao sincronizar');}
+  try{await sbDel('clientes',`?id=eq.${id}`);clientes=clientes.filter(c=>c.id!==id);if(sel&&sel.id===id){sel=null;document.getElementById('order-area').style.display='none';document.getElementById('no-client').style.display='block';}setSyncStatus('ok','Sincronizado — nuvem ativa');}catch(e){setSyncStatus('err','Erro ao sincronizar');}
   renderClientes();renderClienteList();
 }
 
