@@ -2353,6 +2353,7 @@ async function sincronizar(){
     if(dbC&&dbC.length>0){
       // Só atualizar clientes se banco retornou dados válidos
       clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,apelido:c.apelido||'',tel:c.tel||'',
+        ie:c.ie||'',email:c.email||'',cep:c.cep||'',
         bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
         maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos||{}}));
       lsave('slj_cli_bk',clientes);
