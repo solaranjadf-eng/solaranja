@@ -8850,6 +8850,7 @@ async function emitirNFeCliente(){
       nome: cli.nome,
       tipoPessoa: (cli.cnpj||'').replace(/\D/g,'').length>11?'J':'F',
       numeroDocumento: (cli.cnpj||'').replace(/\D/g,''),
+      ie: cli.ie||'',
       indicadorIE: 9,
       email: cli.email||'',
       telefone: (cli.tel||'').replace(/\D/g,''),
