@@ -6844,13 +6844,20 @@ async function delCliente(id){
 async function importarDoBlIng(){
   const token=await blingGetToken();
   if(!token){toast('Bling não autenticado. Clique em Bling NF primeiro.');return;}
+
+  async function fetchComRetry(url,tentativas){
+    tentativas=tentativas||3;
+    for(let t=0;t<tentativas;t++){
+      try{const r=await fetch(url,{method:'GET'});return await r.json();}
+      catch(e){if(t===tentativas-1)throw e;await new Promise(res=>setTimeout(res,1000*(t+1)));}
+    }
+  }
+
   setSyncStatus('loading','Importando do Bling...');
-  let novos=0, atualizados=0, erros=0;
   const todosContatos=[];
   let pagina=1;
   while(true){
-    const r=await fetch(BLING_WORKER+'/bling/contatos?access_token='+token+'&pagina='+pagina+'&limite=100',{method:'GET'});
-    const d=await r.json();
+    const d=await fetchComRetry(BLING_WORKER+'/bling/contatos?access_token='+token+'&pagina='+pagina+'&limite=100');
     const lista=d.data||[];
     if(!lista.length) break;
     todosContatos.push(...lista);
@@ -6858,29 +6865,28 @@ async function importarDoBlIng(){
     pagina++;
   }
   toast(todosContatos.length+' contatos. Buscando IEs...');
+  let atualizados=0, novos=0, erros=0;
   for(let i=0;i<todosContatos.length;i++){
     const ct=todosContatos[i];
-    setSyncStatus('loading','Importando '+(i+1)+'/'+todosContatos.length+'...');
-    await new Promise(res=>setTimeout(res,150));
-    let det=null;
+    setSyncStatus('loading','IE '+(i+1)+'/'+todosContatos.length);
+    await new Promise(res=>setTimeout(res,300));
     try{
-      const r2=await fetch(BLING_WORKER+'/bling/contatos/'+ct.id+'?access_token='+token,{method:'GET'});
-      const d2=await r2.json();
-      det=d2.data;
-    }catch(e2){erros++;continue;}
-    if(!det) continue;
-    const doc=(det.numeroDocumento||'').replace(/\D/g,'');
-    const ie=(det.ie||'').trim();
-    const nome=det.nome||det.fantasia||'';
-    if(!doc&&!nome) continue;
-    const cli=doc?clientes.find(c=>(c.cnpj||'').replace(/\D/g,'')=== doc):null;
-    if(cli){if(ie) cli.ie=ie;atualizados++;}
-    else if(nome&&doc){
-      const endG=det.endereco&&det.endereco.geral?det.endereco.geral:{};
-      const tel=(det.telefone||det.celular||'').replace(/\D/g,'');
-      clientes.push({id:Date.now()+i,nome,apelido:'',cnpj:doc.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'),tel:tel?'('+tel.slice(0,2)+') '+tel.slice(2,7)+'-'+tel.slice(7):'',ie,bairro:endG.bairro||'',regiao:'',endereco:endG.endereco?endG.endereco+', '+endG.numero:'',cep:endG.cep||'',cidade:endG.municipio||'Brasília',uf:endG.uf||'DF',maps:'',aniver:'',minimo:0,precos:{},ativo:true});
-      novos++;
-    }
+      const d2=await fetchComRetry(BLING_WORKER+'/bling/contatos/'+ct.id+'?access_token='+token);
+      const det=d2.data;
+      if(!det) continue;
+      const doc=(det.numeroDocumento||'').replace(/\D/g,'');
+      const ie=(det.ie||'').trim();
+      const nome=det.nome||det.fantasia||'';
+      if(!doc&&!nome) continue;
+      const cli=doc?clientes.find(c=>(c.cnpj||'').replace(/\D/g,'')=== doc):null;
+      if(cli){if(ie) cli.ie=ie;atualizados++;}
+      else if(nome&&doc){
+        const endG=det.endereco&&det.endereco.geral?det.endereco.geral:{};
+        const tel=(det.telefone||det.celular||'').replace(/\D/g,'');
+        clientes.push({id:Date.now()+i,nome,apelido:'',cnpj:doc.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'),tel:tel?'('+tel.slice(0,2)+') '+tel.slice(2,7)+'-'+tel.slice(7):'',ie,bairro:endG.bairro||'',regiao:'',endereco:endG.endereco?endG.endereco+', '+endG.numero:'',cep:endG.cep||'',cidade:endG.municipio||'Brasília',uf:endG.uf||'DF',maps:'',aniver:'',minimo:0,precos:{},ativo:true});
+        novos++;
+      }
+    }catch(e){erros++;console.warn('Erro contato',ct.id);}
   }
   lsave('slj_cli_bk',clientes);
   sbUps('clientes',clientes.map(c=>({id:c.id,nome:c.nome,apelido:c.apelido||'',cnpj:c.cnpj||'',tel:c.tel||'',email:c.email||'',ie:c.ie||'',bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo||0,precos:c.precos||{},ativo:true}))).catch(e=>console.warn(e));
