@@ -2410,7 +2410,11 @@ async function sincronizar(){
     const d90=new Date(hoje);d90.setDate(d90.getDate()-90);
     const noventaDiasAtras=d90.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
     if(primeiraVez||agora2-ultimaHistSync>600000){
-      const dbH=await sbGet('pedidos',`?data=neq.${hojeKey}&data=neq.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=2000&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`);
+      // Buscar histórico em duas partes para superar limite de 1000 do Supabase
+      const selectH='id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto';
+      const dbH1=await sbGet('pedidos',`?data=lt.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=1000&offset=0&select=${selectH}`);
+      const dbH2=await sbGet('pedidos',`?data=lt.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=1000&offset=1000&select=${selectH}`);
+      const dbH=[...(dbH1||[]),...(dbH2||[])];
       localStorage.setItem('slj_hist_sync',agora2.toString());
       if(dbH!==null&&dbH.length>0){
         const novoHist={};
@@ -8757,7 +8761,20 @@ async function blingGetToken(){
 async function blingAuth(){
   const token=await blingGetToken();
   if(token){toast('✓ Bling já autenticado!');return;}
-  window.location.href='https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=017840c85f70865a76ae30219d7d8f4e345b1302&state=solaranja';
+  window.open('https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=017840c85f70865a76ae30219d7d8f4e345b1302&state=solaranja','_blank');
+  toast('Autorize no Bling — quando redirecionar copie a URL e cole aqui');
+  setTimeout(()=>{
+    const code=prompt('Cole a URL completa após autorizar:');
+    if(!code) return;
+    const match=code.match(/[?&]code=([^&]+)/);
+    const c=match?match[1]:code.trim();
+    if(!c){toast('Code não encontrado.');return;}
+    fetch(BLING_WORKER+'/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:c})})
+    .then(r=>r.json()).then(d=>{
+      if(d.access_token){d.saved_at=Date.now();blingSaveTokens(d);toast('✓ Bling autenticado!');}
+      else toast('Erro: '+(d.error?.description||JSON.stringify(d)));
+    });
+  },3000);
 }
 
 async function importarIEsBling(){
