@@ -2410,11 +2410,16 @@ async function sincronizar(){
     const d90=new Date(hoje);d90.setDate(d90.getDate()-90);
     const noventaDiasAtras=d90.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
     if(primeiraVez||agora2-ultimaHistSync>600000){
-      // Buscar histórico em duas partes para superar limite de 1000 do Supabase
+      // Buscar histórico em partes para superar limite de 1000 do Supabase
       const selectH='id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto';
-      const dbH1=await sbGet('pedidos',`?data=lt.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=1000&offset=0&select=${selectH}`);
-      const dbH2=await sbGet('pedidos',`?data=lt.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=1000&offset=1000&select=${selectH}`);
-      const dbH=[...(dbH1||[]),...(dbH2||[])];
+      const baseQ=`?data=lt.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=500&select=${selectH}`;
+      const [dbH1,dbH2,dbH3,dbH4]=await Promise.all([
+        sbGet('pedidos',baseQ+'&offset=0'),
+        sbGet('pedidos',baseQ+'&offset=500'),
+        sbGet('pedidos',baseQ+'&offset=1000'),
+        sbGet('pedidos',baseQ+'&offset=1500'),
+      ]);
+      const dbH=[...(dbH1||[]),...(dbH2||[]),...(dbH3||[]),...(dbH4||[])];
       localStorage.setItem('slj_hist_sync',agora2.toString());
       if(dbH!==null&&dbH.length>0){
         const novoHist={};
