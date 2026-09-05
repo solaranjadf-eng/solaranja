@@ -2654,7 +2654,7 @@ function setTab(t){
   if(t==='notas')     renderNotas();
   if(t==='compras')   renderComprasCartao();
   if(t==='dash')     {_atualizarLabelMes();renderDash();}
-  if(t==='dia')      renderDia();
+  if(t==='dia')      {renderDia();fecharModal('edit');}
   if(t==='rota')     renderRota();
   if(t==='resumo')   {renderResumo();atualizarMeta();}
   if(t==='producao') {renderProducao();}
@@ -6655,7 +6655,7 @@ function abrirModalEditHist(pedidoId, dataKey){
   document.getElementById('modal-garrafas').innerHTML=TAMS.map(t=>{
     const pr=(c.precos||{})[t]||(p.precos||{})[t];const ok=pr&&pr>0;
     return`<div class="g-card ${ok?'has-price':'disabled'}"><div class="g-size">${TL[t]}</div>${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}<div class="qty-ctrl"><button class="qty-btn" ontouchstart="" onclick="altM('${t}',-1)">−</button><span class="qty-val" id="mq-${t}">${editPedQtds[t]||0}</span><button class="qty-btn" ontouchstart="" onclick="altM('${t}',1)">+</button></div></div>`;}).join('');
-  document.getElementById('modal-edit').style.display='flex';
+  const _me1=document.getElementById('modal-edit');_me1.style.zIndex='99999';_me1.style.display='flex';
 }
 
 function abrirModalEdit(i){
@@ -6668,7 +6668,7 @@ function abrirModalEdit(i){
   document.getElementById('modal-garrafas').innerHTML=TAMS.map(t=>{
     const pr=c.precos[t],ok=pr&&pr>0;
     return`<div class="g-card ${ok?'has-price':'disabled'}"><div class="g-size">${TL[t]}</div>${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}<div class="qty-ctrl"><button class="qty-btn" ontouchstart="" onclick="altM('${t}',-1)">−</button><span class="qty-val" id="mq-${t}">${editPedQtds[t]||0}</span><button class="qty-btn" ontouchstart="" onclick="altM('${t}',1)">+</button></div></div>`;}).join('');
-  document.getElementById('modal-edit').style.display='flex';
+  const _me2=document.getElementById('modal-edit');_me2.style.zIndex='99999';_me2.style.display='flex';
 }
 function altM(t,d){editPedQtds[t]=Math.max(0,(editPedQtds[t]||0)+d);document.getElementById('mq-'+t).textContent=editPedQtds[t];}
 async function salvarEdicaoPedido(){
