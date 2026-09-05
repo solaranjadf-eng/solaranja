@@ -7379,8 +7379,6 @@ function iniciarSyncAdaptativa(){
 // Sync rápida — só pedidos de hoje e ontem (sem histórico, sem fotos, sem outros dados)
 async function sincronizarRapido(){
   if(!perfilAtual)return;
-  // Não sincronizar se modal de edição estiver aberto
-  if(document.getElementById('modal-edit')?.style.display==='flex') return;
   try{
     const [dbP,dbPOntem,dbPAmanha]=await Promise.all([
       sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`),
