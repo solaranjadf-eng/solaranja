@@ -2059,15 +2059,14 @@ a{color:var(--orange);text-decoration:none}
 </div>
 
 <!-- MODAL EDITAR PEDIDO -->
-<div class="modal-bg" id="modal-edit">
-  <div class="modal-box">
-    <div class="modal-handle"></div>
+<div id="modal-edit" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:flex-end;justify-content:center">
+  <div class="modal-box" style="width:100%;max-width:480px;background:var(--white);border-radius:16px 16px 0 0;padding:20px">
     <div class="modal-title">Editar Pedido — <span id="modal-ped-nome"></span></div>
     <p class="sec-label">Quantidade por embalagem</p>
     <div class="garrafas-grid" id="modal-garrafas" style="margin-bottom:12px"></div>
     <div class="obs-wrap"><label>Observações</label><textarea id="modal-obs"></textarea></div>
     <div class="action-row">
-      <button class="btn btn-outline" onclick="fecharModal('edit')" style="flex:1">Cancelar</button>
+      <button class="btn btn-outline" onclick="document.getElementById('modal-edit').style.display='none'" style="flex:1">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarEdicaoPedido()" style="flex:2">Salvar Alterações</button>
     </div>
   </div>
@@ -6656,7 +6655,7 @@ function abrirModalEditHist(pedidoId, dataKey){
   document.getElementById('modal-garrafas').innerHTML=TAMS.map(t=>{
     const pr=(c.precos||{})[t]||(p.precos||{})[t];const ok=pr&&pr>0;
     return`<div class="g-card ${ok?'has-price':'disabled'}"><div class="g-size">${TL[t]}</div>${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}<div class="qty-ctrl"><button class="qty-btn" ontouchstart="" onclick="altM('${t}',-1)">−</button><span class="qty-val" id="mq-${t}">${editPedQtds[t]||0}</span><button class="qty-btn" ontouchstart="" onclick="altM('${t}',1)">+</button></div></div>`;}).join('');
-  const _mel=document.getElementById('modal-edit');_mel.classList.add('open');_mel.style.opacity='1';_mel.style.pointerEvents='all';
+  document.getElementById('modal-edit').style.display='flex';
 }
 
 function abrirModalEdit(i){
@@ -6669,7 +6668,7 @@ function abrirModalEdit(i){
   document.getElementById('modal-garrafas').innerHTML=TAMS.map(t=>{
     const pr=c.precos[t],ok=pr&&pr>0;
     return`<div class="g-card ${ok?'has-price':'disabled'}"><div class="g-size">${TL[t]}</div>${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}<div class="qty-ctrl"><button class="qty-btn" ontouchstart="" onclick="altM('${t}',-1)">−</button><span class="qty-val" id="mq-${t}">${editPedQtds[t]||0}</span><button class="qty-btn" ontouchstart="" onclick="altM('${t}',1)">+</button></div></div>`;}).join('');
-  const _mel=document.getElementById('modal-edit');_mel.classList.add('open');_mel.style.opacity='1';_mel.style.pointerEvents='all';
+  document.getElementById('modal-edit').style.display='flex';
 }
 function altM(t,d){editPedQtds[t]=Math.max(0,(editPedQtds[t]||0)+d);document.getElementById('mq-'+t).textContent=editPedQtds[t];}
 async function salvarEdicaoPedido(){
