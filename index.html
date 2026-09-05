@@ -3735,13 +3735,16 @@ async function confirmar(){
 }
 
 // ── DO DIA ─────────────────────────────────────────────────────────────────
-// Event delegation para botões de editar — não são destruídos no re-render
-document.addEventListener('click', function(e){
-  const btn = e.target.closest('.psm-edit[onclick*="abrirModalEditHist"],.psm-edit[onclick*="abrirModalEdit("]');
+// Event delegation para botões de editar — usa mousedown pois o re-render destrói botões antes do click
+document.addEventListener('mousedown', function(e){
+  const btn = e.target.closest ? e.target.closest('.psm-edit') : null;
   if(!btn) return;
-  e.stopPropagation();
   const fn = btn.getAttribute('onclick');
-  if(fn) eval(fn);
+  if(fn && (fn.includes('abrirModalEditHist') || fn.includes('abrirModalEdit('))) {
+    e.preventDefault();
+    e.stopPropagation();
+    eval(fn);
+  }
 }, true);
 
 function renderDia(){
