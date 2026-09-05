@@ -3758,7 +3758,8 @@ function renderDia(){
       if(dbP&&dbP.length){
         if(!historico[dataSel]) historico[dataSel]=[];
         historico[dataSel]=(dbP||[]).map(mapPedido);
-        renderDia();
+        // Só re-renderiza se o modal de edição não estiver aberto
+        if(document.getElementById('modal-edit')?.style.display!=='flex') renderDia();
       }
     }).catch(()=>{});
   }
@@ -7407,7 +7408,7 @@ async function sincronizarRapido(){
     if(atualizado){
       atualizarBadges();
       if(document.getElementById('page-rota')?.classList.contains('active')) renderRota();
-      if(document.getElementById('page-dia')?.classList.contains('active')) renderDia();
+      if(document.getElementById('page-dia')?.classList.contains('active')&&document.getElementById('modal-edit')?.style.display!=='flex') renderDia();
     }
   }catch(e){}
 }
