@@ -3735,6 +3735,15 @@ async function confirmar(){
 }
 
 // ── DO DIA ─────────────────────────────────────────────────────────────────
+// Event delegation para botões de editar — não são destruídos no re-render
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('.psm-edit[onclick*="abrirModalEditHist"],.psm-edit[onclick*="abrirModalEdit("]');
+  if(!btn) return;
+  e.stopPropagation();
+  const fn = btn.getAttribute('onclick');
+  if(fn) eval(fn);
+}, true);
+
 function renderDia(){
   const el=document.getElementById('pedidos-list');
   // Garantir data padrão = hoje
