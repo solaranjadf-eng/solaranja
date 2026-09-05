@@ -3770,8 +3770,9 @@ function renderDia(){
       if(dbP&&dbP.length){
         if(!historico[dataSel]) historico[dataSel]=[];
         historico[dataSel]=(dbP||[]).map(mapPedido);
-        // Só re-renderiza se o modal de edição não estiver aberto
-        if(document.getElementById('modal-edit')?.style.display!=='flex') renderDia();
+        // Não re-renderiza se modal estiver aberto ou se já mudou de data
+        const dataAtual=document.getElementById('dia-data')?.value;
+        if(document.getElementById('modal-edit')?.style.display!=='flex' && dataAtual===dataSel) renderDia();
       }
     }).catch(()=>{});
   }
@@ -7378,6 +7379,8 @@ function iniciarSyncAdaptativa(){
 // Sync rápida — só pedidos de hoje e ontem (sem histórico, sem fotos, sem outros dados)
 async function sincronizarRapido(){
   if(!perfilAtual)return;
+  // Não sincronizar se modal de edição estiver aberto
+  if(document.getElementById('modal-edit')?.style.display==='flex') return;
   try{
     const [dbP,dbPOntem,dbPAmanha]=await Promise.all([
       sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto`),
