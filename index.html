@@ -2406,7 +2406,7 @@ async function sincronizar(){
     const agora2=Date.now();
     const ultimaHistSync=parseInt(localStorage.getItem('slj_hist_sync')||'0');
     const primeiraVez=ultimaHistSync===0||Object.keys(historico).length===0;
-    const d90=new Date(hoje);d90.setDate(d90.getDate()-90);
+    const d90=new Date(hoje);d90.setDate(d90.getDate()-120);
     const noventaDiasAtras=d90.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
     if(primeiraVez||agora2-ultimaHistSync>600000){
       // Buscar histórico em partes para superar limite de 1000 do Supabase
