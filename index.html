@@ -2412,13 +2412,14 @@ async function sincronizar(){
       // Buscar histórico em partes para superar limite de 1000 do Supabase
       const selectH='id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto';
       const baseQ=`?data=lt.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=500&select=${selectH}`;
-      const [dbH1,dbH2,dbH3,dbH4]=await Promise.all([
+      const [dbH1,dbH2,dbH3,dbH4,dbH5]=await Promise.all([
         sbGet('pedidos',baseQ+'&offset=0'),
         sbGet('pedidos',baseQ+'&offset=500'),
         sbGet('pedidos',baseQ+'&offset=1000'),
         sbGet('pedidos',baseQ+'&offset=1500'),
+        sbGet('pedidos',baseQ+'&offset=2000'),
       ]);
-      const dbH=[...(dbH1||[]),...(dbH2||[]),...(dbH3||[]),...(dbH4||[])];
+      const dbH=[...(dbH1||[]),...(dbH2||[]),...(dbH3||[]),...(dbH4||[]),...(dbH5||[])];
       localStorage.setItem('slj_hist_sync',agora2.toString());
       if(dbH!==null&&dbH.length>0){
         const novoHist={};
