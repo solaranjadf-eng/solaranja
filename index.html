@@ -5984,6 +5984,8 @@ async function marcarPagoHistorico(pedidoId,dataKey){
   };
   atualizarNaLista(pedidos);
   Object.values(historico).forEach(d=>atualizarNaLista(d));
+  lsave('slj_ped_bk',pedidos);
+  lsave('slj_hist_bk',historico);
   try{
     await sbPatch('pedidos',`?id=eq.${pedidoId}`,{pago:true});
     setSyncStatus('ok','Sincronizado — nuvem ativa');
