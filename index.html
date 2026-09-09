@@ -1806,6 +1806,38 @@ a{color:var(--orange);text-decoration:none}
 
 </main>
 
+<!-- MODAL E-MAIL CLIENTE -->
+<div id="modal-email-cli" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--white);border-radius:var(--radius);padding:20px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <strong style="font-size:15px">📧 Enviar E-mail</strong>
+      <button onclick="document.getElementById('modal-email-cli').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Para</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="email-cli-para" readonly style="flex:1;background:var(--bg2)">
+        <button onclick="navigator.clipboard.writeText(document.getElementById('email-cli-para').value);toast('✓ Copiado!')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap">📋 Copiar</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Assunto</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="email-cli-assunto" readonly style="flex:1;background:var(--bg2);font-size:12px">
+        <button onclick="navigator.clipboard.writeText(document.getElementById('email-cli-assunto').value);toast('✓ Copiado!')" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;cursor:pointer;white-space:nowrap">📋 Copiar</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Corpo do e-mail</label>
+      <textarea id="email-cli-corpo" rows="12" style="width:100%;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;resize:vertical;background:var(--bg)"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-outline" style="flex:1" onclick="navigator.clipboard.writeText(document.getElementById('email-cli-corpo').value);toast('✓ Texto copiado!')">📋 Copiar texto</button>
+      <button class="btn btn-primary" style="flex:2" onclick="window.open('https://mail.hostinger.com','_blank')">🌐 Abrir Hostinger</button>
+    </div>
+  </div>
+</div>
+
 <!-- PÁGINA ANOTAÇÕES -->
 <main class="page" id="page-notas">
   <div class="card">
@@ -8720,7 +8752,7 @@ function renderBoletos(){
 function enviarEmailCliente(){
   if(!finCliSelecionado){toast('Selecione um cliente primeiro.');return;}
   const cli=finCliSelecionado;
-  if(!cli.email){toast('Cliente sem e-mail cadastrado.');return;}
+  if(!cli.email){toast('Cliente sem e-mail cadastrado. Edite o cliente e adicione o e-mail.');return;}
 
   const checkboxes=[...document.querySelectorAll('.fin-sel-ped:checked')];
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
@@ -8731,20 +8763,22 @@ function enviarEmailCliente(){
   const nome=cli.apelido||cli.nome;
   const totalAberto=pedsSel.reduce((s,p)=>s+(p.total||0),0);
 
-  let extrato='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\n';
-  extrato+='=== EXTRATO DE PEDIDOS ===\n';
-  extrato+='Cliente: '+nome+'\n\n';
+  let corpo='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\n';
   pedsSel.sort((a,b)=>a.data.localeCompare(b.data)).forEach(p=>{
     const dt=new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
     const itens=p.itens.map(it=>it.qtd+' unidades ('+TL[it.tam]+')').join(', ');
-    extrato+=dt+' – '+itens+': R$ '+p.total.toFixed(2).replace('.',',')+'\n';
+    corpo+=dt+' – '+itens+': R$ '+p.total.toFixed(2).replace('.',',')+'\n';
   });
-  extrato+='\nTotal: R$ '+totalAberto.toFixed(2).replace('.',',')+'\n\n';
-  extrato+='Agradecemos pela parceria e pela confiança em nossos produtos.\n\nAtenciosamente,\nXavier Filho\nFinanceiro\nTel: (61) 99828-2205\nPA 04 Lote 4 S/N Sala 211 e 212 – Jardins Mangueiral - DF\nCEP: 71699-603';
+  corpo+='\nTotal: R$ '+totalAberto.toFixed(2).replace('.',',')+'\n\nAgradecemos pela parceria e pela confiança em nossos produtos.\n\nAtenciosamente,\nXavier Filho\nFinanceiro\nTel: (61) 99828-2205';
 
-  const assunto=encodeURIComponent('BOLETO E NOTA FISCAL SUCO NATURAL DE LARANJA - Só Laranja');
-  const corpo=encodeURIComponent(extrato);
-  window.location.href='mailto:'+cli.email+'?subject='+assunto+'&body='+corpo;
+  // Mostrar modal com e-mail, assunto e corpo para copiar
+  const modal=document.getElementById('modal-email-cli');
+  if(modal){
+    document.getElementById('email-cli-para').value=cli.email;
+    document.getElementById('email-cli-assunto').value='BOLETO E NOTA FISCAL SUCO NATURAL DE LARANJA - Só Laranja';
+    document.getElementById('email-cli-corpo').value=corpo;
+    modal.style.display='flex';
+  }
 }
 
 function gerarTextoWhatsappCliente(){
