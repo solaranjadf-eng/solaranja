@@ -6782,7 +6782,7 @@ function abrirModalCliente(id){
   document.getElementById('ec-aniver').value=c.aniver||'';
   TAMS.forEach(t=>document.getElementById('ec-'+t).value=c.precos[t]||'');
   document.getElementById('ec-minimo').value=c.minimo||'';
-  document.getElementById('modal-cliente').classList.add('open');
+  const _mc=document.getElementById('modal-cliente');_mc.classList.add('open');_mc.style.display='flex';_mc.style.opacity='1';_mc.style.pointerEvents='all';
 }
 async function salvarEdicaoCliente(){
   const c=clientes.find(x=>x.id===editClienteIdModal);if(!c)return;
@@ -6801,7 +6801,8 @@ async function salvarEdicaoCliente(){
   c.aniver=document.getElementById('ec-aniver').value;
   TAMS.forEach(t=>{const v=parseFloat(document.getElementById('ec-'+t).value);c.precos[t]=isNaN(v)||v<=0?null:v;});
   const vm=parseFloat(document.getElementById('ec-minimo').value);c.minimo=isNaN(vm)||vm<=0?null:vm;
-  try{await sbPatch('clientes',`?id=eq.${c.id}`,{nome:c.nome,cnpj:c.cnpj,apelido:c.apelido,tel:c.tel,bairro:c.bairro,regiao:c.regiao,endereco:c.endereco,maps:c.maps,aniver:c.aniver,minimo:c.minimo,precos:c.precos});setSyncStatus('ok','Sincronizado — nuvem ativa');}catch(e){setSyncStatus('err','Erro ao sincronizar');}
+  try{await sbPatch('clientes',`?id=eq.${c.id}`,{nome:c.nome,cnpj:c.cnpj,apelido:c.apelido,tel:c.tel,ie:c.ie||'',cep:c.cep||'',email:c.email||'',bairro:c.bairro,regiao:c.regiao,endereco:c.endereco,maps:c.maps,aniver:c.aniver,minimo:c.minimo,precos:c.precos});setSyncStatus('ok','Sincronizado — nuvem ativa');}catch(e){setSyncStatus('err','Erro ao sincronizar');}
+  lsave('slj_cli_bk',clientes);
   fecharModal('cliente');renderClientes();toast('Cliente atualizado.');
 }
 function fecharModal(m){const el=document.getElementById('modal-'+m);if(el){el.classList.remove('open');el.style.display='none';}}
@@ -8713,11 +8714,20 @@ function gerarTextoWhatsappCliente(){
   });
 
   texto+='\n*Total: '+moeda(totalAberto)+'*';
+  texto+='\n\n💠 Chave PIX: (61) 98562-3008';
 
   const el=document.getElementById('wpp-cliente-texto');
   if(el) el.value=texto;
   const area=document.getElementById('wpp-area');
   if(area){area.style.display='block';area.scrollIntoView({behavior:'smooth',block:'nearest'});}
+
+  // Abrir WhatsApp direto com o número do cliente
+  const tel=(cli.tel||'').replace(/\D/g,'');
+  if(tel){
+    const msg=encodeURIComponent(texto);
+    const numBR=tel.length===10?'55'+tel.slice(0,2)+'9'+tel.slice(2):'55'+tel;
+    window.open('https://wa.me/'+numBR+'?text='+msg,'_blank');
+  }
 }
 
 function copiarWppCliente(){
