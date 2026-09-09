@@ -1090,6 +1090,7 @@ a{color:var(--orange);text-decoration:none}
           <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="gerarPDFCliente()">📄 PDF</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px;color:#25D366;border-color:#25D366" onclick="gerarTextoWhatsappCliente()">💬 WhatsApp</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px;color:#0066cc;border-color:#0066cc" onclick="emitirNFeCliente()">🧾 Emitir NF-e</button>
+          <button class="btn btn-outline" style="height:34px;font-size:12px;color:#ea4335;border-color:#ea4335" onclick="enviarEmailCliente()">📧 E-mail</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="limparClienteFin()">✕ Fechar</button>
         </div>
       </div>
@@ -8711,6 +8712,36 @@ function renderBoletos(){
       +'</div>'
       +'</div></div>';
   }).join('');
+}
+
+function enviarEmailCliente(){
+  if(!finCliSelecionado){toast('Selecione um cliente primeiro.');return;}
+  const cli=finCliSelecionado;
+  if(!cli.email){toast('Cliente sem e-mail cadastrado.');return;}
+
+  const checkboxes=[...document.querySelectorAll('.fin-sel-ped:checked')];
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const pedsSel=checkboxes.length>0
+    ? todos.filter(p=>new Set(checkboxes.map(c=>String(c.dataset.id))).has(String(p.id)))
+    : todos.filter(p=>String(p.clienteId)===String(cli.id)&&p.entregue&&!p.pago);
+
+  const nome=cli.apelido||cli.nome;
+  const totalAberto=pedsSel.reduce((s,p)=>s+(p.total||0),0);
+
+  let extrato='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\n';
+  extrato+='=== EXTRATO DE PEDIDOS ===\n';
+  extrato+='Cliente: '+nome+'\n\n';
+  pedsSel.sort((a,b)=>a.data.localeCompare(b.data)).forEach(p=>{
+    const dt=new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    const itens=p.itens.map(it=>it.qtd+' unidades ('+TL[it.tam]+')').join(', ');
+    extrato+=dt+' – '+itens+': R$ '+p.total.toFixed(2).replace('.',',')+'\n';
+  });
+  extrato+='\nTotal: R$ '+totalAberto.toFixed(2).replace('.',',')+'\n\n';
+  extrato+='Agradecemos pela parceria e pela confiança em nossos produtos.\n\nAtenciosamente,\nXavier Filho\nFinanceiro\nTel: (61) 99828-2205\nPA 04 Lote 4 S/N Sala 211 e 212 – Jardins Mangueiral - DF\nCEP: 71699-603';
+
+  const assunto=encodeURIComponent('BOLETO E NOTA FISCAL SUCO NATURAL DE LARANJA - Só Laranja');
+  const corpo=encodeURIComponent(extrato);
+  window.location.href='mailto:'+cli.email+'?subject='+assunto+'&body='+corpo;
 }
 
 function gerarTextoWhatsappCliente(){
