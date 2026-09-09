@@ -2177,6 +2177,7 @@ a{color:var(--orange);text-decoration:none}
       <div class="form-group" style="flex:1;margin:0"><label>Insc. Estadual</label><input type="text" id="ec-ie" placeholder="Ex: 0803414500127"></div>
       <div class="form-group" style="flex:1;margin:0"><label>Telefone</label><input type="text" id="ec-tel" oninput="mascaraTel(this)" maxlength="15" inputmode="numeric"></div>
     </div>
+    <div class="form-group"><label>E-mail</label><input type="email" id="ec-email" placeholder="email@empresa.com.br"></div>
     <div class="action-row" style="margin-bottom:10px;gap:8px">
       <div class="form-group" style="flex:1;margin:0"><label>Bairro</label><input type="text" id="ec-bairro"></div>
       <div class="form-group" style="flex:1;margin:0"><label>Região</label><input type="text" id="ec-regiao"></div>
@@ -6783,6 +6784,7 @@ function abrirModalCliente(id){
   document.getElementById('ec-tel').value=c.tel||'';document.getElementById('ec-bairro').value=c.bairro||'';
   const ieEl=document.getElementById('ec-ie');if(ieEl)ieEl.value=c.ie||'';
   const cepEl=document.getElementById('ec-cep');if(cepEl)cepEl.value=c.cep||'';
+  const emailEl=document.getElementById('ec-email');if(emailEl)emailEl.value=c.email||'';
   document.getElementById('ec-regiao').value=c.regiao||'';document.getElementById('ec-endereco').value=c.endereco||'';
   document.getElementById('ec-maps').value=c.maps||'';
   document.getElementById('ec-aniver').value=c.aniver||'';
@@ -6798,6 +6800,7 @@ async function salvarEdicaoCliente(){
   c.tel=document.getElementById('ec-tel').value.trim();c.bairro=document.getElementById('ec-bairro').value.trim();
   c.ie=document.getElementById('ec-ie')?.value.trim()||'';
   c.cep=document.getElementById('ec-cep')?.value.trim()||'';
+  c.email=document.getElementById('ec-email')?.value.trim()||'';
   c.regiao=document.getElementById('ec-regiao').value.trim();
   // Remover CEP do campo endereço se estiver embutido
   let endVal=document.getElementById('ec-endereco').value.trim();
