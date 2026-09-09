@@ -1771,11 +1771,16 @@ a{color:var(--orange);text-decoration:none}
         <button onclick="document.getElementById('modal-editar-cc').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">✕</button>
       </div>
       <input type="hidden" id="edit-cc-id">
-      <div class="form-group"><label>Nome</label><input type="text" id="edit-cc-nome"></div>
+      <div class="form-group"><label>Nome da Compra</label><input type="text" id="edit-cc-nome"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="form-group"><label>Cartão</label><input type="text" id="edit-cc-cartao"></div>
+        <div class="form-group"><label>Valor Total (R$)</label><input type="number" id="edit-cc-total" step="0.01" inputmode="decimal"></div>
+        <div class="form-group"><label>Nº Parcelas</label><input type="number" id="edit-cc-nparcelas" min="1" max="60" inputmode="numeric"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="form-group"><label>Mês Início</label><input type="month" id="edit-cc-mes-inicio"></div>
         <div class="form-group"><label>Dia Vencimento</label><input type="number" id="edit-cc-venc" min="1" max="31"></div>
       </div>
+      <div class="form-group"><label>Cartão</label><input type="text" id="edit-cc-cartao"></div>
       <button class="btn btn-primary btn-full" onclick="salvarEdicaoCC()">Salvar</button>
     </div>
   </div>
@@ -8436,6 +8441,9 @@ function editarCC(id){
   if(!c) return;
   document.getElementById('edit-cc-id').value=id;
   document.getElementById('edit-cc-nome').value=c.nome||'';
+  document.getElementById('edit-cc-total').value=c.total||'';
+  document.getElementById('edit-cc-nparcelas').value=c.nParcelas||c.parcelas?.length||'';
+  document.getElementById('edit-cc-mes-inicio').value=c.mesInicio||'';
   document.getElementById('edit-cc-cartao').value=c.cartao||'';
   document.getElementById('edit-cc-venc').value=c.diaVenc||'';
   document.getElementById('modal-editar-cc').style.display='flex';
@@ -8448,6 +8456,24 @@ function salvarEdicaoCC(){
   c.nome=document.getElementById('edit-cc-nome').value.trim();
   c.cartao=document.getElementById('edit-cc-cartao').value.trim();
   c.diaVenc=parseInt(document.getElementById('edit-cc-venc').value)||c.diaVenc;
+  const novoTotal=parseFloat(document.getElementById('edit-cc-total').value)||c.total;
+  const novoMesInicio=document.getElementById('edit-cc-mes-inicio').value||c.mesInicio;
+  const novoNParcelas=parseInt(document.getElementById('edit-cc-nparcelas').value)||c.nParcelas||c.parcelas?.length;
+  // Recalcular parcelas se mudou total, mês ou quantidade
+  if(novoTotal!==c.total||novoMesInicio!==c.mesInicio||novoNParcelas!==c.parcelas?.length){
+    c.total=novoTotal;
+    c.mesInicio=novoMesInicio;
+    c.nParcelas=novoNParcelas;
+    c.valorParcela=novoTotal/novoNParcelas;
+    c.parcelas=[];
+    for(let i=0;i<novoNParcelas;i++){
+      const d=new Date(novoMesInicio+'-01');
+      d.setMonth(d.getMonth()+i);
+      const y=d.getFullYear();
+      const m=String(d.getMonth()+1).padStart(2,'0');
+      c.parcelas.push({mes:y+'-'+m,valor:c.valorParcela,pago:false});
+    }
+  }
   salvarComprasCartao();
   document.getElementById('modal-editar-cc').style.display='none';
   renderComprasCartao();
