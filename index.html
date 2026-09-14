@@ -1833,7 +1833,8 @@ a{color:var(--orange);text-decoration:none}
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-outline" style="flex:1" onclick="navigator.clipboard.writeText(document.getElementById('email-cli-corpo').value);toast('✓ Texto copiado!')">📋 Copiar texto</button>
-      <button class="btn btn-primary" style="flex:2" onclick="window.open('https://mail.hostinger.com','_blank')">🌐 Abrir Hostinger</button>
+      <button class="btn btn-outline" style="flex:1" onclick="gerarPDFCliente()">📄 Baixar PDF</button>
+      <button class="btn btn-primary" style="flex:1" onclick="window.open('https://mail.hostinger.com','_blank')">🌐 Hostinger</button>
     </div>
   </div>
 </div>
@@ -8808,7 +8809,6 @@ function gerarTextoWhatsappCliente(){
   });
 
   texto+='\n*Total: '+moeda(totalAberto)+'*';
-  texto+='\n\n💠 Chave PIX: (61) 98562-3008';
 
   const el=document.getElementById('wpp-cliente-texto');
   if(el) el.value=texto;
