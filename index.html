@@ -8868,6 +8868,9 @@ async function gerarBoletoBB(){
       cidadePagador: cli.cidade||'Brasilia',
       bairroPagador: cli.bairro||'',
       ufPagador: cli.uf||'DF',
+      observacaoDatas: pedsSel.sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
+        const [aa,mm,dd]=p.data.split('-');return dd+'/'+mm;
+      }).join(', '),
     };
 
     const resp=await fetch('https://solaranja-bb.solaranjadf.workers.dev/boleto',{
