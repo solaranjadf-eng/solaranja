@@ -1091,6 +1091,7 @@ a{color:var(--orange);text-decoration:none}
           <button class="btn btn-outline" style="height:34px;font-size:12px;color:#25D366;border-color:#25D366" onclick="gerarTextoWhatsappCliente()">💬 WhatsApp</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px;color:#0066cc;border-color:#0066cc" onclick="emitirNFeCliente()">🧾 Emitir NF-e</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px;color:#ea4335;border-color:#ea4335" onclick="enviarEmailCliente()">📧 E-mail</button>
+          <button class="btn btn-outline" style="height:34px;font-size:12px;color:#f5a623;border-color:#f5a623" onclick="gerarBoletoBB()">🏦 Boleto BB</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="limparClienteFin()">✕ Fechar</button>
         </div>
       </div>
@@ -1805,6 +1806,42 @@ a{color:var(--orange);text-decoration:none}
   </div>
 
 </main>
+
+<!-- MODAL BOLETO BB -->
+<div id="modal-boleto-bb" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--white);border-radius:var(--radius);padding:20px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:700;color:var(--text)">🏦 Boleto Banco do Brasil</div>
+      <button onclick="document.getElementById('modal-boleto-bb').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">✕</button>
+    </div>
+    <div id="boleto-bb-status" style="text-align:center;padding:20px;color:var(--text2);font-size:14px">Gerando boleto...</div>
+    <div id="boleto-bb-resultado" style="display:none">
+      <div style="background:#f0f7ff;border:1px solid #c0d8f0;border-radius:8px;padding:14px;margin-bottom:12px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Cliente</div>
+        <div id="boleto-bb-cli" style="font-size:14px;font-weight:600;color:var(--text)"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;margin-bottom:4px">Valor</div>
+        <div id="boleto-bb-valor" style="font-size:18px;font-weight:700;color:#f5a623"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;margin-bottom:4px">Vencimento</div>
+        <div id="boleto-bb-venc" style="font-size:14px;font-weight:600;color:var(--text)"></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600">LINHA DIGITÁVEL</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div id="boleto-bb-linha" style="font-size:13px;font-family:monospace;background:var(--bg2);border-radius:6px;padding:10px;flex:1;word-break:break-all;color:var(--text)"></div>
+          <button onclick="copiarLinhaBoleto()" class="btn btn-outline" style="height:36px;font-size:12px;white-space:nowrap">📋 Copiar</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <a id="boleto-bb-link" href="#" target="_blank" class="btn btn-primary" style="flex:1;text-align:center;text-decoration:none">🔗 Abrir Boleto</a>
+        <a id="boleto-bb-pix" href="#" target="_blank" class="btn btn-outline" style="flex:1;text-align:center;text-decoration:none;display:none">📱 PIX</a>
+      </div>
+    </div>
+    <div id="boleto-bb-erro" style="display:none;background:#fff0f0;border:1px solid #ffcccc;border-radius:8px;padding:14px;font-size:13px;color:#c00">
+      <div style="font-weight:700;margin-bottom:6px">❌ Erro ao gerar boleto</div>
+      <div id="boleto-bb-erro-msg"></div>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL E-MAIL CLIENTE -->
 <div id="modal-email-cli" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
@@ -8780,6 +8817,108 @@ function enviarEmailCliente(){
     document.getElementById('email-cli-corpo').value=corpo;
     modal.style.display='flex';
   }
+}
+
+async function gerarBoletoBB(){
+  if(!finCliSelecionado){toast('Selecione um cliente primeiro.');return;}
+  const cli=finCliSelecionado;
+
+  // Pegar pedidos selecionados ou todos em aberto do cliente
+  const checkboxes=[...document.querySelectorAll('.fin-sel-ped:checked')];
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const pedsSel=checkboxes.length>0
+    ? todos.filter(p=>new Set(checkboxes.map(c=>String(c.dataset.id))).has(String(p.id)))
+    : todos.filter(p=>String(p.clienteId)===String(cli.id)&&p.entregue&&!p.pago);
+
+  if(!pedsSel.length){toast('Nenhum pedido em aberto para este cliente.');return;}
+
+  const totalAberto=pedsSel.reduce((s,p)=>s+(p.total||0),0);
+  if(totalAberto<=0){toast('Total zerado, verifique os pedidos.');return;}
+
+  // Vencimento = hoje + 7 dias
+  const hoje=new Date();
+  const venc=new Date(hoje);
+  venc.setDate(venc.getDate()+7);
+  const vencStr=venc.toLocaleDateString('pt-BR'); // DD/MM/YYYY
+
+  // Nosso número sequencial (salvo em localStorage)
+  let nossoNum=parseInt(localStorage.getItem('slj_bb_nosso_num')||'100');
+  nossoNum++;
+  localStorage.setItem('slj_bb_nosso_num',String(nossoNum));
+
+  // Abrir modal e mostrar "gerando..."
+  const modal=document.getElementById('modal-boleto-bb');
+  document.getElementById('boleto-bb-status').style.display='block';
+  document.getElementById('boleto-bb-status').textContent='⏳ Gerando boleto... aguarde.';
+  document.getElementById('boleto-bb-resultado').style.display='none';
+  document.getElementById('boleto-bb-erro').style.display='none';
+  modal.style.display='flex';
+
+  try{
+    const payload={
+      valor: parseFloat(totalAberto.toFixed(2)),
+      vencimento: vencStr,
+      nossoNumero: nossoNum,
+      numeroTitulo: String(nossoNum),
+      nomePagador: cli.nome,
+      cnpjPagador: (cli.cnpj||'').replace(/\D/g,''),
+      tipoPagador: (cli.cnpj||'').replace(/\D/g,'').length===14?2:1,
+      enderecoPagador: cli.endereco||cli.enderecoCompleto||'',
+      cepPagador: (cli.cep||'').replace(/\D/g,''),
+      cidadePagador: cli.cidade||'Brasilia',
+      bairroPagador: cli.bairro||'',
+      ufPagador: cli.uf||'DF',
+    };
+
+    const resp=await fetch('https://solaranja-bb.solaranjadf.workers.dev/boleto',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const data=await resp.json();
+
+    if(data.numero||data.linhaDigitavel||data.codigoBarraNumerico){
+      // Sucesso
+      document.getElementById('boleto-bb-status').style.display='none';
+      document.getElementById('boleto-bb-resultado').style.display='block';
+      document.getElementById('boleto-bb-cli').textContent=cli.apelido||cli.nome;
+      document.getElementById('boleto-bb-valor').textContent='R$ '+totalAberto.toFixed(2).replace('.',',');
+      document.getElementById('boleto-bb-venc').textContent=vencStr+' (vencimento em 7 dias)';
+      document.getElementById('boleto-bb-linha').textContent=data.linhaDigitavel||data.codigoBarraNumerico||'—';
+      window._boletoLinhaDigitavel=data.linhaDigitavel||data.codigoBarraNumerico||'';
+
+      const linkEl=document.getElementById('boleto-bb-link');
+      if(data.urlImagemBoleto){linkEl.href=data.urlImagemBoleto;linkEl.style.display='flex';}
+      else{linkEl.style.display='none';}
+
+      const pixEl=document.getElementById('boleto-bb-pix');
+      if(data.qrCode&&data.qrCode.url){pixEl.href=data.qrCode.url;pixEl.style.display='flex';}
+      else{pixEl.style.display='none';}
+
+      toast('✅ Boleto gerado! Nosso nº '+nossoNum);
+    } else {
+      // Erro da API BB
+      document.getElementById('boleto-bb-status').style.display='none';
+      document.getElementById('boleto-bb-erro').style.display='block';
+      const msg=data.erros?data.erros.map(e=>e.mensagem||JSON.stringify(e)).join('\n'):JSON.stringify(data);
+      document.getElementById('boleto-bb-erro-msg').textContent=msg;
+      // Reverter nosso número se falhou
+      localStorage.setItem('slj_bb_nosso_num',String(nossoNum-1));
+    }
+  }catch(e){
+    document.getElementById('boleto-bb-status').style.display='none';
+    document.getElementById('boleto-bb-erro').style.display='block';
+    document.getElementById('boleto-bb-erro-msg').textContent=e.message||String(e);
+    localStorage.setItem('slj_bb_nosso_num',String(nossoNum-1));
+  }
+}
+
+function copiarLinhaBoleto(){
+  const linha=window._boletoLinhaDigitavel||document.getElementById('boleto-bb-linha').textContent;
+  if(!linha||linha==='—'){toast('Linha digitável não disponível.');return;}
+  navigator.clipboard.writeText(linha).then(()=>toast('📋 Linha digitável copiada!')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=linha;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('📋 Copiado!');
+  });
 }
 
 function gerarTextoWhatsappCliente(){
