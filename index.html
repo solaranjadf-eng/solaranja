@@ -2160,6 +2160,7 @@ a{color:var(--orange);text-decoration:none}
 <div id="modal-edit" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;align-items:flex-end;justify-content:center">
   <div class="modal-box" style="width:100%;max-width:480px;background:var(--white);border-radius:16px 16px 0 0;padding:20px">
     <div class="modal-title">Editar Pedido — <span id="modal-ped-nome"></span></div>
+    <div id="modal-sabor-sel" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
     <p class="sec-label">Quantidade por embalagem</p>
     <div class="garrafas-grid" id="modal-garrafas" style="margin-bottom:12px"></div>
     <div class="obs-wrap"><label>Observações</label><textarea id="modal-obs"></textarea></div>
@@ -7013,58 +7014,80 @@ function renderRanking(){
 }
 
 // ── MODAL EDITAR PEDIDO ────────────────────────────────────────────────────
+let _editSaborAtual='laranja';
+
+function _renderModalGarrafas(c,precos){
+  // Descobre sabores disponíveis para este cliente
+  const saboresDisp=SABORES.filter(s=>TAMS.some(t=>{const k=precoKey(t,s);return precos[k]>0||(s==='laranja'&&precos[t]>0);}));
+  if(!saboresDisp.includes(_editSaborAtual)) _editSaborAtual=saboresDisp[0]||'laranja';
+  // Seletor de sabor
+  const selWrap=document.getElementById('modal-sabor-sel');
+  if(selWrap){
+    selWrap.style.display=saboresDisp.length>1?'flex':'none';
+    selWrap.innerHTML=saboresDisp.map(s=>`<button ontouchstart="" onclick="setEditSabor('${s}')" style="padding:5px 12px;border-radius:20px;border:1.5px solid ${s===_editSaborAtual?'var(--orange)':'var(--border2)'};background:${s===_editSaborAtual?'var(--orange)':'var(--white)'};color:${s===_editSaborAtual?'#fff':'var(--text)'};font-size:12px;font-weight:600;cursor:pointer">${SL[s]}</button>`).join('');
+  }
+  // Cards de embalagem
+  document.getElementById('modal-garrafas').innerHTML=TAMS.map(t=>{
+    const key=precoKey(t,_editSaborAtual);
+    const pr=precos[key]||(_editSaborAtual==='laranja'?precos[t]:null);
+    const ok=pr&&pr>0;
+    const qtdKey=key;
+    return`<div class="g-card ${ok?'has-price':'disabled'}"><div class="g-size">${TL[t]}</div>${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}<div class="qty-ctrl"><button class="qty-btn" ontouchstart="" onclick="altM('${qtdKey}',-1)">−</button><span class="qty-val" id="mq-${qtdKey}">${editPedQtds[qtdKey]||0}</span><button class="qty-btn" ontouchstart="" onclick="altM('${qtdKey}',1)">+</button></div></div>`;
+  }).join('');
+}
+function setEditSabor(s){_editSaborAtual=s;const p=window._editModalPedido;const c=clientes.find(x=>x.id===editClienteId)||{precos:{}};_renderModalGarrafas(c,c.precos||p?.precos||{});}
+
+function _abrirModalEditComum(p,idx,isHist,dataKey){
+  editPedIdx=idx;
+  if(isHist){window._editHistPedido=p;window._editHistDataKey=dataKey;}
+  window._editModalPedido=p;
+  editClienteId=p.clienteId;
+  _editSaborAtual='laranja';
+  // Inicializa qtds keyed por tam_sabor
+  editPedQtds={};
+  p.itens.forEach(it=>{const s=it.sabor||'laranja';const key=precoKey(it.tam,s);editPedQtds[key]=(editPedQtds[key]||0)+it.qtd;});
+  document.getElementById('modal-ped-nome').textContent=p.clienteNome;
+  document.getElementById('modal-obs').value=p.obs||'';
+  const c=clientes.find(x=>x.id===p.clienteId)||{precos:p.precos||{}};
+  const precos=c.precos||p.precos||{};
+  // Detecta sabor predominante do pedido para pré-selecionar
+  if(p.itens.length){const s=p.itens[0].sabor||'laranja';if(SABORES.includes(s))_editSaborAtual=s;}
+  _renderModalGarrafas(c,precos);
+  const _me=document.getElementById('modal-edit');_me.style.zIndex='99999';_me.style.display='flex';
+}
+
 function abrirModalEditHist(pedidoId, dataKey){
-  // Buscar pedido no histórico
   let p=null;
   if(historico[dataKey]) p=historico[dataKey].find(x=>x.id===pedidoId);
   if(!p) p=pedidosOntem.find(x=>x.id===pedidoId);
   if(!p){toast('Pedido não encontrado.');return;}
-  // Usar editPedIdx=-1 como sinal de histórico
-  editPedIdx=-1;
-  window._editHistPedido=p;
-  window._editHistDataKey=dataKey;
-  editPedQtds={};TAMS.forEach(t=>editPedQtds[t]=0);
-  p.itens.forEach(it=>editPedQtds[it.tam]=it.qtd);
-  editClienteId=p.clienteId;
-  document.getElementById('modal-ped-nome').textContent=p.clienteNome;
-  document.getElementById('modal-obs').value=p.obs||'';
-  const c=clientes.find(x=>x.id===p.clienteId)||{precos:p.precos||{}};
-  document.getElementById('modal-garrafas').innerHTML=TAMS.map(t=>{
-    const pr=(c.precos||{})[t]||(p.precos||{})[t];const ok=pr&&pr>0;
-    return`<div class="g-card ${ok?'has-price':'disabled'}"><div class="g-size">${TL[t]}</div>${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}<div class="qty-ctrl"><button class="qty-btn" ontouchstart="" onclick="altM('${t}',-1)">−</button><span class="qty-val" id="mq-${t}">${editPedQtds[t]||0}</span><button class="qty-btn" ontouchstart="" onclick="altM('${t}',1)">+</button></div></div>`;}).join('');
-  const _me1=document.getElementById('modal-edit');_me1.style.zIndex='99999';_me1.style.display='flex';
+  _abrirModalEditComum(p,-1,true,dataKey);
 }
 
 function abrirModalEdit(i){
-  editPedIdx=i;const p=pedidos[i];
-  editPedQtds={};TAMS.forEach(t=>editPedQtds[t]=0);p.itens.forEach(it=>editPedQtds[it.tam]=it.qtd);
-  editClienteId=p.clienteId;
-  document.getElementById('modal-ped-nome').textContent=p.clienteNome;
-  document.getElementById('modal-obs').value=p.obs||'';
-  const c=clientes.find(x=>x.id===p.clienteId)||{precos:p.precos||{}};
-  document.getElementById('modal-garrafas').innerHTML=TAMS.map(t=>{
-    const pr=c.precos[t],ok=pr&&pr>0;
-    return`<div class="g-card ${ok?'has-price':'disabled'}"><div class="g-size">${TL[t]}</div>${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}<div class="qty-ctrl"><button class="qty-btn" ontouchstart="" onclick="altM('${t}',-1)">−</button><span class="qty-val" id="mq-${t}">${editPedQtds[t]||0}</span><button class="qty-btn" ontouchstart="" onclick="altM('${t}',1)">+</button></div></div>`;}).join('');
-  const _me2=document.getElementById('modal-edit');_me2.style.zIndex='99999';_me2.style.display='flex';
+  _abrirModalEditComum(pedidos[i],i,false,null);
 }
-function altM(t,d){editPedQtds[t]=Math.max(0,(editPedQtds[t]||0)+d);document.getElementById('mq-'+t).textContent=editPedQtds[t];}
+
+function altM(key,d){editPedQtds[key]=Math.max(0,(editPedQtds[key]||0)+d);const el=document.getElementById('mq-'+key);if(el)el.textContent=editPedQtds[key];}
+
 async function salvarEdicaoPedido(){
   if(editPedIdx===null)return;
 
-  // Determinar qual pedido editar
-  let p=null;
-  let isHist=false;
-  if(editPedIdx===-1&&window._editHistPedido){
-    p=window._editHistPedido;
-    isHist=true;
-  }else if(editPedIdx>=0){
-    p=pedidos[editPedIdx];
-  }else return;
+  let p=null,isHist=false;
+  if(editPedIdx===-1&&window._editHistPedido){p=window._editHistPedido;isHist=true;}
+  else if(editPedIdx>=0){p=pedidos[editPedIdx];}
+  else return;
 
   const c=clientes.find(x=>x.id===editClienteId)||{precos:p.precos||{}};
   const precos=c.precos||p.precos||{};
   const itensAntigos=p.itens||[];
-  const itens=TAMS.filter(t=>editPedQtds[t]>0&&precos[t]>0).map(t=>({tam:t,qtd:editPedQtds[t],preco:precos[t]}));
+  // Monta itens a partir de editPedQtds keyed por tam_sabor
+  const itens=Object.keys(editPedQtds).filter(key=>editPedQtds[key]>0).map(key=>{
+    const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
+    const pr=precos[key]||(s==='laranja'?precos[t]:0)||0;
+    if(!pr)return null;
+    return{tam:t,sabor:s,qtd:editPedQtds[key],preco:pr};
+  }).filter(Boolean);
   if(!itens.length){toast('Adicione ao menos um item.');return;}
   const total=itens.reduce((s,i)=>s+i.preco*i.qtd,0);
   const obs=document.getElementById('modal-obs').value.trim();
