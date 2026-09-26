@@ -891,7 +891,7 @@ a{color:var(--orange);text-decoration:none}
       </div>
       <div class="action-row">
         <button class="btn btn-outline" onclick="limpar()" style="flex:1">Limpar</button>
-        <button class="btn btn-primary" onclick="confirmar()" style="flex:2">Confirmar Pedido</button>
+        <button class="btn btn-primary" id="btn-confirmar-pedido" onclick="confirmar()" style="flex:2">Confirmar Pedido</button>
       </div>
     </div>
   </div>
@@ -2288,6 +2288,30 @@ a{color:var(--orange);text-decoration:none}
       <div id="ec-precos-grid"></div>
     </div>
     <div class="form-group"><label>Valor mínimo (R$)</label><input type="number" id="ec-minimo" step="0.01" min="0" inputmode="decimal"></div>
+    <!-- Status do cliente -->
+    <div style="border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">⚠ Status do cliente</div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="position:relative;width:40px;height:22px;flex-shrink:0">
+          <input type="checkbox" id="ec-mal-pagador" style="opacity:0;position:absolute;width:100%;height:100%;margin:0;cursor:pointer;z-index:2" onchange="atualizarToggle('ec-mal-pagador','track-mal-pagador')">
+          <div id="track-mal-pagador" style="position:absolute;inset:0;border-radius:11px;background:var(--border2);transition:.2s"><div style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:.2s"></div></div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#DC2626">🚨 Mal pagador</div>
+          <div style="font-size:11px;color:var(--text3)">Exibe alerta ao lançar pedido para este cliente</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 0;margin-top:2px">
+        <div style="position:relative;width:40px;height:22px;flex-shrink:0">
+          <input type="checkbox" id="ec-bloqueado" style="opacity:0;position:absolute;width:100%;height:100%;margin:0;cursor:pointer;z-index:2" onchange="atualizarToggle('ec-bloqueado','track-bloqueado')">
+          <div id="track-bloqueado" style="position:absolute;inset:0;border-radius:11px;background:var(--border2);transition:.2s"><div style="position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:.2s"></div></div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#7C3AED">🔒 Devedor / Bloqueado</div>
+          <div style="font-size:11px;color:var(--text3)">Bloqueia novo pedido até a dívida ser quitada</div>
+        </div>
+      </label>
+    </div>
     <div class="action-row">
       <button class="btn btn-outline" onclick="fecharModal('cliente')" style="flex:1">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarEdicaoCliente()" style="flex:2">Salvar</button>
@@ -3721,11 +3745,29 @@ function escolher(id){
     `<strong>${sel.nome}</strong>${sel.bairro?` — 📍 ${sel.bairro}`:''}<br>Tabela: `+
     preçosLabel(sel)+
     (sel.tel?`<br>WhatsApp: ${sel.tel}`:'');
-  // Débito
+  // Status cliente + Débito
   const deb=clienteDebitoTotal(sel.id);
   const dav=document.getElementById('debito-aviso');
-  if(deb>0){dav.style.display='block';dav.textContent=`⚠ Este cliente tem débito em aberto: ${moeda(deb)}. Verifique antes de confirmar o pedido.`;}
-  else dav.style.display='none';
+  if(sel.bloqueado){
+    dav.style.display='block';
+    dav.style.background='#EDE9FE';dav.style.borderColor='#7C3AED';dav.style.color='#4C1D95';
+    dav.innerHTML=`🔒 <strong>Cliente BLOQUEADO por dívida.</strong> Venda suspensa até quitação do débito.${deb>0?`<br>Valor em aberto: <strong>${moeda(deb)}</strong>`:''}`;
+    // Desabilita o botão de confirmar pedido
+    const btnConf=document.getElementById('btn-confirmar-pedido');if(btnConf){btnConf.disabled=true;btnConf.style.opacity='0.4';}
+  } else if(sel.malPagador){
+    dav.style.display='block';
+    dav.style.background='#FEF2F2';dav.style.borderColor='#DC2626';dav.style.color='#7F1D1D';
+    dav.innerHTML=`🚨 <strong>Atenção: cliente marcado como Mal Pagador.</strong> Confirme a venda com cautela.${deb>0?`<br>Débito atual: <strong>${moeda(deb)}</strong>`:''}`;
+    const btnConf=document.getElementById('btn-confirmar-pedido');if(btnConf){btnConf.disabled=false;btnConf.style.opacity='';}
+  } else if(deb>0){
+    dav.style.display='block';
+    dav.style.background='';dav.style.borderColor='';dav.style.color='';
+    dav.textContent=`⚠ Este cliente tem débito em aberto: ${moeda(deb)}. Verifique antes de confirmar o pedido.`;
+    const btnConf=document.getElementById('btn-confirmar-pedido');if(btnConf){btnConf.disabled=false;btnConf.style.opacity='';}
+  } else {
+    dav.style.display='none';dav.style.background='';dav.style.borderColor='';dav.style.color='';
+    const btnConf=document.getElementById('btn-confirmar-pedido');if(btnConf){btnConf.disabled=false;btnConf.style.opacity='';}
+  }
   document.getElementById('minimo-aviso').style.display='none';
   // Pedido rápido
   const ult=ultimoPedidoCliente(sel.id);
@@ -3894,6 +3936,7 @@ let _ultimoPedidoHash=''; // proteção extra contra duplicatas
 async function confirmar(){
   if(_confirmando){toast('Aguarde, salvando...');return;}
   if(!sel){toast('Selecione um cliente.');return;}
+  if(sel.bloqueado){toast('🔒 Cliente bloqueado. Quite a dívida antes de lançar pedido.');return;}
   const itens=Object.keys(qtds).filter(key=>qtds[key]>0).map(key=>{
     const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
     const p=sel.precos[key]||(s==='laranja'?sel.precos[t]:0);
@@ -7086,6 +7129,14 @@ function verHistoricoCliente(id){
 }
 
 // ── MODAL EDITAR CLIENTE ───────────────────────────────────────────────────
+function atualizarToggle(chkId,trackId){
+  const chk=document.getElementById(chkId);
+  const track=document.getElementById(trackId);
+  if(!chk||!track)return;
+  const thumb=track.querySelector('div');
+  if(chk.checked){track.style.background=chkId==='ec-bloqueado'?'#7C3AED':'#DC2626';if(thumb)thumb.style.transform='translateX(18px)';}
+  else{track.style.background='var(--border2)';if(thumb)thumb.style.transform='translateX(0)';}
+}
 function abrirModalCliente(id){
   const c=clientes.find(x=>x.id===id);if(!c)return;
   editClienteIdModal=id;
@@ -7098,6 +7149,9 @@ function abrirModalCliente(id){
   document.getElementById('ec-regiao').value=c.regiao||'';document.getElementById('ec-endereco').value=c.endereco||'';
   document.getElementById('ec-maps').value=c.maps||'';
   document.getElementById('ec-aniver').value=c.aniver||'';
+  // Toggles status
+  const mpChk=document.getElementById('ec-mal-pagador');if(mpChk){mpChk.checked=!!c.malPagador;atualizarToggle('ec-mal-pagador','track-mal-pagador');}
+  const blChk=document.getElementById('ec-bloqueado');if(blChk){blChk.checked=!!c.bloqueado;atualizarToggle('ec-bloqueado','track-bloqueado');}
   // Renderizar grade de preços TAMS × SABORES
   const pg=document.getElementById('ec-precos-grid');
   pg.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
@@ -7135,7 +7189,9 @@ async function salvarEdicaoCliente(){
   Object.keys(c.precos||{}).forEach(k=>{if(!k.includes('_')&&!(c.precos[k]===null)){/* chave legada — ignorar, substituída por tam_laranja */}});
   c.precos=novosPrecos;
   const vm=parseFloat(document.getElementById('ec-minimo').value);c.minimo=isNaN(vm)||vm<=0?null:vm;
-  try{await sbPatch('clientes',`?id=eq.${c.id}`,{nome:c.nome,cnpj:c.cnpj,apelido:c.apelido,tel:c.tel,ie:c.ie||'',cep:c.cep||'',email:c.email||'',bairro:c.bairro,regiao:c.regiao,endereco:c.endereco,maps:c.maps,aniver:c.aniver,minimo:c.minimo,precos:c.precos});setSyncStatus('ok','Sincronizado — nuvem ativa');}catch(e){setSyncStatus('err','Erro ao sincronizar');}
+  c.malPagador=document.getElementById('ec-mal-pagador')?.checked||false;
+  c.bloqueado=document.getElementById('ec-bloqueado')?.checked||false;
+  try{await sbPatch('clientes',`?id=eq.${c.id}`,{nome:c.nome,cnpj:c.cnpj,apelido:c.apelido,tel:c.tel,ie:c.ie||'',cep:c.cep||'',email:c.email||'',bairro:c.bairro,regiao:c.regiao,endereco:c.endereco,maps:c.maps,aniver:c.aniver,minimo:c.minimo,precos:c.precos,malPagador:c.malPagador,bloqueado:c.bloqueado});setSyncStatus('ok','Sincronizado — nuvem ativa');}catch(e){setSyncStatus('err','Erro ao sincronizar');}
   lsave('slj_cli_bk',clientes);
   fecharModal('cliente');renderClientes();toast('Cliente atualizado.');
 }
@@ -7155,9 +7211,9 @@ function renderClientes(){
   const el=document.getElementById('clientes-list');
   el.innerHTML=filtrados.length?filtrados.map(c=>{
     const deb=clienteDebitoTotal(c.id);const inativo=isInativo(c.id);
-    return`<div class="client-item${inativo?' inativo':''}" style="cursor:default;align-items:flex-start">
+    return`<div class="client-item${inativo?' inativo':''}${c.bloqueado?' bloqueado-item':''}" style="cursor:default;align-items:flex-start">
       <div style="flex:1;min-width:0">
-        <div class="c-name">${c.nome}${inativo?'<span class="status-badge debito" style="margin-left:6px">Inativo</span>':''}</div>
+        <div class="c-name">${c.nome}${inativo?'<span class="status-badge debito" style="margin-left:6px">Inativo</span>':''}${c.bloqueado?'<span class="status-badge" style="margin-left:6px;background:#EDE9FE;color:#5B21B6;border:1px solid #C4B5FD">🔒 Bloqueado</span>':''}${c.malPagador&&!c.bloqueado?'<span class="status-badge" style="margin-left:6px;background:#FEE2E2;color:#DC2626;border:1px solid #FECACA">🚨 Mal pagador</span>':''}</div>
         <div class="c-cnpj">CNPJ ${c.cnpj}${c.tel?' · '+c.tel:''}</div>
         ${c.bairro?`<div class="c-cnpj">📍 ${c.bairro}${c.regiao?' — '+c.regiao:''}</div>`:''}
         ${c.aniver?`<div class="c-cnpj">🎂 ${new Date(c.aniver+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'long'})}</div>`:''}
