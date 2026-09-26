@@ -3927,10 +3927,10 @@ function renderDia(){
           )}
         </div>
       </div>
-      <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${TL[it.tam]} × ${it.qtd}</span>`).join('')}</div>
+      <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${TL[it.tam]} × ${it.qtd}</span>`).join('')}${(p.itensTroca||[]).map(it=>`<span class="tag" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">🔄 ${TL[it.tam]} × ${it.qtd}</span>`).join('')}</div>
       ${p.obs?`<div class="pedido-obs-txt">Obs: ${p.obs}</div>`:''}
       ${p.foto?`<img src="${p.foto}" style="width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-top:7px">`:''}
-      <div class="pedido-valor">Total: ${moeda(p.total)}</div>
+      <div class="pedido-valor">Total: ${moeda(p.total)}${(p.itensTroca||[]).length?`<span style="font-size:11px;color:#5B21B6;margin-left:8px">(+${(p.itensTroca||[]).reduce((s,it)=>s+it.qtd,0)} troca)</span>`:''}</div>
     </div>`;
   }).join('');
 }
