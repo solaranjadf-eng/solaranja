@@ -869,14 +869,6 @@ a{color:var(--orange);text-decoration:none}
         <div id="entrega-label" style="font-size:12px;color:var(--orange);font-weight:600;margin-top:6px"></div>
       </div>
       <div class="obs-wrap"><label>Observações</label><textarea id="obs" placeholder="Instruções de entrega, preferências..."></textarea></div>
-      <!-- TROCA -->
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#F5F3FF;border:1px solid #C4B5FD;border-radius:var(--radius);margin-bottom:12px;cursor:pointer" onclick="document.getElementById('ped-troca').click()">
-        <input type="checkbox" id="ped-troca" style="width:18px;height:18px;cursor:pointer;accent-color:#7C3AED" onclick="event.stopPropagation()">
-        <div>
-          <div style="font-size:13px;font-weight:700;color:#5B21B6">🔄 É uma troca / substituição</div>
-          <div style="font-size:11px;color:var(--text3)">Pedido não será cobrado — não entra no faturamento</div>
-        </div>
-      </div>
       <div id="resumo-ped" class="resumo-ped" style="display:none">
         <p class="sec-label" style="margin-bottom:7px;color:var(--orange-deeper)">Resumo do pedido</p>
         <div id="resumo-rows"></div>
@@ -2363,9 +2355,9 @@ let fornecedores=load('slj_fornecedores',[]);
 
 let rotaOrdem=load('slj_rota_ordem',[]);
 let filtroAtual='todos', filtroFin='todos';
-let sel=null, qtds={}, editPedIdx=null, editPedQtds={}, editClienteId=null, editClienteIdModal=null;
+let sel=null, qtds={}, qtdsTroca={}, editPedIdx=null, editPedQtds={}, editClienteId=null, editClienteIdModal=null;
 let fotoEntregaIdx=null, fotoBase64=null, fotoEntregaPedido=null;
-TAMS.forEach(t=>qtds[t]=0);
+TAMS.forEach(t=>{qtds[t]=0;qtdsTroca[t]=0;});
 
 // ── SYNC ───────────────────────────────────────────────────────────────────
 function setSyncStatus(s,t){
@@ -2724,7 +2716,7 @@ async function sincronizar(){
   }
 }
 
-function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null,troca:p.troca||false};}
+function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],itensTroca:p.itens_troca||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null,troca:p.troca||false};}
 
 // ── TABS ───────────────────────────────────────────────────────────────────
 const TAB_LABELS={'dash':'Início','pedido':'Novo Pedido','dia':'Do Dia','rota':'Rota','resumo':'Resumo','producao':'Produção','financeiro':'Financeiro','estoque':'Estoque','custos':'Custos','laranjas':'Laranjas','historico':'Histórico','ranking':'Ranking','clientes':'Clientes'};
@@ -3654,6 +3646,12 @@ function renderGarrafas(){
         <span class="qty-val" id="q-${t}">${qtds[t]}</span>
         <button class="qty-btn" ontouchstart="" onclick="alt('${t}',1)">+</button>
       </div>
+      ${ok?`<div class="qty-ctrl" style="margin-top:4px;opacity:.85" title="Quantidade de troca">
+        <button class="qty-btn" ontouchstart="" onclick="altTroca('${t}',-1)" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">−</button>
+        <span class="qty-val" id="qt-${t}" style="color:#5B21B6;font-size:11px">${qtdsTroca[t]}</span>
+        <button class="qty-btn" ontouchstart="" onclick="altTroca('${t}',1)" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">+</button>
+      </div>
+      <div style="font-size:9px;color:#7C3AED;text-align:center;margin-top:1px;opacity:.8">🔄 troca</div>`:''}
     </div>`;}).join('');
 }
 let dataEntregaSel = 'amanha'; // padrão: amanhã
@@ -3699,6 +3697,7 @@ function getDataEntregaKey(override){
   return amanha.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
 }
 function alt(t,d){if(!sel||!(sel.precos[t]>0))return;qtds[t]=Math.max(0,(qtds[t]||0)+d);document.getElementById('q-'+t).textContent=qtds[t];atualizarResumo();}
+function altTroca(t,d){if(!sel||!(sel.precos[t]>0))return;qtdsTroca[t]=Math.max(0,(qtdsTroca[t]||0)+d);document.getElementById('qt-'+t).textContent=qtdsTroca[t];atualizarResumo();}
 function atualizarResumo(){
   const itens=TAMS.filter(t=>qtds[t]>0&&sel.precos[t]>0);
   const rp=document.getElementById('resumo-ped');
@@ -3707,15 +3706,17 @@ function atualizarResumo(){
   const tqtd=itens.reduce((s,t)=>s+qtds[t],0);
   const tval=itens.reduce((s,t)=>s+(sel.precos[t]||0)*qtds[t],0);
   const tlit=itens.reduce((s,t)=>s+(LITROS[t]||0)*qtds[t],0);
+  const itensTrocaRes=TAMS.filter(t=>qtdsTroca[t]>0&&sel.precos[t]>0);
   document.getElementById('resumo-rows').innerHTML=
     itens.map(t=>`<div class="rp-row"><span>${TL[t]} × ${qtds[t]} un.</span><span>${moeda((sel.precos[t]||0)*qtds[t])}</span></div>`).join('')+
+    (itensTrocaRes.length?itensTrocaRes.map(t=>`<div class="rp-row" style="color:#5B21B6"><span>🔄 ${TL[t]} × ${qtdsTroca[t]} troca</span><span>—</span></div>`).join(''):'')+
     `<div class="rp-row sub"><span>Unidades / Litros</span><span>${tqtd} un. · ${tlit.toFixed(1)} L</span></div>`;
   document.getElementById('resumo-total-val').textContent=moeda(tval);
   const av=document.getElementById('minimo-aviso');
   if(sel.minimo>0&&tval<sel.minimo){av.style.display='block';av.textContent=`Mínimo: ${moeda(sel.minimo)}. Pedido atual: ${moeda(tval)}.`;}
   else av.style.display='none';
 }
-function limpar(){TAMS.forEach(t=>qtds[t]=0);document.getElementById('obs').value='';const cb=document.getElementById('ped-troca');if(cb)cb.checked=false;renderGarrafas();atualizarResumo();}
+function limpar(){TAMS.forEach(t=>{qtds[t]=0;qtdsTroca[t]=0;});document.getElementById('obs').value='';renderGarrafas();atualizarResumo();}
 let _confirmando=false; // proteção contra duplo clique
 let _ultimoPedidoHash=''; // proteção extra contra duplicatas
 
@@ -3756,15 +3757,14 @@ async function confirmar(){
   const btnConfirmar=document.querySelector('#page-pedido .btn-primary[onclick="confirmar()"]');
   if(btnConfirmar){btnConfirmar.disabled=true;btnConfirmar.textContent='Salvando...';}
 
-  const ehTrocaPed = document.getElementById('ped-troca').checked;
+  const itensTroca=TAMS.filter(t=>qtdsTroca[t]>0&&sel.precos[t]>0).map(t=>({tam:t,qtd:qtdsTroca[t],preço:sel.precos[t]}));
   const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  const totalReal=itens.reduce((s,i)=>s+i.preço*i.qtd,0);
-  const total=ehTrocaPed ? 0 : totalReal;
+  const total=itens.reduce((s,i)=>s+i.preço*i.qtd,0);
   setSyncStatus('loading','Salvando...');
   let pedidoSalvo=false;
   try{
     const numeroPedido = await getNextNumeroPedido();
-    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido,troca:ehTrocaPed}]);
+    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido,troca:false,itens_troca:itensTroca.length>0?itensTroca:null}]);
     const ped=Array.isArray(res)?res[0]:res;
     const obj=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
     // Adicionar ao array correto baseado na data de entrega
@@ -3781,7 +3781,7 @@ async function confirmar(){
     pedidoSalvo=true;
     registrarAtividadePedido();
     setSyncStatus('ok','Sincronizado — nuvem ativa');
-    toast(ehTrocaPed ? '🔄 Troca de '+sel.nome+' registrada!' : '✓ Pedido de '+sel.nome+' confirmado.');
+    toast('✓ Pedido de '+sel.nome+' confirmado.'+(itensTroca.length?' (+troca incluída)':''));
     atualizarBadges();verificarAlertasEstoque();
     renderRota();
     renderDia();
