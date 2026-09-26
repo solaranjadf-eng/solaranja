@@ -1040,7 +1040,8 @@ a{color:var(--orange);text-decoration:none}
   <div id="prod-grid"></div>
   <div class="card" style="margin-top:4px">
     <div class="card-title">Custo de Produção por Embalagem</div>
-    <p style="font-size:12px;color:var(--text3);margin-bottom:14px">Preencha os três custos de cada embalagem. O total é calculado automaticamente.</p>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:10px">Preencha os custos de cada embalagem por sabor. O total é calculado automaticamente.</p>
+    <div id="prod-sabor-sel" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
     <div id="custos-form"></div>
     <button class="btn btn-outline btn-full" onclick="salvarCustos()" style="margin-top:8px">Salvar Custos</button>
   </div>
@@ -5239,9 +5240,14 @@ function renderResumo(){
 
 // ── PRODUÇÃO ───────────────────────────────────────────────────────────────
 
-function getCustoTotal(t){
-  const c=custos[t]||{embalagem:0,laranja:0,adesivo:0};
-  return (parseFloat(c.embalagem)||0)+(parseFloat(c.laranja)||0)+(parseFloat(c.adesivo)||0);
+function getCustoTotal(t,s){
+  s=s||'laranja';
+  const key=s==='laranja'?t:precoKey(t,s);
+  const base=custos[t]||{embalagem:0,laranja:0,adesivo:0};
+  const c=custos[key]||{};
+  // Para laranja usa custos[tam] legado; para outros sabores usa custos[tam_sabor] com fallback embalagem/adesivo de laranja
+  if(s==='laranja') return (parseFloat(base.embalagem)||0)+(parseFloat(base.laranja)||0)+(parseFloat(base.adesivo)||0);
+  return (parseFloat(c.embalagem!==undefined?c.embalagem:base.embalagem)||0)+(parseFloat(c.materia)||0)+(parseFloat(c.adesivo!==undefined?c.adesivo:base.adesivo)||0);
 }
 
 // ── CUSTOS OPERACIONAIS ────────────────────────────────────────────────────
@@ -6028,75 +6034,132 @@ function renderMovimentos(){
   }).join('');
 }
 
-function renderCustosForm(){
+function setProdSabor(s){
+  _prodSaborAtual=s;
+  document.querySelectorAll('#prod-sabor-sel button').forEach(b=>{
+    const active=b.dataset.s===s;
+    b.style.background=active?'var(--orange)':'var(--bg2)';
+    b.style.color=active?'#fff':'var(--text2)';
+    b.style.borderColor=active?'var(--od)':'var(--border2)';
+    b.style.fontWeight=active?'700':'500';
+  });
+  _renderCustosCards();
+}
+
+function _renderCustosCards(){
   const el=document.getElementById('custos-form');
   if(!el)return;
+  const s=_prodSaborAtual;
+  const isLaranja=s==='laranja';
   el.innerHTML=TAMS.map(t=>{
-    const c=custos[t]||{embalagem:0,laranja:0,adesivo:0};
-    const total=getCustoTotal(t);
+    const key=isLaranja?t:precoKey(t,s);
+    const base=custos[t]||{embalagem:0,laranja:0,adesivo:0,venda:0};
+    const cs=isLaranja?base:(custos[key]||{});
+    const emb=cs.embalagem!==undefined?cs.embalagem:base.embalagem;
+    const matLabel=isLaranja?'Laranjas':'Matéria-prima';
+    const matVal=isLaranja?(cs.laranja||''):(cs.materia||'');
+    const ade=cs.adesivo!==undefined?cs.adesivo:base.adesivo;
+    const venda=cs.venda||'';
+    const total=getCustoTotal(t,s);
+    const lucro=(parseFloat(venda)||0)-total;
     return`<div class="custo-card">
       <div class="custo-card-title">
         <span>${TL[t]}</span>
-        <span class="custo-total-badge" id="ctotal-${t}">Total: ${moeda(total)}</span>
+        <span class="custo-total-badge" id="ctotal-${key}">Total: ${moeda(total)}</span>
       </div>
       <div class="custo-row">
-        <div class="pfw"><label>Embalagem</label><input type="number" id="cemb-${t}" step="0.01" min="0" inputmode="decimal" placeholder="R$ 0,00" value="${c.embalagem||''}" oninput="atualizarCustoTotal('${t}')"></div>
-        <div class="pfw"><label>Laranjas</label><input type="number" id="clar-${t}" step="0.01" min="0" inputmode="decimal" placeholder="R$ 0,00" value="${c.laranja||''}" oninput="atualizarCustoTotal('${t}')"></div>
-        <div class="pfw"><label>Adesivo</label><input type="number" id="cade-${t}" step="0.01" min="0" inputmode="decimal" placeholder="R$ 0,00" value="${c.adesivo||''}" oninput="atualizarCustoTotal('${t}')"></div>
+        <div class="pfw"><label>Embalagem</label><input type="number" id="cemb-${key}" step="0.01" min="0" inputmode="decimal" placeholder="R$ 0,00" value="${emb||''}" oninput="atualizarCustoTotal('${key}','${s}','${t}')"></div>
+        <div class="pfw"><label>${matLabel}</label><input type="number" id="cmat-${key}" step="0.01" min="0" inputmode="decimal" placeholder="R$ 0,00" value="${matVal}" oninput="atualizarCustoTotal('${key}','${s}','${t}')"></div>
+        <div class="pfw"><label>Adesivo</label><input type="number" id="cade-${key}" step="0.01" min="0" inputmode="decimal" placeholder="R$ 0,00" value="${ade||''}" oninput="atualizarCustoTotal('${key}','${s}','${t}')"></div>
       </div>
       <div class="custo-soma">
         <span>Custo total por unidade</span>
-        <span id="csomalbl-${t}">${moeda(total)}</span>
+        <span id="csomalbl-${key}">${moeda(total)}</span>
       </div>
       <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div class="pfw">
           <label>Valor de venda</label>
-          <input type="number" id="cvenda-${t}" step="0.01" min="0" inputmode="decimal" placeholder="R$ 0,00" value="${(custos[t]&&custos[t].venda)||''}" oninput="atualizarCustoTotal('${t}')">
+          <input type="number" id="cvenda-${key}" step="0.01" min="0" inputmode="decimal" placeholder="R$ 0,00" value="${venda}" oninput="atualizarCustoTotal('${key}','${s}','${t}')">
         </div>
-        <div style="background:var(--green-light);border:1px solid #9FE0B4;border-radius:var(--radius-sm);padding:8px;text-align:center">
+        <div id="clucro-wrap-${key}" style="background:${lucro>=0?'var(--green-light)':'var(--red-light)'};border:1px solid ${lucro>=0?'#9FE0B4':'#EAA89F'};border-radius:var(--radius-sm);padding:8px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Lucro por unidade</div>
-          <div id="clucro-${t}" style="font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:var(--green)">${moeda(((custos[t]&&custos[t].venda)||0)-total)}</div>
+          <div id="clucro-${key}" style="font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:${lucro>=0?'var(--green)':'var(--red)'}">${moeda(lucro)}</div>
         </div>
       </div>
     </div>`;}).join('');
 }
 
-function atualizarCustoTotal(t){
-  const emb=parseFloat(document.getElementById('cemb-'+t).value)||0;
-  const lar=parseFloat(document.getElementById('clar-'+t).value)||0;
-  const ade=parseFloat(document.getElementById('cade-'+t).value)||0;
-  const venda=parseFloat(document.getElementById('cvenda-'+t).value)||0;
-  const total=emb+lar+ade;
+function renderCustosForm(){
+  // Render sabor selector
+  const sel=document.getElementById('prod-sabor-sel');
+  if(sel){
+    sel.innerHTML=SABORES.map(s=>{
+      const active=s===_prodSaborAtual;
+      return`<button data-s="${s}" onclick="setProdSabor('${s}')" style="padding:5px 12px;border-radius:20px;border:1.5px solid ${active?'var(--od)':'var(--border2)'};background:${active?'var(--orange)':'var(--bg2)'};color:${active?'#fff':'var(--text2)'};font-weight:${active?'700':'500'};font-size:12px;cursor:pointer">${SL[s]}</button>`;
+    }).join('');
+  }
+  _renderCustosCards();
+}
+
+function atualizarCustoTotal(key,s,t){
+  const emb=parseFloat(document.getElementById('cemb-'+key)?.value)||0;
+  const mat=parseFloat(document.getElementById('cmat-'+key)?.value)||0;
+  const ade=parseFloat(document.getElementById('cade-'+key)?.value)||0;
+  const venda=parseFloat(document.getElementById('cvenda-'+key)?.value)||0;
+  const total=emb+mat+ade;
   const lucro=venda-total;
-  const badge=document.getElementById('ctotal-'+t);
-  const soma=document.getElementById('csomalbl-'+t);
-  const lucroEl=document.getElementById('clucro-'+t);
+  const badge=document.getElementById('ctotal-'+key);
+  const soma=document.getElementById('csomalbl-'+key);
+  const lucroEl=document.getElementById('clucro-'+key);
+  const wrap=document.getElementById('clucro-wrap-'+key);
   if(badge)badge.textContent='Total: '+moeda(total);
   if(soma)soma.textContent=moeda(total);
   if(lucroEl){
     lucroEl.textContent=moeda(lucro);
     lucroEl.style.color=lucro>=0?'var(--green)':'var(--red)';
-    lucroEl.parentElement.style.background=lucro>=0?'var(--green-light)':'var(--red-light)';
-    lucroEl.parentElement.style.borderColor=lucro>=0?'#9FE0B4':'#EAA89F';
+  }
+  if(wrap){
+    wrap.style.background=lucro>=0?'var(--green-light)':'var(--red-light)';
+    wrap.style.borderColor=lucro>=0?'#9FE0B4':'#EAA89F';
   }
 }
 
 function salvarCustos(){
+  // Save the currently displayed sabor's form fields into custos
+  const s=_prodSaborAtual;
+  const isLaranja=s==='laranja';
   TAMS.forEach(t=>{
-    custos[t]={
-      embalagem:parseFloat(document.getElementById('cemb-'+t)?.value)||0,
-      laranja:parseFloat(document.getElementById('clar-'+t)?.value)||0,
-      adesivo:parseFloat(document.getElementById('cade-'+t)?.value)||0,
-      venda:parseFloat(document.getElementById('cvenda-'+t)?.value)||0
-    };
+    const key=isLaranja?t:precoKey(t,s);
+    const embEl=document.getElementById('cemb-'+key);
+    const matEl=document.getElementById('cmat-'+key);
+    const adeEl=document.getElementById('cade-'+key);
+    const venEl=document.getElementById('cvenda-'+key);
+    if(!embEl&&!matEl)return; // not rendered
+    if(isLaranja){
+      custos[t]={
+        embalagem:parseFloat(embEl?.value)||0,
+        laranja:parseFloat(matEl?.value)||0,
+        adesivo:parseFloat(adeEl?.value)||0,
+        venda:parseFloat(venEl?.value)||0
+      };
+    } else {
+      const base=custos[t]||{};
+      custos[key]={
+        embalagem:embEl?parseFloat(embEl.value)||0:(base.embalagem||0),
+        materia:parseFloat(matEl?.value)||0,
+        adesivo:adeEl?parseFloat(adeEl.value)||0:(base.adesivo||0),
+        venda:parseFloat(venEl?.value)||0
+      };
+    }
   });
   lsave('slj_custos',custos);
   // Salvar no banco para sincronizar entre dispositivos
   sbUps('bling_tokens',[{id:4,access_token:JSON.stringify(custos),refresh_token:'custos_producao',expires_at:Date.now(),updated_at:new Date().toISOString()}]).catch(()=>{});
-  renderProducao();toast('Custos salvos.');
+  renderProducao();toast('Custos de '+SL[s]+' salvos.');
 }
 
 let prodDataSel='amanha'; // padrão: produzir hoje para entregar amanhã
+let _prodSaborAtual='laranja';
 
 function setProdData(tipo,btn){
   prodDataSel=tipo;
