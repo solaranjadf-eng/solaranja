@@ -1140,6 +1140,13 @@ a{color:var(--orange);text-decoration:none}
         <label>Observações</label>
         <textarea id="novo-fin-obs" placeholder="Observações do pedido..."></textarea>
       </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff8e1;border:1px solid #f5a623;border-radius:var(--radius);margin-bottom:12px;cursor:pointer" onclick="document.getElementById('novo-fin-troca').click()">
+        <input type="checkbox" id="novo-fin-troca" style="width:18px;height:18px;cursor:pointer;accent-color:var(--orange)">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--orange-dark)">🔄 É uma troca / substituição</div>
+          <div style="font-size:11px;color:var(--text3)">Pedido não será cobrado do cliente</div>
+        </div>
+      </div>
       <div style="background:var(--bg);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;color:var(--text)" id="novo-fin-resumo"></div>
       <button class="btn btn-primary btn-full" onclick="salvarPedidoRetroativo()">Salvar Pedido</button>
     </div>
@@ -2709,7 +2716,7 @@ async function sincronizar(){
   }
 }
 
-function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null};}
+function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null,troca:p.troca||false};}
 
 // ── TABS ───────────────────────────────────────────────────────────────────
 const TAB_LABELS={'dash':'Início','pedido':'Novo Pedido','dia':'Do Dia','rota':'Rota','resumo':'Resumo','producao':'Produção','financeiro':'Financeiro','estoque':'Estoque','custos':'Custos','laranjas':'Laranjas','historico':'Histórico','ranking':'Ranking','clientes':'Clientes'};
@@ -6225,8 +6232,8 @@ function renderExtratocliente(){
   Object.values(historico).forEach(d=>d.forEach(p=>{if(!todos.find(x=>x.id===p.id))todos.push(p);}));
   const pedsCli = todos.filter(p=>p.clienteId===finCliSelecionado.id).sort((a,b)=>b.data.localeCompare(a.data));
 
-  const totalGeral = pedsCli.reduce((s,p)=>s+p.total,0);
-  const debito = pedsCli.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
+  const totalGeral = pedsCli.filter(p=>!p.troca).reduce((s,p)=>s+p.total,0);
+  const debito = pedsCli.filter(p=>p.entregue&&!p.pago&&!p.troca).reduce((s,p)=>s+p.total,0);
   document.getElementById('fin-cli-total').textContent = moeda(totalGeral);
   document.getElementById('fin-cli-debito').textContent = moeda(debito);
 
@@ -6264,12 +6271,18 @@ function renderExtratocliente(){
         ${pedsCli.map((p,idx)=>{
           const dataFmt = p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
           const num = p.numeroPedido||'—';
-          const situacao = p.pago
+          const situacao = p.troca
+            ? `<span style="background:#EDE9FE;color:#5B21B6;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">🔄 Troca</span>`
+            : p.pago
             ? `<span style="background:#D1FAE5;color:#065F46;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pago</span>`
             : p.entregue
             ? `<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Em aberto</span>`
             : `<span style="background:var(--bg2);color:var(--text3);font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pendente</span>`;
-          const btnAcao = p.pago
+          const btnAcao = p.troca && !p.entregue
+            ? `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:#5B21B6;background:#EDE9FE;border:1px solid #C4B5FD;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">🔄 Confirmar entrega</button>`
+            : p.troca && p.entregue
+            ? `<span style="font-size:11px;color:#5B21B6;font-style:italic">entregue · sem cobrança</span>`
+            : p.pago
             ? `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:3px 8px;cursor:pointer">Desmarcar Pago</button>`
             : p.entregue
             ? `<div style="display:flex;flex-direction:column;gap:3px;align-items:center">
@@ -6277,13 +6290,14 @@ function renderExtratocliente(){
                 <button onclick="desmarcarEntregueFinItem(${p.id})" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:2px 6px;cursor:pointer">↩ Desmarcar</button>
                </div>`
             : `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:var(--od);background:var(--ol);border:1px solid rgba(224,122,47,.3);border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">Marcar Entregue</button>`;
-          return `<tr style="border-bottom:1px solid var(--border);${idx%2===1?'background:#F8F9FC':''}">
-            <td style="padding:8px;text-align:center"><input type="checkbox" class="fin-sel-ped" data-id="${p.id}" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)"></td>
+          const rowBg = p.troca ? 'background:#F5F3FF' : idx%2===1 ? 'background:#F8F9FC' : '';
+          return `<tr style="border-bottom:1px solid var(--border);${rowBg}">
+            <td style="padding:8px;text-align:center"><input type="checkbox" class="fin-sel-ped" data-id="${p.id}" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)" ${p.troca?'disabled':''}></td>
             <td style="padding:8px 10px;color:var(--text3);font-weight:600">${num}</td>
             <td style="padding:8px 10px;white-space:nowrap">${dataFmt}</td>
             <td style="padding:8px 10px;color:var(--text2)">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</td>
             <td style="padding:8px 10px;color:var(--text3);font-style:italic;font-size:11px">${p.obs||'—'}</td>
-            <td style="padding:8px 10px;text-align:right;font-weight:700">${moeda(p.total)}</td>
+            <td style="padding:8px 10px;text-align:right;font-weight:700;${p.troca?'color:#5B21B6;text-decoration:line-through':''}">${p.troca?'—':moeda(p.total)}</td>
             <td style="padding:8px 10px;text-align:center">${situacao}</td>
             <td style="padding:8px 10px;text-align:center">${btnAcao}</td>
             <td style="padding:8px;text-align:center"><button onclick="delPedidoFin(${p.id},'${p.data||''}')" title="Excluir" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 7px;font-size:11px;cursor:pointer">✕</button></td>
@@ -6397,8 +6411,9 @@ function gerarPDFCliente(){
   if(!pedsCli.length){toast('Selecione ao menos um pedido para o PDF.');return;}
 
   const calcTotal=p=>p.total||p.itens.reduce((s,i)=>s+((i.preco||i.preço||0)*i.qtd),0);
-  const totalGeral = pedsCli.reduce((s,p)=>s+calcTotal(p),0);
-  const debito = pedsCli.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+calcTotal(p),0);
+  const pedsCobranca = pedsCli.filter(p=>!p.troca);
+  const totalGeral = pedsCobranca.reduce((s,p)=>s+calcTotal(p),0);
+  const debito = pedsCobranca.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+calcTotal(p),0);
 
   // Gerar um PDF por pedido (modelo Bling) ou extrato consolidado?
   // Modelo da imagem é por PEDIDO — vamos fazer extrato consolidado no mesmo estilo
@@ -6508,12 +6523,12 @@ function gerarPDFCliente(){
         const NOMES={'200ml':'Garrafa 200ml','300ml':'Garrafa 300ml','500ml':'Garrafa 500ml','1L':'Garrafa 1L','5L':'Galão 5L'};
         return (NOMES[it.tam]||TL[it.tam])+' × '+it.qtd+' = R$ '+((it.preco||it.preço||0)*it.qtd).toFixed(2).replace('.',',');
       }).join('\n');
-      const situacao=p.pago?'Pago':p.entregue?'Em aberto':'Pendente';
-      const totalP=p.total||p.itens.reduce((s,i)=>s+((i.preco||i.preço||0)*i.qtd),0);
-      return [p.numeroPedido||'—', dataFmt, itensDesc, totalP.toFixed(2).replace('.',','), situacao];
+      const situacao=p.troca?'Troca':p.pago?'Pago':p.entregue?'Em aberto':'Pendente';
+      const totalP=p.troca?null:(p.total||p.itens.reduce((s,i)=>s+((i.preco||i.preço||0)*i.qtd),0));
+      return [p.numeroPedido||'—', dataFmt, itensDesc, totalP!=null?totalP.toFixed(2).replace('.',','):'—', situacao];
     }),
     foot:[
-      ['','','Total de pedidos: '+pedsCli.length, moeda(totalGeral),''],
+      ['','','Total de pedidos: '+pedsCobranca.length+(pedsCli.length>pedsCobranca.length?' (+'+(pedsCli.length-pedsCobranca.length)+' troca(s))':''), moeda(totalGeral),''],
       embResumo?['','',embResumo,'','']:null,
       debito>0?['','','A receber',moeda(debito),'']:null
     ].filter(Boolean),
@@ -6552,7 +6567,10 @@ function gerarPDFCliente(){
       }
       if(data.section==='body'){
         const situacao=data.row.raw[4];
-        if(data.column.index===4){
+        if(situacao==='Troca'){
+          data.cell.styles.textColor=[91,33,182];
+          data.cell.styles.fontStyle='italic';
+        } else if(data.column.index===4){
           if(situacao==='Pago') data.cell.styles.textColor=[22,163,74];
           else if(situacao==='Em aberto') data.cell.styles.textColor=[180,60,0];
           else data.cell.styles.textColor=[100,100,100];
@@ -6649,10 +6667,12 @@ async function salvarPedidoRetroativo(){
   if(!novoFinCliSelecionado){toast('Selecione um cliente.');return;}
   const data = document.getElementById('novo-fin-data').value;
   if(!data){toast('Selecione a data do pedido.');return;}
+  const ehTroca = document.getElementById('novo-fin-troca').checked;
   const itens = TAMS.filter(t=>novoFinQtds[t]>0&&novoFinCliSelecionado.precos[t]>0)
     .map(t=>({tam:t,qtd:novoFinQtds[t],preço:novoFinCliSelecionado.precos[t]}));
   if(!itens.length){toast('Adicione ao menos um item.');return;}
-  const total = itens.reduce((s,i)=>s+i.preço*i.qtd,0);
+  const totalReal = itens.reduce((s,i)=>s+i.preço*i.qtd,0);
+  const total = ehTroca ? 0 : totalReal;
   const hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const numeroPedido = await getNextNumeroPedido();
   try{
@@ -6665,12 +6685,13 @@ async function salvarPedidoRetroativo(){
       obs:document.getElementById('novo-fin-obs').value.trim(),
       itens,total,
       precos:novoFinCliSelecionado.precos,
-      entregue:true,
-      hora_entrega:hora,
+      entregue: ehTroca ? false : true,
+      hora_entrega: ehTroca ? null : hora,
       data,
       pago:false,
       foto:null,
-      numero_pedido:numeroPedido
+      numero_pedido:numeroPedido,
+      troca: ehTroca
     }]);
     // Adicionar ao array local correto
     const novo = mapPedido({
@@ -6686,7 +6707,7 @@ async function salvarPedidoRetroativo(){
       if(!historico[data]) historico[data]=[];
       historico[data].push(novo);
     }
-    toast('✓ Pedido #'+numeroPedido+' salvo!');
+    toast(ehTroca ? '🔄 Troca #'+numeroPedido+' registrada!' : '✓ Pedido #'+numeroPedido+' salvo!');
     initNovoFinForm();
     renderFinanceiro();
     atualizarBadges();
@@ -8827,8 +8848,8 @@ async function gerarBoletoBB(){
   const checkboxes=[...document.querySelectorAll('.fin-sel-ped:checked')];
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const pedsSel=checkboxes.length>0
-    ? todos.filter(p=>new Set(checkboxes.map(c=>String(c.dataset.id))).has(String(p.id)))
-    : todos.filter(p=>String(p.clienteId)===String(cli.id)&&p.entregue&&!p.pago);
+    ? todos.filter(p=>new Set(checkboxes.map(c=>String(c.dataset.id))).has(String(p.id))&&!p.troca)
+    : todos.filter(p=>String(p.clienteId)===String(cli.id)&&p.entregue&&!p.pago&&!p.troca);
 
   if(!pedsSel.length){toast('Nenhum pedido em aberto para este cliente.');return;}
 
