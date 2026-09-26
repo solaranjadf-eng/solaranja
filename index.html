@@ -2987,13 +2987,33 @@ function renderDash(){
   pedidosMes.forEach(p=>p.itens.forEach(it=>{qtdMes[it.tam]=(qtdMes[it.tam]||0)+it.qtd;}));
   const custoProdMes=TAMS.reduce((s,t)=>s+getCustoTotal(t)*qtdMes[t],0);
 
+  // Diaristas (Valdeci, Késia) — calculados por dias trabalhados × diária no período do dashboard
+  const _diaristasCalc=JSON.parse(localStorage.getItem('slj_diaristas')||'[]');
+  const _diasDiaristasCalc=JSON.parse(localStorage.getItem('slj_diaristas_dias')||'{}');
+  const _adiantDiaristasCalc=JSON.parse(localStorage.getItem('slj_diaristas_adiant')||'[]');
+  const _prefixosDashCalc=dashPeriodo==='ano'
+    ?Array.from({length:12},(_,i)=>`${dashMesNav.getFullYear()}-${String(i+1).padStart(2,'0')}`)
+    :[mesAtual];
+  let gastoDiaristasCalc=0;
+  _diaristasCalc.filter(d=>d.ativo).forEach(d=>{
+    _prefixosDashCalc.forEach(pref=>{
+      const diasNoMesPref=new Date(parseInt(pref.slice(0,4)),parseInt(pref.slice(5,7)),0).getDate();
+      let diasTrabPref=0;
+      for(let i=1;i<=diasNoMesPref;i++){
+        const dk=`${pref}-${String(i).padStart(2,'0')}`;
+        if(_diasDiaristasCalc[d.id+'_'+dk]==='ok') diasTrabPref++;
+      }
+      gastoDiaristasCalc+=diasTrabPref*(d.valorDia||0);
+    });
+  });
+
   const fatMes=pedidosMes.reduce((s,p)=>s+p.total,0);
-  // Lucro líquido = Faturamento − Custo produção − Custos operacionais − Pagamento Fábio (sem embalagem, já no prod)
-  const lucroLiquido=fatMes-custoProdMes-custoOpMes-gastoFabio;
+  // Lucro líquido = Faturamento − Custo produção − Custos operacionais − Pagamento Fábio − Diaristas
+  const lucroLiquido=fatMes-custoProdMes-custoOpMes-gastoFabio-gastoDiaristasCalc;
 
   if(el('dash-fat-mes'))       el('dash-fat-mes').textContent=moeda(fatMes);
   if(el('dash-custo-prod'))    el('dash-custo-prod').textContent=moeda(custoProdMes);
-  if(el('dash-custo-mes'))     el('dash-custo-mes').textContent=moeda(custoOpMes+gastoFabio);
+  if(el('dash-custo-mes'))     el('dash-custo-mes').textContent=moeda(custoOpMes+gastoFabio+gastoDiaristasCalc);
   if(el('dash-lucro-mes')){
     el('dash-lucro-mes').textContent=moeda(lucroLiquido);
     el('dash-lucro-mes').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
@@ -3050,7 +3070,8 @@ function renderDash(){
   if(el('dash-custo-garrafas'))    el('dash-custo-garrafas').textContent=moeda(gastoGarrafas);
   if(el('dash-custo-adesivos'))    el('dash-custo-adesivos').textContent=moeda(gastoAdesivos);
   if(el('dash-custo-gas'))         el('dash-custo-gas').textContent=moeda(gastoGas);
-  if(el('dash-custo-colab'))       el('dash-custo-colab').textContent=moeda(gastoColab);
+  // Colaboradores = diaristas (Valdeci, Késia): dias trabalhados × diária (já calculado acima)
+  if(el('dash-custo-colab'))       el('dash-custo-colab').textContent=moeda(gastoDiaristasCalc);
   if(el('dash-custo-fabio-sub'))   el('dash-custo-fabio-sub').textContent='';
   if(el('dash-custo-entregador'))  el('dash-custo-entregador').textContent=moeda(totalEntregador);
   if(el('dash-custo-entregador-sub')) el('dash-custo-entregador-sub').textContent='';
