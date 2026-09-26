@@ -822,6 +822,21 @@ a{color:var(--orange);text-decoration:none}
     </div>
   </div>
 
+  <!-- GRÁFICO: Sabores faturados + Trocas -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🍹 Sabores faturados</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px" id="dash-sabor-periodo-label"></div>
+    <div style="position:relative;height:180px;margin-bottom:10px">
+      <canvas id="chart-sabores"></canvas>
+    </div>
+    <div id="dash-sabor-legenda"></div>
+    <!-- Trocas por sabor -->
+    <div id="dash-troca-sabor-wrap" style="margin-top:14px;display:none">
+      <div style="font-size:12px;font-weight:700;color:#5B21B6;margin-bottom:8px">🔄 Trocas por sabor</div>
+      <div id="dash-troca-sabor-lista"></div>
+    </div>
+  </div>
+
   <!-- Entregas e Top clientes -->
   <div class="card" style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -3051,6 +3066,92 @@ function renderDash(){
       </div>`
     ).join('')||'<div style="font-size:13px;color:var(--text3)">Sem vendas no período</div>';
   }
+
+  // ── GRÁFICO DE SABORES ──────────────────────────────────────────────────────
+  (()=>{
+    // Período: mesma fonte que lista (getDashPedidos)
+    const labPeriodo={'hoje':'Hoje','mes':'Este mês','ano':'Ano todo'};
+    if(el('dash-sabor-periodo-label')) el('dash-sabor-periodo-label').textContent=labPeriodo[dashPeriodo]||'';
+
+    // Conta unidades por sabor (pedidos normais, sem troca)
+    const unSabor={};
+    const trocaSabor={};
+    lista.forEach(p=>{
+      const dest=p.troca?trocaSabor:unSabor;
+      p.itens.forEach(it=>{const s=it.sabor||'laranja';dest[s]=(dest[s]||0)+it.qtd;});
+      (p.itensTroca||[]).forEach(it=>{const s=it.sabor||'laranja';trocaSabor[s]=(trocaSabor[s]||0)+it.qtd;});
+    });
+
+    const CORES_SABOR={laranja:'#E07A2F',uva:'#7C3AED',goiaba:'#EC4899',acerola:'#DC2626',abacaxi:'#F59E0B',caju:'#16A34A',maracuja:'#2563EB'};
+    const saboresAtivos=SABORES.filter(s=>unSabor[s]>0);
+    const totalUn=saboresAtivos.reduce((s,k)=>s+(unSabor[k]||0),0);
+
+    // Gráfico de barras horizontais
+    try{
+      const ctx=document.getElementById('chart-sabores')?.getContext('2d');
+      if(ctx){
+        if(window._chartSabores) window._chartSabores.destroy();
+        if(saboresAtivos.length){
+          window._chartSabores=new Chart(ctx,{
+            type:'bar',
+            data:{
+              labels:saboresAtivos.map(s=>SL[s]),
+              datasets:[{
+                label:'Unidades',
+                data:saboresAtivos.map(s=>unSabor[s]||0),
+                backgroundColor:saboresAtivos.map(s=>CORES_SABOR[s]||'#888'),
+                borderRadius:6,
+                borderSkipped:false
+              }]
+            },
+            options:{
+              indexAxis:'y',
+              responsive:true,
+              maintainAspectRatio:false,
+              plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+' un'}}},
+              scales:{
+                x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11},color:'#888'},beginAtZero:true},
+                y:{grid:{display:false},ticks:{font:{size:12,weight:'600'}}}
+              }
+            }
+          });
+        } else {
+          ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+        }
+      }
+    }catch(e){}
+
+    // Legenda embaixo do gráfico
+    if(el('dash-sabor-legenda')){
+      el('dash-sabor-legenda').innerHTML=saboresAtivos.length
+        ?saboresAtivos.map(s=>{
+          const pct=totalUn>0?((unSabor[s]/totalUn)*100).toFixed(0):0;
+          return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+            <div style="width:10px;height:10px;border-radius:50%;background:${CORES_SABOR[s]||'#888'};flex-shrink:0"></div>
+            <div style="flex:1;font-size:12px;font-weight:600;color:var(--text)">${SL[s]}</div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:13px;font-weight:700;color:var(--text)">${unSabor[s]} un</div>
+              <div style="font-size:10px;color:var(--text3)">${pct}% do total</div>
+            </div>
+          </div>`;
+        }).join('')
+        :'<div style="font-size:13px;color:var(--text3)">Sem vendas no período</div>';
+    }
+
+    // Trocas por sabor
+    const saboresTroca=SABORES.filter(s=>trocaSabor[s]>0);
+    if(el('dash-troca-sabor-wrap')){
+      el('dash-troca-sabor-wrap').style.display=saboresTroca.length?'block':'none';
+    }
+    if(el('dash-troca-sabor-lista')){
+      el('dash-troca-sabor-lista').innerHTML=saboresTroca.map(s=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+          <div style="width:10px;height:10px;border-radius:50%;background:${CORES_SABOR[s]||'#888'};flex-shrink:0"></div>
+          <div style="flex:1;font-size:12px;font-weight:600;color:var(--text)">${SL[s]}</div>
+          <div style="font-size:13px;font-weight:700;color:#5B21B6">${trocaSabor[s]} un 🔄</div>
+        </div>`).join('');
+    }
+  })();
 
   // Entregas recentes
   if(el('dash-entregas')){
