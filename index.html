@@ -2881,6 +2881,7 @@ function getMesDashKey(){
 }
 
 function recalcularImpostoLucro(){
+  if(dashPeriodo==='ano') return; // no modo ano o campo é somente-leitura, soma automática
   const imposto=parseFloat(document.getElementById('dash-valor-imposto')?.value)||0;
   lsave('slj_valor_imposto_'+getMesDashKey(),imposto);
   const lucro=parseFloat(document.getElementById('dash-lucro-mes')?.dataset.valor)||0;
@@ -3004,9 +3005,28 @@ function renderDash(){
     el('dash-lucro-badge').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
   }
   // Imposto e lucro real após imposto
-  const valorImposto=load('slj_valor_imposto_'+mesAtual, load('slj_valor_imposto',0));
+  // Para ano: soma imposto de todos os meses do ano; para custom: soma por mês do período; para período único: carrega chave do mês
+  let valorImposto=0;
   const impostoInp=document.getElementById('dash-valor-imposto');
-  if(impostoInp) impostoInp.value=valorImposto>0?valorImposto:'';
+  if(dashPeriodo==='ano'){
+    // Soma todos os 12 meses do ano atual
+    const anoNav=dashMesNav.getFullYear();
+    for(let m=1;m<=12;m++){
+      const chave=`${anoNav}-${String(m).padStart(2,'0')}`;
+      valorImposto+=load('slj_valor_imposto_'+chave,0);
+    }
+    // Campo de input fica somente-leitura no modo ano (não faz sentido editar)
+    if(impostoInp){impostoInp.value=valorImposto>0?valorImposto:'';impostoInp.readOnly=true;impostoInp.style.opacity='0.55';impostoInp.title='Soma dos impostos de cada mês do ano';}
+  } else if(dashPeriodo==='custom'){
+    // Período customizado: soma por mês do intervalo
+    const v=document.getElementById('dash-data-custom')?.value;
+    const chaveM=v?v.slice(0,7):getMesDashKey();
+    valorImposto=load('slj_valor_imposto_'+chaveM, load('slj_valor_imposto',0));
+    if(impostoInp){impostoInp.value=valorImposto>0?valorImposto:'';impostoInp.readOnly=false;impostoInp.style.opacity='1';impostoInp.title='';}
+  } else {
+    valorImposto=load('slj_valor_imposto_'+mesAtual, load('slj_valor_imposto',0));
+    if(impostoInp){impostoInp.value=valorImposto>0?valorImposto:'';impostoInp.readOnly=false;impostoInp.style.opacity='1';impostoInp.title='';}
+  }
   const impostoAtual=valorImposto||0;
   const lucroReal=lucroLiquido-impostoAtual;
   if(el('dash-lucro-pos-imposto')) el('dash-lucro-pos-imposto').textContent=moeda(impostoAtual);
