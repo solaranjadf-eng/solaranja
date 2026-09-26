@@ -2269,15 +2269,8 @@ a{color:var(--orange);text-decoration:none}
     </div>
     <div class="form-group"><label>Aniversário</label><input type="date" id="ec-aniver"></div>
     <div class="form-group">
-      <label>Preços por embalagem (R$)</label>
-      <div class="preços-form">
-        <div class="pfw"><label>Copo 200ml</label><input type="number" id="ec-copo200ml" step="0.01" min="0" inputmode="decimal"></div>
-        <div class="pfw"><label>200 ml</label><input type="number" id="ec-200ml" step="0.01" min="0" inputmode="decimal"></div>
-        <div class="pfw"><label>300 ml</label><input type="number" id="ec-300ml" step="0.01" min="0" inputmode="decimal"></div>
-        <div class="pfw"><label>500 ml</label><input type="number" id="ec-500ml" step="0.01" min="0" inputmode="decimal"></div>
-        <div class="pfw"><label>1 L</label><input type="number" id="ec-1L" step="0.01" min="0" inputmode="decimal"></div>
-        <div class="pfw"><label>5 L</label><input type="number" id="ec-5L" step="0.01" min="0" inputmode="decimal"></div>
-      </div>
+      <label>Preços por embalagem × sabor (R$)</label>
+      <div id="ec-precos-grid"></div>
     </div>
     <div class="form-group"><label>Valor mínimo (R$)</label><input type="number" id="ec-minimo" step="0.01" min="0" inputmode="decimal"></div>
     <div class="action-row">
@@ -2321,6 +2314,10 @@ const sbUps=(t,b)=>fetch(`${SB_URL}/${t}`,{method:'POST',headers:{...HDR,'Prefer
 const TAMS=['copo200ml','200ml','300ml','500ml','1L','5L'];
 const TL={'copo200ml':'Copo 200ml','200ml':'200 ml','300ml':'300 ml','500ml':'500 ml','1L':'1 L','5L':'5 L'};
 const LITROS={'copo200ml':0.2,'200ml':0.2,'300ml':0.3,'500ml':0.5,'1L':1.0,'5L':5.0};
+const SABORES=['laranja','uva','goiaba','acerola','abacaxi','caju','maracuja'];
+const SL={laranja:'Laranja',uva:'Uva',goiaba:'Goiaba',acerola:'Acerola',abacaxi:'Abacaxi',caju:'Caju',maracuja:'Maracujá'};
+function precoKey(tam,sabor){return tam+'_'+sabor;}
+function itemLabel(it){const s=it.sabor||'laranja';return TL[it.tam]+(s!=='laranja'?' '+SL[s]:'');}
 const moeda=v=>'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const hoje=new Date();
 // Usar data local (fuso de Brasília UTC-3) — evita virar o dia às 21h no UTC
@@ -2357,7 +2354,7 @@ let rotaOrdem=load('slj_rota_ordem',[]);
 let filtroAtual='todos', filtroFin='todos';
 let sel=null, qtds={}, qtdsTroca={}, editPedIdx=null, editPedQtds={}, editClienteId=null, editClienteIdModal=null;
 let fotoEntregaIdx=null, fotoBase64=null, fotoEntregaPedido=null;
-TAMS.forEach(t=>{qtds[t]=0;qtdsTroca[t]=0;});
+let saborAtualPedido='laranja';
 
 // ── SYNC ───────────────────────────────────────────────────────────────────
 function setSyncStatus(s,t){
@@ -3472,7 +3469,7 @@ function renderHistorico(){
             </div>
             <div class="pedido-hora">${p.hora||''}</div>
           </div>
-          <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${TL[it.tam]} × ${it.qtd}</span>`).join('')}</div>
+          <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
           ${p.obs?`<div class="pedido-obs-txt">${p.obs}</div>`:''}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
             <div class="pedido-valor">${moeda(p.total)}</div>
@@ -3530,7 +3527,18 @@ function salvarDiasInativo(){const v=parseInt(document.getElementById('dias-inat
 
 // ── LISTA CLIENTES ─────────────────────────────────────────────────────────
 function calcLitros(itens){return itens.reduce((s,it)=>s+(LITROS[it.tam]||0)*it.qtd,0);}
-function preçosLabel(c){const a=TAMS.filter(t=>c.precos[t]>0);return a.length?a.map(t=>`${TL[t]}: ${moeda(c.precos[t])}`).join(' · '):'Sem preços cadastrados';}
+function preçosLabel(c){
+  const keys=Object.keys(c.precos||{}).filter(k=>c.precos[k]>0);
+  if(!keys.length) return 'Sem preços cadastrados';
+  // Agrupar por sabor para exibição compacta
+  const porSabor={};
+  keys.forEach(k=>{
+    const parts=k.split('_');
+    if(parts.length>=2){const s=parts.slice(1).join('_');const t=parts[0];if(!porSabor[s])porSabor[s]=[];porSabor[s].push(`${TL[t]}: ${moeda(c.precos[k])}`);}
+    else{if(!porSabor['laranja'])porSabor['laranja']=[];porSabor['laranja'].push(`${TL[k]}: ${moeda(c.precos[k])}`);}
+  });
+  return Object.entries(porSabor).map(([s,items])=>(s==='laranja'?'':SL[s]?SL[s]+': ':s+': ')+items.join(', ')).join(' · ');
+}
 function clienteDebitoTotal(id){
   const todos=[...pedidos];Object.values(historico).forEach(d=>d.forEach(p=>todos.push(p)));
   return todos.filter(p=>p.clienteId===id&&p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
@@ -3594,7 +3602,7 @@ function ultimoPedidoCliente(id){
 }
 function trocarCliente(){
   sel=null;
-  TAMS.forEach(t=>qtds[t]=0);
+  qtds={};qtdsTroca={};saborAtualPedido='laranja';
   document.getElementById('order-area').style.display='none';
   document.getElementById('no-client').style.display='block';
   document.getElementById('busca').value='';
@@ -3603,15 +3611,14 @@ function trocarCliente(){
 
 function escolher(id){
   sel=clientes.find(c=>String(c.id)===String(id));
-  TAMS.forEach(t=>qtds[t]=0);
+  qtds={};qtdsTroca={};saborAtualPedido='laranja';
   document.getElementById('obs').value='';
   renderClienteList(document.getElementById('busca').value.toLowerCase());
   document.getElementById('order-area').style.display='block';
   document.getElementById('no-client').style.display='none';
-  const ativos=TAMS.filter(t=>sel.precos[t]>0);
   document.getElementById('preço-info').innerHTML=
     `<strong>${sel.nome}</strong>${sel.bairro?` — 📍 ${sel.bairro}`:''}<br>Tabela: `+
-    (ativos.length?ativos.map(t=>`${TL[t]} = <strong>${moeda(sel.precos[t])}</strong>`).join(' · '):'Sem preços cadastrados')+
+    preçosLabel(sel)+
     (sel.tel?`<br>WhatsApp: ${sel.tel}`:'');
   // Débito
   const deb=clienteDebitoTotal(sel.id);
@@ -3623,37 +3630,60 @@ function escolher(id){
   const ult=ultimoPedidoCliente(sel.id);
   const rb=document.getElementById('rapido-banner');
   if(ult){
-    rb.innerHTML=`Último pedido (${ult.data}): ${ult.itens.map(it=>`${TL[it.tam]} × ${it.qtd}`).join(', ')} — <strong style="cursor:pointer;text-decoration:underline" onclick="repetirPedido()">Repetir</strong>`;
+    rb.innerHTML=`Último pedido (${ult.data}): ${ult.itens.map(it=>`${itemLabel(it)} × ${it.qtd}`).join(', ')} — <strong style="cursor:pointer;text-decoration:underline" onclick="repetirPedido()">Repetir</strong>`;
     rb.style.display='block';
   }else rb.style.display='none';
   renderGarrafas();atualizarResumo();
 }
 function repetirPedido(){
   const ult=ultimoPedidoCliente(sel.id);if(!ult)return;
-  TAMS.forEach(t=>qtds[t]=0);
-  ult.itens.forEach(it=>{if(sel.precos[it.tam]>0)qtds[it.tam]=it.qtd;});
+  qtds={};
+  ult.itens.forEach(it=>{
+    const s=it.sabor||'laranja';
+    const key=precoKey(it.tam,s);
+    const p=sel.precos[key]||(s==='laranja'?sel.precos[it.tam]:0);
+    if(p>0) qtds[key]=it.qtd;
+  });
   document.getElementById('obs').value=ult.obs||'';
   renderGarrafas();atualizarResumo();toast('Pedido anterior carregado.');
 }
 function renderGarrafas(){
-  document.getElementById('garrafas').innerHTML=TAMS.map(t=>{
-    const p=sel.precos[t],ok=p&&p>0;
+  // Determinar sabores disponíveis para o cliente selecionado
+  const saboresDisp=SABORES.filter(s=>TAMS.some(t=>sel.precos[precoKey(t,s)]>0));
+  // Compatibilidade: cliente com preços legados (chaves sem _sabor) — tratar como laranja
+  const temLegado=TAMS.some(t=>sel.precos[t]>0);
+  if(temLegado&&!saboresDisp.includes('laranja')) saboresDisp.unshift('laranja');
+  if(!saboresDisp.includes(saborAtualPedido)) saborAtualPedido=saboresDisp[0]||'laranja';
+
+  const saborBtns=saboresDisp.length>1
+    ?`<div id="sabor-sel-wrap" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">`
+      +saboresDisp.map(s=>`<button ontouchstart="" onclick="setSaborPedido('${s}')" style="padding:6px 12px;border-radius:20px;border:1.5px solid ${s===saborAtualPedido?'var(--orange)':'var(--border2)'};background:${s===saborAtualPedido?'var(--orange)':'var(--white)'};color:${s===saborAtualPedido?'#fff':'var(--text)'};font-size:13px;font-weight:600;cursor:pointer">${SL[s]}</button>`).join('')
+      +`</div>`
+    :'';
+
+  document.getElementById('garrafas').innerHTML=saborBtns+TAMS.map(t=>{
+    const key=precoKey(t,saborAtualPedido);
+    // Suporte a preço legado (chave sem sabor) quando sabor é laranja
+    const p=sel.precos[key]||(saborAtualPedido==='laranja'?sel.precos[t]:null);
+    const ok=p&&p>0;
+    const qtdKey=key;
     return`<div class="g-card ${ok?'has-price':'disabled'}">
       <div class="g-size">${TL[t]}</div>
       ${ok?`<div class="g-price">${moeda(p)}</div>`:'<div class="g-price-empty">—</div>'}
       <div class="qty-ctrl">
         <button class="qty-btn" ontouchstart="" onclick="alt('${t}',-1)">−</button>
-        <span class="qty-val" id="q-${t}">${qtds[t]}</span>
+        <span class="qty-val" id="q-${t}">${qtds[qtdKey]||0}</span>
         <button class="qty-btn" ontouchstart="" onclick="alt('${t}',1)">+</button>
       </div>
       ${ok?`<div class="qty-ctrl" style="margin-top:4px;opacity:.85" title="Quantidade de troca">
         <button class="qty-btn" ontouchstart="" onclick="altTroca('${t}',-1)" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">−</button>
-        <span class="qty-val" id="qt-${t}" style="color:#5B21B6;font-size:11px">${qtdsTroca[t]}</span>
+        <span class="qty-val" id="qt-${t}" style="color:#5B21B6;font-size:11px">${qtdsTroca[qtdKey]||0}</span>
         <button class="qty-btn" ontouchstart="" onclick="altTroca('${t}',1)" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">+</button>
       </div>
       <div style="font-size:9px;color:#7C3AED;text-align:center;margin-top:1px;opacity:.8">🔄 troca</div>`:''}
     </div>`;}).join('');
 }
+function setSaborPedido(s){saborAtualPedido=s;renderGarrafas();}
 let dataEntregaSel = 'amanha'; // padrão: amanhã
 
 function setDataEntrega(opcao, btn){
@@ -3696,34 +3726,78 @@ function getDataEntregaKey(override){
   amanha.setDate(amanha.getDate()+1);
   return amanha.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
 }
-function alt(t,d){if(!sel||!(sel.precos[t]>0))return;qtds[t]=Math.max(0,(qtds[t]||0)+d);document.getElementById('q-'+t).textContent=qtds[t];atualizarResumo();}
-function altTroca(t,d){if(!sel||!(sel.precos[t]>0))return;qtdsTroca[t]=Math.max(0,(qtdsTroca[t]||0)+d);document.getElementById('qt-'+t).textContent=qtdsTroca[t];atualizarResumo();}
+function alt(t,d){
+  if(!sel) return;
+  const key=precoKey(t,saborAtualPedido);
+  const p=sel.precos[key]||(saborAtualPedido==='laranja'?sel.precos[t]:null);
+  if(!(p>0)) return;
+  qtds[key]=Math.max(0,(qtds[key]||0)+d);
+  document.getElementById('q-'+t).textContent=qtds[key];
+  atualizarResumo();
+}
+function altTroca(t,d){
+  if(!sel) return;
+  const key=precoKey(t,saborAtualPedido);
+  const p=sel.precos[key]||(saborAtualPedido==='laranja'?sel.precos[t]:null);
+  if(!(p>0)) return;
+  qtdsTroca[key]=Math.max(0,(qtdsTroca[key]||0)+d);
+  document.getElementById('qt-'+t).textContent=qtdsTroca[key];
+  atualizarResumo();
+}
 function atualizarResumo(){
-  const itens=TAMS.filter(t=>qtds[t]>0&&sel.precos[t]>0);
+  // Construir lista de itens a partir de qtds (chaves tam_sabor)
+  const itensKeys=Object.keys(qtds).filter(key=>{
+    if(!(qtds[key]>0)) return false;
+    const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
+    const p=sel.precos[key]||(s==='laranja'?sel.precos[t]:null);
+    return p>0;
+  });
   const rp=document.getElementById('resumo-ped');
-  if(!itens.length){rp.style.display='none';document.getElementById('minimo-aviso').style.display='none';return;}
+  if(!itensKeys.length){rp.style.display='none';document.getElementById('minimo-aviso').style.display='none';return;}
   rp.style.display='block';
-  const tqtd=itens.reduce((s,t)=>s+qtds[t],0);
-  const tval=itens.reduce((s,t)=>s+(sel.precos[t]||0)*qtds[t],0);
-  const tlit=itens.reduce((s,t)=>s+(LITROS[t]||0)*qtds[t],0);
-  const itensTrocaRes=TAMS.filter(t=>qtdsTroca[t]>0&&sel.precos[t]>0);
+  const tqtd=itensKeys.reduce((s,key)=>s+qtds[key],0);
+  const tval=itensKeys.reduce((s,key)=>{
+    const parts=key.split('_');const t=parts[0];const sf=parts.slice(1).join('_')||'laranja';
+    const p=sel.precos[key]||(sf==='laranja'?sel.precos[t]:0);
+    return s+(p||0)*qtds[key];
+  },0);
+  const tlit=itensKeys.reduce((s,key)=>{const t=key.split('_')[0];return s+(LITROS[t]||0)*qtds[key];},0);
+  const trocaKeys=Object.keys(qtdsTroca).filter(key=>{
+    if(!(qtdsTroca[key]>0)) return false;
+    const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
+    const p=sel.precos[key]||(s==='laranja'?sel.precos[t]:null);
+    return p>0;
+  });
   document.getElementById('resumo-rows').innerHTML=
-    itens.map(t=>`<div class="rp-row"><span>${TL[t]} × ${qtds[t]} un.</span><span>${moeda((sel.precos[t]||0)*qtds[t])}</span></div>`).join('')+
-    (itensTrocaRes.length?itensTrocaRes.map(t=>`<div class="rp-row" style="color:#5B21B6"><span>🔄 ${TL[t]} × ${qtdsTroca[t]} troca</span><span>—</span></div>`).join(''):'')+
+    itensKeys.map(key=>{
+      const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
+      const p=sel.precos[key]||(s==='laranja'?sel.precos[t]:0);
+      const lbl=TL[t]+(s!=='laranja'?' '+SL[s]:'');
+      return`<div class="rp-row"><span>${lbl} × ${qtds[key]} un.</span><span>${moeda((p||0)*qtds[key])}</span></div>`;
+    }).join('')+
+    (trocaKeys.length?trocaKeys.map(key=>{
+      const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
+      const lbl=TL[t]+(s!=='laranja'?' '+SL[s]:'');
+      return`<div class="rp-row" style="color:#5B21B6"><span>🔄 ${lbl} × ${qtdsTroca[key]} troca</span><span>—</span></div>`;
+    }).join(''):'')+
     `<div class="rp-row sub"><span>Unidades / Litros</span><span>${tqtd} un. · ${tlit.toFixed(1)} L</span></div>`;
   document.getElementById('resumo-total-val').textContent=moeda(tval);
   const av=document.getElementById('minimo-aviso');
   if(sel.minimo>0&&tval<sel.minimo){av.style.display='block';av.textContent=`Mínimo: ${moeda(sel.minimo)}. Pedido atual: ${moeda(tval)}.`;}
   else av.style.display='none';
 }
-function limpar(){TAMS.forEach(t=>{qtds[t]=0;qtdsTroca[t]=0;});document.getElementById('obs').value='';renderGarrafas();atualizarResumo();}
+function limpar(){qtds={};qtdsTroca={};saborAtualPedido='laranja';document.getElementById('obs').value='';renderGarrafas();atualizarResumo();}
 let _confirmando=false; // proteção contra duplo clique
 let _ultimoPedidoHash=''; // proteção extra contra duplicatas
 
 async function confirmar(){
   if(_confirmando){toast('Aguarde, salvando...');return;}
   if(!sel){toast('Selecione um cliente.');return;}
-  const itens=TAMS.filter(t=>qtds[t]>0&&sel.precos[t]>0).map(t=>({tam:t,qtd:qtds[t],preço:sel.precos[t]}));
+  const itens=Object.keys(qtds).filter(key=>qtds[key]>0).map(key=>{
+    const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
+    const p=sel.precos[key]||(s==='laranja'?sel.precos[t]:0);
+    return {tam:t,sabor:s,qtd:qtds[key],preço:p};
+  }).filter(it=>it.preço>0);
   if(!itens.length){toast('Adicione ao menos um item.');return;}
 
   // Verificar se já existe pedido para este cliente na mesma data de entrega
@@ -3735,7 +3809,7 @@ async function confirmar(){
   );
   if(pedidoExistente){
     const dataFmt=new Date(dataEntrega+'T12:00:00').toLocaleDateString('pt-BR');
-    const itensExist=pedidoExistente.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(', ');
+    const itensExist=pedidoExistente.itens.map(it=>itemLabel(it)+'×'+it.qtd).join(', ');
     const confirmar2=confirm(
       `⚠ ATENÇÃO — Pedido duplicado!\n\n`+
       `Já existe um pedido para ${sel.nome} na data ${dataFmt}:\n`+
@@ -3757,7 +3831,11 @@ async function confirmar(){
   const btnConfirmar=document.querySelector('#page-pedido .btn-primary[onclick="confirmar()"]');
   if(btnConfirmar){btnConfirmar.disabled=true;btnConfirmar.textContent='Salvando...';}
 
-  const itensTroca=TAMS.filter(t=>qtdsTroca[t]>0&&sel.precos[t]>0).map(t=>({tam:t,qtd:qtdsTroca[t],preço:sel.precos[t]}));
+  const itensTroca=Object.keys(qtdsTroca).filter(key=>qtdsTroca[key]>0).map(key=>{
+    const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
+    const p=sel.precos[key]||(s==='laranja'?sel.precos[t]:0);
+    return {tam:t,sabor:s,qtd:qtdsTroca[key],preço:p};
+  }).filter(it=>it.preço>0);
   const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const total=itens.reduce((s,i)=>s+i.preço*i.qtd,0);
   setSyncStatus('loading','Salvando...');
@@ -3927,7 +4005,7 @@ function renderDia(){
           )}
         </div>
       </div>
-      <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${TL[it.tam]} × ${it.qtd}</span>`).join('')}${(p.itensTroca||[]).map(it=>`<span class="tag" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">🔄 ${TL[it.tam]} × ${it.qtd}</span>`).join('')}</div>
+      <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}${(p.itensTroca||[]).map(it=>`<span class="tag" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">🔄 ${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
       ${p.obs?`<div class="pedido-obs-txt">Obs: ${p.obs}</div>`:''}
       ${p.foto?`<img src="${p.foto}" style="width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-top:7px">`:''}
       <div class="pedido-valor">${(()=>{const qtdNormal=p.itens.reduce((s,it)=>s+it.qtd,0);const qtdTroca=(p.itensTroca||[]).reduce((s,it)=>s+it.qtd,0);const totalUn=qtdNormal+qtdTroca;return `Total: ${moeda(p.total)} · ${totalUn} un.`+(qtdTroca?`<span style="font-size:11px;color:#5B21B6;margin-left:6px">(${qtdNormal} + ${qtdTroca} 🔄)</span>`:'');})()}</div>
@@ -4032,7 +4110,7 @@ function abrirEntregues(){
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:700;color:var(--green)">✓ ${p.clienteNome}</div>
             <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.hora} · Entregue às ${p.horaEntrega||'—'}</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:4px">${p.itens.map(it=>TL[it.tam]+' × '+it.qtd).join(' · ')} · ${moeda(p.total)}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:4px">${p.itens.map(it=>itemLabel(it)+' × '+it.qtd).join(' · ')} · ${moeda(p.total)}</div>
           </div>
           ${p.foto?`<button class="psm" style="background:var(--blue-light);color:var(--blue);margin-left:8px;flex-shrink:0" onclick="verFotoEntrega(${p.id})">📷 Foto</button>`:`<button class="psm" style="background:var(--bg);color:var(--text3);border:1px dashed var(--border2);margin-left:8px;flex-shrink:0" onclick="abrirInserirFoto(${p.id})">+ Foto</button>`}
         </div>
@@ -4319,7 +4397,7 @@ function gerarPDFDia(){
       head:[['Cliente','Itens','Total','Status']],
       body:pedidos.map(p=>[
         p.clienteNome,
-        p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(', '),
+        p.itens.map(it=>itemLabel(it)+'×'+it.qtd).join(', '),
         moeda(p.total),
         p.entregue?(p.pago?'Entregue/Pago':'Entregue'):'Pendente'
       ]),
@@ -4383,7 +4461,7 @@ function gerarPDFMensal(){
     const tDia=porData[dk].reduce((s,p)=>s+p.total,0);
     rows.push([dFmt,'','',moeda(tDia),'']);
     porData[dk].forEach(p=>{
-      rows.push(['  '+p.clienteNome,p.hora||'',p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(', '),moeda(p.total),p.pago?'Pago':p.entregue?'A receber':'Pendente']);
+      rows.push(['  '+p.clienteNome,p.hora||'',p.itens.map(it=>itemLabel(it)+'×'+it.qtd).join(', '),moeda(p.total),p.pago?'Pago':p.entregue?'A receber':'Pendente']);
     });
   });
 
@@ -4566,7 +4644,7 @@ function mostrarResumoViagens(){
       html+=`<div class="card" style="margin-bottom:8px">
         <div style="font-size:12px;font-weight:700;color:var(--orange)">🚚 Viagem ${v}</div>
         <div style="font-size:11px;color:var(--text3);margin:4px 0">${grupos[v].length} cliente(s) · ${itens} garrafas · ${moeda(tot)}</div>
-        ${grupos[v].map(p=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)">${p.clienteNome} — ${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</div>`).join('')}
+        ${grupos[v].map(p=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid var(--border)">${p.clienteNome} — ${p.itens.map(it=>itemLabel(it)+'×'+it.qtd).join(' · ')}</div>`).join('')}
       </div>`;
     }
   });
@@ -4985,7 +5063,7 @@ function imprimirRota(){
       <div>
         <div class="nome">${p.clienteNome}</div>
         <div class="end">📍 ${end}</div>
-        <div class="itens">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</div>
+        <div class="itens">${p.itens.map(it=>itemLabel(it)+'×'+it.qtd).join(' · ')}</div>
       </div>
       <div class="check"></div>
     </div>`;}).join('')}
@@ -5011,7 +5089,7 @@ function renderResumo(){
   document.getElementById('rg-grid').innerHTML=TAMS.map(t=>`<div class="rg-card"><div class="rg-size">${TL[t]}</div><div class="rg-qty">${totais[t]}</div><div class="rg-litros">${(totais[t]*LITROS[t]).toFixed(1)} L</div></div>`).join('');
   const cl=document.getElementById('rg-clientes');
   if(!pedidos.length){cl.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido hoje.</p></div>';return;}
-  cl.innerHTML=pedidos.map(p=>`<div class="pedido-card${p.entregue?' entregue':''}"><div class="pedido-header" style="margin-bottom:7px"><div class="pedido-nome">${p.clienteNome}<span class="status-badge ${p.entregue?'entregue':'pendente'}">${p.entregue?'Entregue':'Pendente'}</span></div><div class="pedido-meta">${p.hora} · ${calcLitros(p.itens).toFixed(1)} L</div></div><div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${TL[it.tam]} × ${it.qtd}</span>`).join('')}</div><div class="pedido-valor">Total: ${moeda(p.total)}</div></div>`).join('');
+  cl.innerHTML=pedidos.map(p=>`<div class="pedido-card${p.entregue?' entregue':''}"><div class="pedido-header" style="margin-bottom:7px"><div class="pedido-nome">${p.clienteNome}<span class="status-badge ${p.entregue?'entregue':'pendente'}">${p.entregue?'Entregue':'Pendente'}</span></div><div class="pedido-meta">${p.hora} · ${calcLitros(p.itens).toFixed(1)} L</div></div><div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div><div class="pedido-valor">Total: ${moeda(p.total)}</div></div>`).join('');
 }
 
 // ── PRODUÇÃO ───────────────────────────────────────────────────────────────
@@ -6161,7 +6239,7 @@ function renderFinItem(p,dataKey){
   return`<div class="fin-item">
     <div class="fin-nome">${p.clienteNome}<span class="status-badge ${statusPag}" style="margin-left:6px">${statusTxt}</span></div>
     <div class="fin-meta">${p.hora||'—'} · CNPJ ${p.cnpj||'—'} · ${p.data||''}</div>
-    <div class="tags-wrap" style="margin-top:6px">${(p.itens||[]).map(it=>`<span class="tag">${TL[it.tam]} × ${it.qtd}</span>`).join('')}</div>
+    <div class="tags-wrap" style="margin-top:6px">${(p.itens||[]).map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
       <div class="fin-valor ${p.pago?'ok':''}">${moeda(p.total)}</div>
       <div style="display:flex;gap:5px">
@@ -6194,6 +6272,7 @@ let finAbaAtual = 'lista';
 let finCliSelecionado = null;
 let novoFinCliSelecionado = null;
 let novoFinQtds = {};
+let novoFinSaborAtual = 'laranja';
 
 function setFinAba(aba, btn){
   finAbaAtual = aba;
@@ -6307,7 +6386,7 @@ function renderExtratocliente(){
             <td style="padding:8px;text-align:center"><input type="checkbox" class="fin-sel-ped" data-id="${p.id}" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)" ${p.troca?'disabled':''}></td>
             <td style="padding:8px 10px;color:var(--text3);font-weight:600">${num}</td>
             <td style="padding:8px 10px;white-space:nowrap">${dataFmt}</td>
-            <td style="padding:8px 10px;color:var(--text2)">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</td>
+            <td style="padding:8px 10px;color:var(--text2)">${p.itens.map(it=>itemLabel(it)+'×'+it.qtd).join(' · ')}</td>
             <td style="padding:8px 10px;color:var(--text3);font-style:italic;font-size:11px">${p.obs||'—'}</td>
             <td style="padding:8px 10px;text-align:right;font-weight:700;${p.troca?'color:#5B21B6;text-decoration:line-through':''}">${p.troca?'—':moeda(p.total)}</td>
             <td style="padding:8px 10px;text-align:center">${situacao}</td>
@@ -6533,7 +6612,7 @@ function gerarPDFCliente(){
       const dataFmt=p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
       const itensDesc=p.itens.map(it=>{
         const NOMES={'200ml':'Garrafa 200ml','300ml':'Garrafa 300ml','500ml':'Garrafa 500ml','1L':'Garrafa 1L','5L':'Galão 5L'};
-        return (NOMES[it.tam]||TL[it.tam])+' × '+it.qtd+' = R$ '+((it.preco||it.preço||0)*it.qtd).toFixed(2).replace('.',',');
+        return (NOMES[it.tam]||itemLabel(it))+' × '+it.qtd+' = R$ '+((it.preco||it.preço||0)*it.qtd).toFixed(2).replace('.',',');
       }).join('\n');
       const situacao=p.troca?'Troca':p.pago?'Pago':p.entregue?'Em aberto':'Pendente';
       const totalP=p.troca?null:(p.total||p.itens.reduce((s,i)=>s+((i.preco||i.preço||0)*i.qtd),0));
@@ -6616,7 +6695,7 @@ function initNovoFinForm(){
   document.getElementById('novo-fin-data').value = hojeKey;
   novoFinCliSelecionado = null;
   novoFinQtds = {};
-  TAMS.forEach(t=>novoFinQtds[t]=0);
+  novoFinSaborAtual = 'laranja';
   document.getElementById('novo-fin-cli-selecionado').style.display='none';
   document.getElementById('novo-fin-busca-cli').value='';
   document.getElementById('novo-fin-cli-results').innerHTML='';
@@ -6650,28 +6729,51 @@ function selecionarClienteNovoFin(id){
 function renderNovoFinGarrafas(){
   const el = document.getElementById('novo-fin-garrafas');
   if(!novoFinCliSelecionado){el.innerHTML='<div style="font-size:13px;color:var(--text3);grid-column:1/-1">Selecione um cliente primeiro.</div>';return;}
-  el.innerHTML = TAMS.map(t=>{
-    const pr = novoFinCliSelecionado.precos[t];
+  const saboresDisp=SABORES.filter(s=>TAMS.some(t=>novoFinCliSelecionado.precos[precoKey(t,s)]>0));
+  const temLegado=TAMS.some(t=>novoFinCliSelecionado.precos[t]>0);
+  if(temLegado&&!saboresDisp.includes('laranja')) saboresDisp.unshift('laranja');
+  if(!saboresDisp.includes(novoFinSaborAtual)) novoFinSaborAtual=saboresDisp[0]||'laranja';
+  const saborBtns=saboresDisp.length>1
+    ?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;grid-column:1/-1">`
+      +saboresDisp.map(s=>`<button ontouchstart="" onclick="setNovoFinSabor('${s}')" style="padding:5px 10px;border-radius:16px;border:1.5px solid ${s===novoFinSaborAtual?'var(--orange)':'var(--border2)'};background:${s===novoFinSaborAtual?'var(--orange)':'var(--white)'};color:${s===novoFinSaborAtual?'#fff':'var(--text)'};font-size:12px;font-weight:600;cursor:pointer">${SL[s]}</button>`).join('')
+      +`</div>`
+    :'';
+  el.innerHTML = saborBtns+TAMS.map(t=>{
+    const key=precoKey(t,novoFinSaborAtual);
+    const pr = novoFinCliSelecionado.precos[key]||(novoFinSaborAtual==='laranja'?novoFinCliSelecionado.precos[t]:null);
     const ok = pr&&pr>0;
     return`<div class="g-card ${ok?'has-price':'disabled'}">
       <div class="g-size">${TL[t]}</div>
       ${ok?`<div class="g-price">${moeda(pr)}</div>`:'<div class="g-price-empty">—</div>'}
       <div class="qty-ctrl">
         <button class="qty-btn" ontouchstart="" onclick="altNovoFin('${t}',-1)">−</button>
-        <span class="qty-val" id="nfq-${t}">${novoFinQtds[t]||0}</span>
+        <span class="qty-val" id="nfq-${t}">${novoFinQtds[key]||0}</span>
         <button class="qty-btn" ontouchstart="" onclick="altNovoFin('${t}',1)">+</button>
       </div>
     </div>`;}).join('');
 }
+function setNovoFinSabor(s){novoFinSaborAtual=s;renderNovoFinGarrafas();}
 
 function altNovoFin(t,d){
-  if(!novoFinCliSelecionado||!(novoFinCliSelecionado.precos[t]>0)) return;
-  novoFinQtds[t]=Math.max(0,(novoFinQtds[t]||0)+d);
-  document.getElementById('nfq-'+t).textContent=novoFinQtds[t];
-  const itens=TAMS.filter(x=>novoFinQtds[x]>0&&novoFinCliSelecionado.precos[x]>0);
-  const total=itens.reduce((s,x)=>s+(novoFinCliSelecionado.precos[x]||0)*novoFinQtds[x],0);
-  document.getElementById('novo-fin-resumo').textContent = itens.length
-    ? itens.map(x=>TL[x]+': '+novoFinQtds[x]+' un. = '+moeda((novoFinCliSelecionado.precos[x]||0)*novoFinQtds[x])).join(' | ')+' | Total: '+moeda(total)
+  if(!novoFinCliSelecionado) return;
+  const key=precoKey(t,novoFinSaborAtual);
+  const pr=novoFinCliSelecionado.precos[key]||(novoFinSaborAtual==='laranja'?novoFinCliSelecionado.precos[t]:null);
+  if(!(pr>0)) return;
+  novoFinQtds[key]=Math.max(0,(novoFinQtds[key]||0)+d);
+  document.getElementById('nfq-'+t).textContent=novoFinQtds[key];
+  const itensKeys=Object.keys(novoFinQtds).filter(k=>novoFinQtds[k]>0);
+  const total=itensKeys.reduce((s,k)=>{
+    const parts=k.split('_');const tm=parts[0];const sf=parts.slice(1).join('_')||'laranja';
+    const p=novoFinCliSelecionado.precos[k]||(sf==='laranja'?novoFinCliSelecionado.precos[tm]:0);
+    return s+(p||0)*novoFinQtds[k];
+  },0);
+  document.getElementById('novo-fin-resumo').textContent = itensKeys.length
+    ? itensKeys.map(k=>{
+        const parts=k.split('_');const tm=parts[0];const sf=parts.slice(1).join('_')||'laranja';
+        const p=novoFinCliSelecionado.precos[k]||(sf==='laranja'?novoFinCliSelecionado.precos[tm]:0);
+        const lbl=TL[tm]+(sf!=='laranja'?' '+SL[sf]:'');
+        return lbl+': '+novoFinQtds[k]+' un. = '+moeda((p||0)*novoFinQtds[k]);
+      }).join(' | ')+' | Total: '+moeda(total)
     : '';
 }
 
@@ -6680,8 +6782,11 @@ async function salvarPedidoRetroativo(){
   const data = document.getElementById('novo-fin-data').value;
   if(!data){toast('Selecione a data do pedido.');return;}
   const ehTroca = document.getElementById('novo-fin-troca').checked;
-  const itens = TAMS.filter(t=>novoFinQtds[t]>0&&novoFinCliSelecionado.precos[t]>0)
-    .map(t=>({tam:t,qtd:novoFinQtds[t],preço:novoFinCliSelecionado.precos[t]}));
+  const itens = Object.keys(novoFinQtds).filter(key=>novoFinQtds[key]>0).map(key=>{
+    const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
+    const p=novoFinCliSelecionado.precos[key]||(s==='laranja'?novoFinCliSelecionado.precos[t]:0);
+    return {tam:t,sabor:s,qtd:novoFinQtds[key],preço:p};
+  }).filter(it=>it.preço>0);
   if(!itens.length){toast('Adicione ao menos um item.');return;}
   const totalReal = itens.reduce((s,i)=>s+i.preço*i.qtd,0);
   const total = ehTroca ? 0 : totalReal;
@@ -6868,7 +6973,7 @@ function verHistoricoCliente(id){
     <div class="cli-hist-item">
       <div>
         <div style="font-size:13px;font-weight:600;color:var(--text)">${new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})} · ${p.hora}</div>
-        <div style="font-size:11px;color:var(--text3)">${p.itens.map(it=>`${TL[it.tam]}×${it.qtd}`).join(' · ')}</div>
+        <div style="font-size:11px;color:var(--text3)">${p.itens.map(it=>`${itemLabel(it)}×${it.qtd}`).join(' · ')}</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:13px;font-weight:700;color:var(--orange-dark)">${moeda(p.total)}</div>
@@ -6891,7 +6996,17 @@ function abrirModalCliente(id){
   document.getElementById('ec-regiao').value=c.regiao||'';document.getElementById('ec-endereco').value=c.endereco||'';
   document.getElementById('ec-maps').value=c.maps||'';
   document.getElementById('ec-aniver').value=c.aniver||'';
-  TAMS.forEach(t=>document.getElementById('ec-'+t).value=c.precos[t]||'');
+  // Renderizar grade de preços TAMS × SABORES
+  const pg=document.getElementById('ec-precos-grid');
+  pg.innerHTML='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+    +'<thead><tr><th style="text-align:left;padding:4px 6px;background:var(--bg);position:sticky;left:0;z-index:1">Embalagem</th>'
+    +SABORES.map(s=>`<th style="padding:4px 6px;background:var(--bg);white-space:nowrap">${SL[s]}</th>`).join('')
+    +'</tr></thead><tbody>'
+    +TAMS.map(t=>'<tr>'
+      +`<td style="padding:4px 6px;font-weight:600;white-space:nowrap;background:var(--bg);position:sticky;left:0">${TL[t]}</td>`
+      +SABORES.map(s=>{const key=precoKey(t,s);return`<td style="padding:2px 4px"><input type="number" id="ec-${key}" step="0.01" min="0" inputmode="decimal" placeholder="—" style="width:70px;font-size:12px;padding:4px 6px;border:1px solid var(--border2);border-radius:6px;background:var(--white);color:var(--text)" value="${c.precos[key]||''}"></td>`;}).join('')
+      +'</tr>').join('')
+    +'</tbody></table></div>';
   document.getElementById('ec-minimo').value=c.minimo||'';
   const _mc=document.getElementById('modal-cliente');_mc.classList.add('open');_mc.style.display='flex';_mc.style.opacity='1';_mc.style.pointerEvents='all';
 }
@@ -6911,7 +7026,12 @@ async function salvarEdicaoCliente(){
   c.endereco=endVal;
   c.maps=document.getElementById('ec-maps').value.trim();
   c.aniver=document.getElementById('ec-aniver').value;
-  TAMS.forEach(t=>{const v=parseFloat(document.getElementById('ec-'+t).value);c.precos[t]=isNaN(v)||v<=0?null:v;});
+  // Salvar preços por tam_sabor
+  const novosPrecos={};
+  TAMS.forEach(t=>SABORES.forEach(s=>{const key=precoKey(t,s);const el=document.getElementById('ec-'+key);if(el){const v=parseFloat(el.value);if(!isNaN(v)&&v>0)novosPrecos[key]=v;}}));
+  // Manter compatibilidade com chaves legadas tam simples se existirem (sem sabor)
+  Object.keys(c.precos||{}).forEach(k=>{if(!k.includes('_')&&!(c.precos[k]===null)){/* chave legada — ignorar, substituída por tam_laranja */}});
+  c.precos=novosPrecos;
   const vm=parseFloat(document.getElementById('ec-minimo').value);c.minimo=isNaN(vm)||vm<=0?null:vm;
   try{await sbPatch('clientes',`?id=eq.${c.id}`,{nome:c.nome,cnpj:c.cnpj,apelido:c.apelido,tel:c.tel,ie:c.ie||'',cep:c.cep||'',email:c.email||'',bairro:c.bairro,regiao:c.regiao,endereco:c.endereco,maps:c.maps,aniver:c.aniver,minimo:c.minimo,precos:c.precos});setSyncStatus('ok','Sincronizado — nuvem ativa');}catch(e){setSyncStatus('err','Erro ao sincronizar');}
   lsave('slj_cli_bk',clientes);
@@ -7070,7 +7190,7 @@ function emitirNFe(i){
     '<strong>Cliente:</strong> ' + p.clienteNome + '<br>' +
     '<strong>CNPJ:</strong> ' + (p.cnpj||'Não cadastrado') + '<br>' +
     '<strong>Valor total:</strong> ' + moeda(p.total) + '<br>' +
-    '<strong>Itens:</strong> ' + p.itens.map(it=>TL[it.tam]+' x '+it.qtd).join(', ');
+    '<strong>Itens:</strong> ' + p.itens.map(it=>itemLabel(it)+' x '+it.qtd).join(', ');
   document.getElementById('nfe-resultado').style.display='none';
   document.getElementById('nfe-erro').style.display='none';
   document.getElementById('nfe-acoes').style.display='none';
@@ -7155,7 +7275,7 @@ function enviarNFeWhats(){
     'Cliente: *' + p.clienteNome + '*\n' +
     'CNPJ: ' + (p.cnpj||'—') + '\n\n' +
     'Itens:\n' +
-    p.itens.map(it=>'  • ' + TL[it.tam] + ' × ' + it.qtd + ' un. = ' + moeda(it.preço*it.qtd)).join('\n') + '\n\n' +
+    p.itens.map(it=>'  • ' + itemLabel(it) + ' × ' + it.qtd + ' un. = ' + moeda(it.preço*it.qtd)).join('\n') + '\n\n' +
     '*TOTAL: ' + moeda(p.total) + '*\n' +
     '─────────────────────────\n' +
     (nfeNumero?'NF-e Nº ' + nfeNumero + '\n':'') +
@@ -7450,7 +7570,7 @@ function renderEntregador(){
         </div>
         ${c.maps?`<a href="${c.maps}" target="_blank" style="font-size:11px;background:var(--blue-light);color:var(--blue);padding:5px 10px;border-radius:6px;font-weight:700;text-decoration:none;white-space:nowrap">Maps ↗</a>`:''}
       </div>
-      <div class="tags-wrap" style="margin-bottom:8px">${p.itens.map(it=>`<span class="tag">${TL[it.tam]} × ${it.qtd}</span>`).join('')}${(p.itensTroca||[]).map(it=>`<span class="tag" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">🔄 ${TL[it.tam]} × ${it.qtd}</span>`).join('')}</div>
+      <div class="tags-wrap" style="margin-bottom:8px">${p.itens.map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}${(p.itensTroca||[]).map(it=>`<span class="tag" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">🔄 ${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
       ${p.obs?`<div class="pedido-obs-txt">Obs: ${p.obs}</div>`:''}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
         <div class="pedido-valor">${(()=>{const qtdN=p.itens.reduce((s,it)=>s+it.qtd,0);const qtdT=(p.itensTroca||[]).reduce((s,it)=>s+it.qtd,0);return`Total: ${moeda(p.total)} · ${qtdN+qtdT} un.`+(qtdT?`<span style="font-size:11px;color:#5B21B6;margin-left:6px">(${qtdN} + ${qtdT} 🔄)</span>`:'');})()}</div>
@@ -8837,7 +8957,7 @@ function enviarEmailCliente(){
   let corpo='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\n';
   pedsSel.sort((a,b)=>a.data.localeCompare(b.data)).forEach(p=>{
     const dt=new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-    const itens=p.itens.map(it=>it.qtd+' unidades ('+TL[it.tam]+')').join(', ');
+    const itens=p.itens.map(it=>it.qtd+' unidades ('+itemLabel(it)+')').join(', ');
     corpo+=dt+' – '+itens+': R$ '+p.total.toFixed(2).replace('.',',')+'\n';
   });
   corpo+='\nTotal: R$ '+totalAberto.toFixed(2).replace('.',',')+'\n\nAgradecemos pela parceria e pela confiança em nossos produtos.\n\nAtenciosamente,\nXavier Filho\nFinanceiro\nTel: (61) 99828-2205';
@@ -8979,7 +9099,7 @@ function gerarTextoWhatsappCliente(){
 
   emAberto.forEach(p=>{
     const dt=new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-    const itens=p.itens.map(it=>it.qtd+' unidades ('+TL[it.tam]+')').join(', ');
+    const itens=p.itens.map(it=>it.qtd+' unidades ('+itemLabel(it)+')').join(', ');
     texto+='🗓️ '+dt+' – '+itens+': '+moeda(p.total||0)+'\n';
   });
 
