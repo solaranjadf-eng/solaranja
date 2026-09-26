@@ -4668,7 +4668,7 @@ function renderRota(){
         <div style="font-size:14px;font-weight:700;color:${p.entregue?'var(--green)':'var(--text)'};text-decoration:${p.entregue?'line-through':'none'}">${p.clienteNome}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">📍 ${end}${dist!==null?` · ${dist.toFixed(1)} km`:''}</div>
         <div style="display:flex;gap:8px;margin-top:4px;align-items:center;flex-wrap:wrap">
-          <div style="font-size:11px;font-weight:600;color:${p.entregue?'var(--green)':'var(--orange-dark)'}">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}</div>
+          <div style="font-size:11px;font-weight:600;color:${p.entregue?'var(--green)':'var(--orange-dark)'}">${p.itens.map(it=>TL[it.tam]+'×'+it.qtd).join(' · ')}${(p.itensTroca||[]).length?' · '+p.itensTroca.map(it=>`<span style="color:#5B21B6">🔄${TL[it.tam]}×${it.qtd}</span>`).join(' · '):''}</div>
           ${mapsUrl?`<a href="${mapsUrl}" target="_blank" style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:2px 7px;border-radius:4px;font-weight:700;text-decoration:none;white-space:nowrap">Maps ↗</a>`:''}
         </div>
         ${p.horaEntrega?`<div style="font-size:11px;color:var(--green);margin-top:3px;font-weight:600">✓ Entregue às ${p.horaEntrega}</div>`:''}
@@ -7448,10 +7448,10 @@ function renderEntregador(){
         </div>
         ${c.maps?`<a href="${c.maps}" target="_blank" style="font-size:11px;background:var(--blue-light);color:var(--blue);padding:5px 10px;border-radius:6px;font-weight:700;text-decoration:none;white-space:nowrap">Maps ↗</a>`:''}
       </div>
-      <div class="tags-wrap" style="margin-bottom:8px">${p.itens.map(it=>`<span class="tag">${TL[it.tam]} × ${it.qtd}</span>`).join('')}</div>
+      <div class="tags-wrap" style="margin-bottom:8px">${p.itens.map(it=>`<span class="tag">${TL[it.tam]} × ${it.qtd}</span>`).join('')}${(p.itensTroca||[]).map(it=>`<span class="tag" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">🔄 ${TL[it.tam]} × ${it.qtd}</span>`).join('')}</div>
       ${p.obs?`<div class="pedido-obs-txt">Obs: ${p.obs}</div>`:''}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
-        <div class="pedido-valor">Total: ${moeda(p.total)}</div>
+        <div class="pedido-valor">${(()=>{const qtdN=p.itens.reduce((s,it)=>s+it.qtd,0);const qtdT=(p.itensTroca||[]).reduce((s,it)=>s+it.qtd,0);return`Total: ${moeda(p.total)} · ${qtdN+qtdT} un.`+(qtdT?`<span style="font-size:11px;color:#5B21B6;margin-left:6px">(${qtdN} + ${qtdT} 🔄)</span>`:'');})()}</div>
         ${!p.entregue
           ?`<button class="btn btn-green" style="height:36px;padding:0 14px;font-size:13px" onclick="entregadorConfirmarEntrega(${pedidos.indexOf(p)})">✓ Confirmar Entrega</button>`
           :`<span class="status-badge entregue">✓ Entregue ${p.horaEntrega||''}</span>`}
