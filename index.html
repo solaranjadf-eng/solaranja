@@ -869,6 +869,14 @@ a{color:var(--orange);text-decoration:none}
         <div id="entrega-label" style="font-size:12px;color:var(--orange);font-weight:600;margin-top:6px"></div>
       </div>
       <div class="obs-wrap"><label>Observações</label><textarea id="obs" placeholder="Instruções de entrega, preferências..."></textarea></div>
+      <!-- TROCA -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#F5F3FF;border:1px solid #C4B5FD;border-radius:var(--radius);margin-bottom:12px;cursor:pointer" onclick="document.getElementById('ped-troca').click()">
+        <input type="checkbox" id="ped-troca" style="width:18px;height:18px;cursor:pointer;accent-color:#7C3AED" onclick="event.stopPropagation()">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#5B21B6">🔄 É uma troca / substituição</div>
+          <div style="font-size:11px;color:var(--text3)">Pedido não será cobrado — não entra no faturamento</div>
+        </div>
+      </div>
       <div id="resumo-ped" class="resumo-ped" style="display:none">
         <p class="sec-label" style="margin-bottom:7px;color:var(--orange-deeper)">Resumo do pedido</p>
         <div id="resumo-rows"></div>
@@ -3707,7 +3715,7 @@ function atualizarResumo(){
   if(sel.minimo>0&&tval<sel.minimo){av.style.display='block';av.textContent=`Mínimo: ${moeda(sel.minimo)}. Pedido atual: ${moeda(tval)}.`;}
   else av.style.display='none';
 }
-function limpar(){TAMS.forEach(t=>qtds[t]=0);document.getElementById('obs').value='';renderGarrafas();atualizarResumo();}
+function limpar(){TAMS.forEach(t=>qtds[t]=0);document.getElementById('obs').value='';const cb=document.getElementById('ped-troca');if(cb)cb.checked=false;renderGarrafas();atualizarResumo();}
 let _confirmando=false; // proteção contra duplo clique
 let _ultimoPedidoHash=''; // proteção extra contra duplicatas
 
@@ -3748,13 +3756,15 @@ async function confirmar(){
   const btnConfirmar=document.querySelector('#page-pedido .btn-primary[onclick="confirmar()"]');
   if(btnConfirmar){btnConfirmar.disabled=true;btnConfirmar.textContent='Salvando...';}
 
+  const ehTrocaPed = document.getElementById('ped-troca').checked;
   const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  const total=itens.reduce((s,i)=>s+i.preço*i.qtd,0);
+  const totalReal=itens.reduce((s,i)=>s+i.preço*i.qtd,0);
+  const total=ehTrocaPed ? 0 : totalReal;
   setSyncStatus('loading','Salvando...');
   let pedidoSalvo=false;
   try{
     const numeroPedido = await getNextNumeroPedido();
-    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido}]);
+    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido,troca:ehTrocaPed}]);
     const ped=Array.isArray(res)?res[0]:res;
     const obj=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
     // Adicionar ao array correto baseado na data de entrega
@@ -3771,7 +3781,7 @@ async function confirmar(){
     pedidoSalvo=true;
     registrarAtividadePedido();
     setSyncStatus('ok','Sincronizado — nuvem ativa');
-    toast('✓ Pedido de '+sel.nome+' confirmado.');
+    toast(ehTrocaPed ? '🔄 Troca de '+sel.nome+' registrada!' : '✓ Pedido de '+sel.nome+' confirmado.');
     atualizarBadges();verificarAlertasEstoque();
     renderRota();
     renderDia();
