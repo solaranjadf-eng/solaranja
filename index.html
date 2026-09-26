@@ -6611,8 +6611,9 @@ function gerarPDFCliente(){
     body: pedsCli.map(p=>{
       const dataFmt=p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
       const itensDesc=p.itens.map(it=>{
-        const NOMES={'200ml':'Garrafa 200ml','300ml':'Garrafa 300ml','500ml':'Garrafa 500ml','1L':'Garrafa 1L','5L':'Galão 5L'};
-        return (NOMES[it.tam]||itemLabel(it))+' × '+it.qtd+' = R$ '+((it.preco||it.preço||0)*it.qtd).toFixed(2).replace('.',',');
+        const s=it.sabor||'laranja';
+        const label=TL[it.tam]+' '+SL[s];
+        return label+' × '+it.qtd+' = R$ '+((it.preco||it.preço||0)*it.qtd).toFixed(2).replace('.',',');
       }).join('\n');
       const situacao=p.troca?'Troca':p.pago?'Pago':p.entregue?'Em aberto':'Pendente';
       const totalP=p.troca?null:(p.total||p.itens.reduce((s,i)=>s+((i.preco||i.preço||0)*i.qtd),0));
