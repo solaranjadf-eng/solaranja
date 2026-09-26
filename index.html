@@ -7160,7 +7160,7 @@ function abrirModalCliente(id){
     +'</tr></thead><tbody>'
     +TAMS.map(t=>'<tr>'
       +`<td style="padding:4px 6px;font-weight:600;white-space:nowrap;background:var(--bg);position:sticky;left:0">${TL[t]}</td>`
-      +SABORES.map(s=>{const key=precoKey(t,s);return`<td style="padding:2px 4px"><input type="number" id="ec-${key}" step="0.01" min="0" inputmode="decimal" placeholder="—" style="width:70px;font-size:12px;padding:4px 6px;border:1px solid var(--border2);border-radius:6px;background:var(--white);color:var(--text)" value="${c.precos[key]||''}"></td>`;}).join('')
+      +SABORES.map(s=>{const key=precoKey(t,s);const val=c.precos[key]||(s==='laranja'?c.precos[t]:null)||'';return`<td style="padding:2px 4px"><input type="number" id="ec-${key}" step="0.01" min="0" inputmode="decimal" placeholder="—" style="width:70px;font-size:12px;padding:4px 6px;border:1px solid var(--border2);border-radius:6px;background:var(--white);color:var(--text)" value="${val}"></td>`;}).join('')
       +'</tr>').join('')
     +'</tbody></table></div>';
   document.getElementById('ec-minimo').value=c.minimo||'';
