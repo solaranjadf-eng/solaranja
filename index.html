@@ -1425,6 +1425,14 @@ a{color:var(--orange);text-decoration:none}
   <!-- Lista de diaristas -->
   <div id="diaristas-lista"></div>
 
+  <!-- MENSALISTAS -->
+  <div style="border-top:2px solid var(--border);margin:20px 0 16px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap">💼 Mensalistas</span>
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+    <button class="btn btn-outline" style="font-size:12px;white-space:nowrap" onclick="abrirModalMensalista()">+ Adicionar</button>
+  </div>
+  <div id="mensalistas-lista"></div>
+
   <!-- SEPARADOR -->
   <div style="border-top:2px solid var(--border);margin:20px 0 16px;display:flex;align-items:center;gap:10px">
     <span style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap">📅 Fábio — Pagamento Semanal</span>
@@ -1453,6 +1461,23 @@ a{color:var(--orange);text-decoration:none}
         </select>
       </div>
       <button class="btn btn-primary btn-full" onclick="salvarCadastroDiarista()">Salvar</button>
+    </div>
+  </div>
+
+  <!-- Modal mensalista -->
+  <div id="modal-mensalista" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--white);border-radius:var(--radius);padding:20px;width:100%;max-width:380px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <strong>💼 Mensalista</strong>
+        <button onclick="document.getElementById('modal-mensalista').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <input type="hidden" id="mens-id">
+      <div class="form-group"><label>Nome</label><input type="text" id="mens-nome" placeholder="Ex: João Silva"></div>
+      <div class="form-group"><label>Salário mensal (R$)</label><input type="number" id="mens-salario" step="0.01" min="0" placeholder="0,00" inputmode="decimal"></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-primary btn-full" onclick="salvarMensalista()">Salvar</button>
+        <button id="mens-btn-excluir" class="btn btn-outline btn-full" style="color:var(--red);border-color:var(--red);display:none" onclick="excluirMensalista()">Excluir</button>
+      </div>
     </div>
   </div>
 
@@ -2789,7 +2814,7 @@ function setTab(t){
   if(t==='estoque')  renderEstoque();
   if(t==='custos')   renderCustos();
   if(t==='cobrancas') {renderCobrancas();renderAcompanhamento();verificarAlertasVencimento();}
-  if(t==='colaboradores') {renderColaboradores();renderDiaristasMesLabel();renderDiaristas();}
+  if(t==='colaboradores') {renderColaboradores();renderDiaristasMesLabel();renderDiaristas();renderMensalistas();}
   if(t==='laranjas') renderLaranjas();
   if(t==='historico')renderHistorico();
   if(t==='ranking')  renderRanking();
@@ -3007,13 +3032,17 @@ function renderDash(){
     });
   });
 
+  // Mensalistas — salário fixo por mês × nº de meses no período
+  const _mensalistasCalc=JSON.parse(localStorage.getItem('slj_mensalistas')||'[]');
+  const gastoMensalistasCalc=_mensalistasCalc.filter(m=>m.ativo!==false).reduce((s,m)=>s+(m.salario||0),0)*_prefixosDashCalc.length;
+
   const fatMes=pedidosMes.reduce((s,p)=>s+p.total,0);
-  // Lucro líquido = Faturamento − Custo produção − Custos operacionais − Pagamento Fábio − Diaristas
-  const lucroLiquido=fatMes-custoProdMes-custoOpMes-gastoFabio-gastoDiaristasCalc;
+  // Lucro líquido = Faturamento − Custo produção − Custos operacionais − Pagamento Fábio − Diaristas − Mensalistas
+  const lucroLiquido=fatMes-custoProdMes-custoOpMes-gastoFabio-gastoDiaristasCalc-gastoMensalistasCalc;
 
   if(el('dash-fat-mes'))       el('dash-fat-mes').textContent=moeda(fatMes);
   if(el('dash-custo-prod'))    el('dash-custo-prod').textContent=moeda(custoProdMes);
-  if(el('dash-custo-mes'))     el('dash-custo-mes').textContent=moeda(custoOpMes+gastoFabio+gastoDiaristasCalc);
+  if(el('dash-custo-mes'))     el('dash-custo-mes').textContent=moeda(custoOpMes+gastoFabio+gastoDiaristasCalc+gastoMensalistasCalc);
   if(el('dash-lucro-mes')){
     el('dash-lucro-mes').textContent=moeda(lucroLiquido);
     el('dash-lucro-mes').style.color=lucroLiquido>=0?'var(--green)':'var(--red)';
@@ -3071,7 +3100,7 @@ function renderDash(){
   if(el('dash-custo-adesivos'))    el('dash-custo-adesivos').textContent=moeda(gastoAdesivos);
   if(el('dash-custo-gas'))         el('dash-custo-gas').textContent=moeda(gastoGas);
   // Colaboradores = diaristas (Valdeci, Késia): dias trabalhados × diária (já calculado acima)
-  if(el('dash-custo-colab'))       el('dash-custo-colab').textContent=moeda(gastoDiaristasCalc);
+  if(el('dash-custo-colab'))       el('dash-custo-colab').textContent=moeda(gastoDiaristasCalc+gastoMensalistasCalc);
   if(el('dash-custo-fabio-sub'))   el('dash-custo-fabio-sub').textContent='';
   if(el('dash-custo-entregador'))  el('dash-custo-entregador').textContent=moeda(totalEntregador);
   if(el('dash-custo-entregador-sub')) el('dash-custo-entregador-sub').textContent='';
@@ -9754,6 +9783,78 @@ function navegarMesDiarista(dir){
   renderDiaristasMesLabel();
   renderDiaristas();
 }
+
+// ===== MENSALISTAS =====
+let mensalistas=JSON.parse(localStorage.getItem('slj_mensalistas')||'[]');
+
+function abrirModalMensalista(id){
+  const m=id?mensalistas.find(x=>x.id===id):null;
+  document.getElementById('mens-id').value=m?m.id:'';
+  document.getElementById('mens-nome').value=m?m.nome:'';
+  document.getElementById('mens-salario').value=m?m.salario:'';
+  document.getElementById('mens-btn-excluir').style.display=m?'':'none';
+  document.getElementById('modal-mensalista').style.display='flex';
+  setTimeout(()=>document.getElementById('mens-nome').focus(),100);
+}
+
+function salvarMensalista(){
+  const id=document.getElementById('mens-id').value;
+  const nome=document.getElementById('mens-nome').value.trim();
+  const salario=parseFloat(document.getElementById('mens-salario').value)||0;
+  if(!nome){toast('Informe o nome.');return;}
+  if(id){
+    const m=mensalistas.find(x=>x.id===id);
+    if(m){m.nome=nome;m.salario=salario;}
+  } else {
+    mensalistas.push({id:Date.now().toString(),nome,salario,ativo:true});
+  }
+  localStorage.setItem('slj_mensalistas',JSON.stringify(mensalistas));
+  document.getElementById('modal-mensalista').style.display='none';
+  renderMensalistas();
+  renderDash();
+  toast('Mensalista salvo!');
+}
+
+function excluirMensalista(){
+  const id=document.getElementById('mens-id').value;
+  if(!id)return;
+  if(!confirm('Excluir este mensalista?'))return;
+  mensalistas=mensalistas.filter(x=>x.id!==id);
+  localStorage.setItem('slj_mensalistas',JSON.stringify(mensalistas));
+  document.getElementById('modal-mensalista').style.display='none';
+  renderMensalistas();
+  renderDash();
+  toast('Mensalista removido.');
+}
+
+function toggleMensalista(id){
+  const m=mensalistas.find(x=>x.id===id);
+  if(m){m.ativo=!m.ativo;localStorage.setItem('slj_mensalistas',JSON.stringify(mensalistas));renderMensalistas();renderDash();}
+}
+
+function renderMensalistas(){
+  const el=document.getElementById('mensalistas-lista');
+  if(!el)return;
+  if(!mensalistas.length){
+    el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px 0">Nenhum mensalista cadastrado.</div>';
+    return;
+  }
+  el.innerHTML=mensalistas.map(m=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;opacity:${m.ativo!==false?1:0.5}">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">${m.nome}</div>
+        <div style="font-size:12px;color:var(--text2)">Salário: <strong>${moeda(m.salario||0)}/mês</strong></div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+          <input type="checkbox" ${m.ativo!==false?'checked':''} onchange="toggleMensalista('${m.id}')"> Ativo
+        </label>
+        <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="abrirModalMensalista('${m.id}')">Editar</button>
+      </div>
+    </div>
+  `).join('');
+}
+// ===== FIM MENSALISTAS =====
 
 function renderDiaristasMesLabel(){
   const meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
