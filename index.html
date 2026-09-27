@@ -1050,6 +1050,20 @@ a{color:var(--orange);text-decoration:none}
     <div id="custos-form"></div>
     <button class="btn btn-outline btn-full" onclick="salvarCustos()" style="margin-top:8px">Salvar Custos</button>
   </div>
+
+  <!-- Tabela de preços para impressão -->
+  <div class="card" style="margin-top:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div class="card-title" style="margin-bottom:2px">🖨️ Tabela de Preços</div>
+        <div style="font-size:12px;color:var(--text3)">Gere uma tabela para o vendedor negociar com o cliente</div>
+      </div>
+      <button class="btn btn-primary" onclick="imprimirTabelaPrecos()" style="white-space:nowrap">🖨️ Imprimir</button>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Selecione os sabores a exibir:</div>
+    <div id="print-sabor-sel" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div style="font-size:12px;color:var(--text2)">A tabela mostrará: embalagem, preço de venda e margem de lucro.</div>
+  </div>
 </main>
 
 <!-- FINANCEIRO -->
@@ -6283,8 +6297,110 @@ function getPedidosParaProducao(dataKey){
   return todos.filter(p=>p.data===dataKey);
 }
 
+let _printSaboresSel=new Set(['laranja']);
+
+function renderPrintSaborSel(){
+  const el=document.getElementById('print-sabor-sel');
+  if(!el)return;
+  el.innerHTML=SABORES.map(s=>{
+    const ativo=_printSaboresSel.has(s);
+    return`<button onclick="togglePrintSabor('${s}')" style="padding:5px 12px;border-radius:20px;border:1.5px solid ${ativo?'var(--orange)':'var(--border2)'};background:${ativo?'var(--orange)':'var(--bg2)'};color:${ativo?'#fff':'var(--text2)'};font-size:12px;font-weight:600;cursor:pointer">${SL[s]}</button>`;
+  }).join('');
+}
+
+function togglePrintSabor(s){
+  if(_printSaboresSel.has(s)) _printSaboresSel.delete(s);
+  else _printSaboresSel.add(s);
+  renderPrintSaborSel();
+}
+
+function imprimirTabelaPrecos(){
+  const saboresSel=[...SABORES].filter(s=>_printSaboresSel.has(s));
+  if(!saboresSel.length){toast('Selecione ao menos um sabor.');return;}
+
+  const TL_PRINT={'copo200ml':'Copo 200ml','200ml':'200ml','300ml':'300ml','500ml':'500ml','1L':'1 Litro','5L':'5 Litros'};
+  const TAMS_PRINT=['200ml','300ml','500ml','1L','5L'];
+
+  const dataAtual=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  // Montar tabela por sabor
+  let tabelaHTML='';
+  saboresSel.forEach(s=>{
+    const isLaranja=s==='laranja';
+    const linhas=TAMS_PRINT.map(t=>{
+      const key=isLaranja?t:precoKey(t,s);
+      const base=custos[t]||{};
+      const cs=isLaranja?base:(custos[key]||{});
+      const emb=parseFloat(cs.embalagem!==undefined?cs.embalagem:base.embalagem)||0;
+      const mat=isLaranja?(parseFloat(base.laranja)||0):(parseFloat(cs.materia)||0);
+      const ade=parseFloat(cs.adesivo!==undefined?cs.adesivo:base.adesivo)||0;
+      const custo=emb+mat+ade;
+      const venda=parseFloat((isLaranja?base:cs).venda)||0;
+      if(!venda&&!custo) return '';
+      const margem=venda>0?((venda-custo)/venda*100):0;
+      const lucroUnit=venda-custo;
+      return`<tr>
+        <td>${TL_PRINT[t]||t}</td>
+        <td>R$ ${custo.toFixed(2).replace('.',',')}</td>
+        <td><strong>R$ ${venda.toFixed(2).replace('.',',')}</strong></td>
+        <td>${margem.toFixed(1)}%</td>
+        <td>R$ ${lucroUnit.toFixed(2).replace('.',',')}</td>
+      </tr>`;
+    }).filter(Boolean).join('');
+    if(!linhas) return;
+    tabelaHTML+=`
+      <div style="margin-bottom:24px">
+        <div style="font-size:15px;font-weight:700;color:#e86c00;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid #e86c00">🍊 ${SL[s]}</div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#fff5ee">
+              <th style="padding:7px 10px;text-align:left;border-bottom:1px solid #ddd">Embalagem</th>
+              <th style="padding:7px 10px;text-align:right;border-bottom:1px solid #ddd">Custo</th>
+              <th style="padding:7px 10px;text-align:right;border-bottom:1px solid #ddd">Preço Venda</th>
+              <th style="padding:7px 10px;text-align:right;border-bottom:1px solid #ddd">Margem</th>
+              <th style="padding:7px 10px;text-align:right;border-bottom:1px solid #ddd">Lucro/un</th>
+            </tr>
+          </thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>`;
+  });
+
+  const win=window.open('','_blank','width=800,height=600');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Tabela de Preços — Só Laranja</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;padding:32px;color:#1a1a1a;background:#fff}
+    h1{font-size:22px;color:#e86c00;margin-bottom:4px}
+    .sub{font-size:12px;color:#888;margin-bottom:24px}
+    table td,table th{padding:7px 10px;border-bottom:1px solid #eee}
+    table td:not(:first-child){text-align:right}
+    tr:hover td{background:#fff8f2}
+    .footer{margin-top:32px;font-size:11px;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:12px}
+    @media print{
+      body{padding:16px}
+      button{display:none!important}
+      tr:hover td{background:none}
+    }
+  </style></head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+    <div>
+      <h1>🍊 Só Laranja</h1>
+      <div class="sub">Tabela de Preços — gerada em ${dataAtual}</div>
+    </div>
+    <button onclick="window.print()" style="padding:8px 18px;background:#e86c00;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
+  </div>
+  ${tabelaHTML}
+  <div class="footer">Só Laranja • Tabela válida para ${dataAtual} • Os preços podem variar conforme negociação</div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(()=>win.focus(),300);
+}
+
 function renderProducao(){
   renderCustosForm();
+  renderPrintSaborSel();
   // Garantir data default
   const customInp=document.getElementById('prod-data-custom');
   if(customInp&&!customInp.value) customInp.value=hojeKey;
