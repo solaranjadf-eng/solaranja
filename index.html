@@ -2543,12 +2543,19 @@ async function sincronizar(){
     const dbC=await sbGet('clientes','?order=nome');
     if(dbC&&dbC.length>0){
       // Só atualizar clientes se banco retornou dados válidos
-      clientes=dbC.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,apelido:c.apelido||'',tel:c.tel||'',
-        ie:c.ie||'',email:c.email||'',cep:c.cep||'',
-        bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
-        maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:c.precos||{},
-        malPagador:c.malPagador||c.mal_pagador||false,
-        bloqueado:c.bloqueado||false}));
+      clientes=dbC.map(c=>{
+        const pr=c.precos||{};
+        // lê flags de colunas dedicadas (se existirem) ou do campo precos como fallback
+        const malPagador=c.malPagador||c.mal_pagador||pr._malPagador||false;
+        const bloqueado=c.bloqueado||pr._bloqueado||false;
+        // remove flags internas do objeto precos visível
+        const {_malPagador:_a,_bloqueado:_b,...precosLimpos}=pr;
+        return {id:c.id,nome:c.nome,cnpj:c.cnpj,apelido:c.apelido||'',tel:c.tel||'',
+          ie:c.ie||'',email:c.email||'',cep:c.cep||'',
+          bairro:c.bairro||'',regiao:c.regiao||'',endereco:c.endereco||'',
+          maps:c.maps||'',aniver:c.aniver||'',minimo:c.minimo,precos:precosLimpos,
+          malPagador,bloqueado};
+      });
       lsave('slj_cli_bk',clientes);
     }else{
       await sbUps('clientes',CLIENTES_PADRAO.map(c=>({id:c.id,nome:c.nome,cnpj:c.cnpj,tel:c.tel||'',
@@ -7640,7 +7647,13 @@ async function salvarEdicaoCliente(){
   const vm=parseFloat(document.getElementById('ec-minimo').value);c.minimo=isNaN(vm)||vm<=0?null:vm;
   c.malPagador=document.getElementById('ec-mal-pagador')?.checked||false;
   c.bloqueado=document.getElementById('ec-bloqueado')?.checked||false;
-  try{await sbPatch('clientes',`?id=eq.${c.id}`,{nome:c.nome,cnpj:c.cnpj,apelido:c.apelido,tel:c.tel,ie:c.ie||'',cep:c.cep||'',email:c.email||'',bairro:c.bairro,regiao:c.regiao,endereco:c.endereco,maps:c.maps,aniver:c.aniver,minimo:c.minimo,precos:c.precos,malPagador:c.malPagador,mal_pagador:c.malPagador,bloqueado:c.bloqueado});setSyncStatus('ok','Sincronizado — nuvem ativa');}catch(e){setSyncStatus('err','Erro ao sincronizar');}
+  // Embute malPagador e bloqueado dentro do campo precos (JSON) pois pode não existir coluna dedicada
+  const precosComFlags={...c.precos,_malPagador:c.malPagador,_bloqueado:c.bloqueado};
+  try{
+    await sbPatch('clientes',`?id=eq.${c.id}`,{nome:c.nome,cnpj:c.cnpj,apelido:c.apelido,tel:c.tel,ie:c.ie||'',cep:c.cep||'',email:c.email||'',bairro:c.bairro,regiao:c.regiao,endereco:c.endereco,maps:c.maps,aniver:c.aniver,minimo:c.minimo,precos:precosComFlags});
+    c.precos=precosComFlags;
+    setSyncStatus('ok','Sincronizado — nuvem ativa');
+  }catch(e){setSyncStatus('err','Erro ao sincronizar');}
   lsave('slj_cli_bk',clientes);
   fecharModal('cliente');renderClientes();toast('Cliente atualizado.');
 }
