@@ -2767,7 +2767,14 @@ async function sincronizar(){
       }
       const dbCompras=await sbGet('compras_laranja','?order=data.desc&limit=500');
       if(dbCompras&&dbCompras.length>0){
-        comprasLaranja=dbCompras.map(c=>({id:c.id,fornId:c.forn_id,qtd:c.qtd,bonif:c.bonif||0,qtdTotal:c.qtd_total||(c.qtd+(c.bonif||0)),preco:c.preco,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago||false,valorPago:c.valor_pago||0}));
+        comprasLaranja=dbCompras.map(c=>{
+          // Tenta ler bonif das colunas dedicadas; fallback: lê do prefixo [B:bonif:total] no campo obs
+          let bonif=c.bonif||0, qtdTotal=c.qtd_total||0, obsReal=c.obs||'';
+          const mB=obsReal.match(/^\[B:(\d+):(\d+)\]/);
+          if(mB){bonif=parseInt(mB[1]);qtdTotal=parseInt(mB[2]);obsReal=obsReal.replace(/^\[B:\d+:\d+\]\s*/,'');}
+          if(!qtdTotal) qtdTotal=c.qtd+(bonif);
+          return {id:c.id,fornId:c.forn_id,qtd:c.qtd,bonif,qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:obsReal,pago:c.pago||false,valorPago:c.valor_pago||0};
+        });
         lsave('slj_compras_lar',comprasLaranja);
       } else if(comprasLaranja.length>0){
         // Migrar do localStorage para o banco
