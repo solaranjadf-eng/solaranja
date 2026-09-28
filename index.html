@@ -2428,7 +2428,12 @@ const LITROS={'copo200ml':0.2,'200ml':0.2,'300ml':0.3,'500ml':0.5,'1L':1.0,'5L':
 const SABORES=['laranja','uva','goiaba','acerola','abacaxi','caju','maracuja'];
 const SL={laranja:'Laranja',uva:'Uva',goiaba:'Goiaba',acerola:'Acerola',abacaxi:'Abacaxi',caju:'Caju',maracuja:'Maracujá'};
 function precoKey(tam,sabor){return tam+'_'+sabor;}
-function itemLabel(it){const s=it.sabor||'laranja';return TL[it.tam]+(s!=='laranja'?' '+SL[s]:'');}
+function itemLabel(it,forceSabor){const s=it.sabor||'laranja';return TL[it.tam]+((s!=='laranja'||forceSabor)?' '+SL[s]:'');}
+function itemLabelPedido(it,itens){
+  // Mostra o sabor no label somente quando o pedido tem mais de 1 sabor distinto
+  const sabores=new Set((itens||[]).map(x=>x.sabor||'laranja'));
+  return itemLabel(it,sabores.size>1);
+}
 const moeda=v=>'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const hoje=new Date();
 // Usar data local (fuso de Brasília UTC-3) — evita virar o dia às 21h no UTC
@@ -3864,7 +3869,7 @@ function renderHistorico(){
             </div>
             <div class="pedido-hora">${p.hora||''}</div>
           </div>
-          <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
+          <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${itemLabelPedido(it,p.itens)} × ${it.qtd}</span>`).join('')}</div>
           ${p.obs?`<div class="pedido-obs-txt">${p.obs}</div>`:''}
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
             <div class="pedido-valor">${moeda(p.total)}</div>
@@ -4419,7 +4424,7 @@ function renderDia(){
           )}
         </div>
       </div>
-      <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}${(p.itensTroca||[]).map(it=>`<span class="tag" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">🔄 ${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
+      <div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${itemLabelPedido(it,p.itens)} × ${it.qtd}</span>`).join('')}${(p.itensTroca||[]).map(it=>`<span class="tag" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">🔄 ${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
       ${p.obs?`<div class="pedido-obs-txt">Obs: ${p.obs}</div>`:''}
       ${p.foto?`<img src="${p.foto}" style="width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-top:7px">`:''}
       <div class="pedido-valor">${(()=>{const qtdNormal=p.itens.reduce((s,it)=>s+it.qtd,0);const qtdTroca=(p.itensTroca||[]).reduce((s,it)=>s+it.qtd,0);const totalUn=qtdNormal+qtdTroca;return `Total: ${moeda(p.total)} · ${totalUn} un.`+(qtdTroca?`<span style="font-size:11px;color:#5B21B6;margin-left:6px">(${qtdNormal} + ${qtdTroca} 🔄)</span>`:'');})()}</div>
@@ -5503,7 +5508,7 @@ function renderResumo(){
   document.getElementById('rg-grid').innerHTML=TAMS.map(t=>`<div class="rg-card"><div class="rg-size">${TL[t]}</div><div class="rg-qty">${totais[t]}</div><div class="rg-litros">${(totais[t]*LITROS[t]).toFixed(1)} L</div></div>`).join('');
   const cl=document.getElementById('rg-clientes');
   if(!pedidos.length){cl.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum pedido hoje.</p></div>';return;}
-  cl.innerHTML=pedidos.map(p=>`<div class="pedido-card${p.entregue?' entregue':''}"><div class="pedido-header" style="margin-bottom:7px"><div class="pedido-nome">${p.clienteNome}<span class="status-badge ${p.entregue?'entregue':'pendente'}">${p.entregue?'Entregue':'Pendente'}</span></div><div class="pedido-meta">${p.hora} · ${calcLitros(p.itens).toFixed(1)} L</div></div><div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div><div class="pedido-valor">Total: ${moeda(p.total)}</div></div>`).join('');
+  cl.innerHTML=pedidos.map(p=>`<div class="pedido-card${p.entregue?' entregue':''}"><div class="pedido-header" style="margin-bottom:7px"><div class="pedido-nome">${p.clienteNome}<span class="status-badge ${p.entregue?'entregue':'pendente'}">${p.entregue?'Entregue':'Pendente'}</span></div><div class="pedido-meta">${p.hora} · ${calcLitros(p.itens).toFixed(1)} L</div></div><div class="tags-wrap">${p.itens.map(it=>`<span class="tag">${itemLabelPedido(it,p.itens)} × ${it.qtd}</span>`).join('')}</div><div class="pedido-valor">Total: ${moeda(p.total)}</div></div>`).join('');
 }
 
 // ── PRODUÇÃO ───────────────────────────────────────────────────────────────
@@ -6964,7 +6969,7 @@ function renderExtratocliente(){
             <td style="padding:8px;text-align:center"><input type="checkbox" class="fin-sel-ped" data-id="${p.id}" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)" ${p.troca?'disabled':''}></td>
             <td style="padding:8px 10px;color:var(--text3);font-weight:600">${num}</td>
             <td style="padding:8px 10px;white-space:nowrap">${dataFmt}</td>
-            <td style="padding:8px 10px;color:var(--text2)">${p.itens.map(it=>itemLabel(it)+'×'+it.qtd).join(' · ')}</td>
+            <td style="padding:8px 10px;color:var(--text2)">${p.itens.map(it=>itemLabelPedido(it,p.itens)+'×'+it.qtd).join(' · ')}</td>
             <td style="padding:8px 10px;color:var(--text3);font-style:italic;font-size:11px">${p.obs||'—'}</td>
             <td style="padding:8px 10px;text-align:right;font-weight:700;${p.troca?'color:#5B21B6;text-decoration:line-through':''}">${p.troca?'—':moeda(p.total)}</td>
             <td style="padding:8px 10px;text-align:center">${situacao}</td>
@@ -8190,7 +8195,7 @@ function renderEntregador(){
         </div>
         ${c.maps?`<a href="${c.maps}" target="_blank" style="font-size:11px;background:var(--blue-light);color:var(--blue);padding:5px 10px;border-radius:6px;font-weight:700;text-decoration:none;white-space:nowrap">Maps ↗</a>`:''}
       </div>
-      <div class="tags-wrap" style="margin-bottom:8px">${p.itens.map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}${(p.itensTroca||[]).map(it=>`<span class="tag" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">🔄 ${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
+      <div class="tags-wrap" style="margin-bottom:8px">${p.itens.map(it=>`<span class="tag">${itemLabelPedido(it,p.itens)} × ${it.qtd}</span>`).join('')}${(p.itensTroca||[]).map(it=>`<span class="tag" style="background:#EDE9FE;color:#5B21B6;border-color:#C4B5FD">🔄 ${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
       ${p.obs?`<div class="pedido-obs-txt">Obs: ${p.obs}</div>`:''}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
         <div class="pedido-valor">${(()=>{const qtdN=p.itens.reduce((s,it)=>s+it.qtd,0);const qtdT=(p.itensTroca||[]).reduce((s,it)=>s+it.qtd,0);return`Total: ${moeda(p.total)} · ${qtdN+qtdT} un.`+(qtdT?`<span style="font-size:11px;color:#5B21B6;margin-left:6px">(${qtdN} + ${qtdT} 🔄)</span>`:'');})()}</div>
@@ -9577,7 +9582,8 @@ function enviarEmailCliente(){
   let corpo='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\n';
   pedsSel.sort((a,b)=>a.data.localeCompare(b.data)).forEach(p=>{
     const dt=new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-    const itens=p.itens.map(it=>it.qtd+' unidades ('+itemLabel(it)+')').join(', ');
+    const _mSabs=new Set(p.itens.map(x=>x.sabor||'laranja'));
+    const itens=p.itens.map(it=>it.qtd+(it.qtd===1?' unidade':' unidades')+' ('+itemLabel(it,_mSabs.size>1)+')').join(', ');
     corpo+=dt+' – '+itens+': R$ '+p.total.toFixed(2).replace('.',',')+'\n';
   });
   corpo+='\nTotal: R$ '+totalAberto.toFixed(2).replace('.',',')+'\n\nAgradecemos pela parceria e pela confiança em nossos produtos.\n\nAtenciosamente,\nXavier Filho\nFinanceiro\nTel: (61) 99828-2205';
@@ -9719,7 +9725,8 @@ function gerarTextoWhatsappCliente(){
 
   emAberto.forEach(p=>{
     const dt=new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-    const itens=p.itens.map(it=>it.qtd+' unidades ('+itemLabel(it)+')').join(', ');
+    const _wSabs=new Set(p.itens.map(x=>x.sabor||'laranja'));
+    const itens=p.itens.map(it=>it.qtd+(it.qtd===1?' unidade':' unidades')+' ('+itemLabel(it,_wSabs.size>1)+')').join(', ');
     texto+='🗓️ '+dt+' – '+itens+': '+moeda(p.total||0)+'\n';
   });
 
