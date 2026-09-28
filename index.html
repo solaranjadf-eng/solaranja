@@ -9694,65 +9694,82 @@ async function gerarBoletoBB(){
   document.getElementById('boleto-bb-erro').style.display='none';
   modal.style.display='flex';
 
-  try{
-    const payload={
-      valor: parseFloat(totalAberto.toFixed(2)),
-      vencimento: vencStr,
-      nossoNumero: nossoNum,
-      numeroTitulo: String(nossoNum),
-      nomePagador: cli.nome,
-      cnpjPagador: (cli.cnpj||'').replace(/\D/g,''),
-      tipoPagador: (cli.cnpj||'').replace(/\D/g,'').length===14?2:1,
-      enderecoPagador: cli.endereco||cli.enderecoCompleto||'',
-      cepPagador: (cli.cep||'').replace(/\D/g,''),
-      cidadePagador: cli.cidade||'Brasilia',
-      bairroPagador: cli.bairro||'',
-      ufPagador: cli.uf||'DF',
-      observacaoDatas: pedsSel.sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
-        const [aa,mm,dd]=p.data.split('-');return dd+'/'+mm;
-      }).join(', '),
-    };
+  // Tenta gerar boleto, se "Nosso Número já incluído" incrementa e tenta de novo (até 5x)
+  let tentativas=0;
+  while(tentativas<5){
+    tentativas++;
+    try{
+      const payload={
+        valor: parseFloat(totalAberto.toFixed(2)),
+        vencimento: vencStr,
+        nossoNumero: nossoNum,
+        numeroTitulo: String(nossoNum),
+        nomePagador: cli.nome,
+        cnpjPagador: (cli.cnpj||'').replace(/\D/g,''),
+        tipoPagador: (cli.cnpj||'').replace(/\D/g,'').length===14?2:1,
+        enderecoPagador: cli.endereco||cli.enderecoCompleto||'',
+        cepPagador: (cli.cep||'').replace(/\D/g,''),
+        cidadePagador: cli.cidade||'Brasilia',
+        bairroPagador: cli.bairro||'',
+        ufPagador: cli.uf||'DF',
+        observacaoDatas: pedsSel.sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
+          const [aa,mm,dd]=p.data.split('-');return dd+'/'+mm;
+        }).join(', '),
+      };
+      const resp=await fetch('https://solaranja-bb.solaranjadf.workers.dev/boleto',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      });
+      const data=await resp.json();
 
-    const resp=await fetch('https://solaranja-bb.solaranjadf.workers.dev/boleto',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
-    });
-    const data=await resp.json();
+      if(data.numero||data.linhaDigitavel||data.codigoBarraNumerico){
+        // Sucesso — salva o nossoNum usado
+        localStorage.setItem('slj_bb_nosso_num',String(nossoNum));
+        document.getElementById('boleto-bb-status').style.display='none';
+        document.getElementById('boleto-bb-resultado').style.display='block';
+        document.getElementById('boleto-bb-cli').textContent=cli.apelido||cli.nome;
+        document.getElementById('boleto-bb-valor').textContent='R$ '+totalAberto.toFixed(2).replace('.',',');
+        document.getElementById('boleto-bb-venc').textContent=vencStr+' (vencimento em 7 dias)';
+        document.getElementById('boleto-bb-linha').textContent=data.linhaDigitavel||data.codigoBarraNumerico||'—';
+        window._boletoLinhaDigitavel=data.linhaDigitavel||data.codigoBarraNumerico||'';
+        const linkEl=document.getElementById('boleto-bb-link');
+        if(data.urlImagemBoleto){linkEl.href=data.urlImagemBoleto;linkEl.style.display='flex';}
+        else{linkEl.style.display='none';}
+        const pixEl=document.getElementById('boleto-bb-pix');
+        if(data.qrCode&&data.qrCode.url){pixEl.href=data.qrCode.url;pixEl.style.display='flex';}
+        else{pixEl.style.display='none';}
+        toast('✅ Boleto gerado! Nosso nº '+nossoNum);
+        return; // saiu com sucesso
+      }
 
-    if(data.numero||data.linhaDigitavel||data.codigoBarraNumerico){
-      // Sucesso
-      document.getElementById('boleto-bb-status').style.display='none';
-      document.getElementById('boleto-bb-resultado').style.display='block';
-      document.getElementById('boleto-bb-cli').textContent=cli.apelido||cli.nome;
-      document.getElementById('boleto-bb-valor').textContent='R$ '+totalAberto.toFixed(2).replace('.',',');
-      document.getElementById('boleto-bb-venc').textContent=vencStr+' (vencimento em 7 dias)';
-      document.getElementById('boleto-bb-linha').textContent=data.linhaDigitavel||data.codigoBarraNumerico||'—';
-      window._boletoLinhaDigitavel=data.linhaDigitavel||data.codigoBarraNumerico||'';
+      // Verificar se o erro é "Nosso Número já incluído"
+      const erroMsg=data.erros?data.erros.map(e=>e.mensagem||JSON.stringify(e)).join(' '):JSON.stringify(data);
+      const ehDuplicado=/nosso.n[uú]mero.*(j[aá]|duplicado|anterior|registrado|incluído)/i.test(erroMsg)||
+                        /j[aá].*(incluído|registrado|cadastrado)/i.test(erroMsg)||
+                        /duplicat/i.test(erroMsg);
 
-      const linkEl=document.getElementById('boleto-bb-link');
-      if(data.urlImagemBoleto){linkEl.href=data.urlImagemBoleto;linkEl.style.display='flex';}
-      else{linkEl.style.display='none';}
+      if(ehDuplicado&&tentativas<5){
+        // Incrementa e tenta de novo silenciosamente
+        nossoNum++;
+        localStorage.setItem('slj_bb_nosso_num',String(nossoNum));
+        continue;
+      }
 
-      const pixEl=document.getElementById('boleto-bb-pix');
-      if(data.qrCode&&data.qrCode.url){pixEl.href=data.qrCode.url;pixEl.style.display='flex';}
-      else{pixEl.style.display='none';}
-
-      toast('✅ Boleto gerado! Nosso nº '+nossoNum);
-    } else {
-      // Erro da API BB
+      // Outro erro — exibir mensagem
       document.getElementById('boleto-bb-status').style.display='none';
       document.getElementById('boleto-bb-erro').style.display='block';
-      const msg=data.erros?data.erros.map(e=>e.mensagem||JSON.stringify(e)).join('\n'):JSON.stringify(data);
-      document.getElementById('boleto-bb-erro-msg').textContent=msg;
-      // Reverter nosso número se falhou
+      document.getElementById('boleto-bb-erro-msg').textContent=erroMsg;
       localStorage.setItem('slj_bb_nosso_num',String(nossoNum-1));
+      return;
+
+    }catch(e){
+      document.getElementById('boleto-bb-status').style.display='none';
+      document.getElementById('boleto-bb-erro').style.display='block';
+      document.getElementById('boleto-bb-erro-msg').textContent=e.message||String(e);
+      localStorage.setItem('slj_bb_nosso_num',String(nossoNum-1));
+      return;
     }
-  }catch(e){
-    document.getElementById('boleto-bb-status').style.display='none';
-    document.getElementById('boleto-bb-erro').style.display='block';
-    document.getElementById('boleto-bb-erro-msg').textContent=e.message||String(e);
-    localStorage.setItem('slj_bb_nosso_num',String(nossoNum-1));
   }
 }
 
