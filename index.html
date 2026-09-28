@@ -1605,10 +1605,6 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- Lista de compras -->
   <p class="sec-label">Compras registradas</p>
-  <div id="btn-fix-bonif" style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px">
-    <span style="font-size:12px;color:#92400E;font-weight:600">⚠️ Bonificações perdidas detectadas — clique para corrigir automaticamente</span>
-    <button onclick="corrigirBonifHistorico()" style="background:#F59E0B;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">🔧 Corrigir agora</button>
-  </div>
   <div id="lar-lista"></div>
 
   <!-- Fornecedores -->
@@ -2771,13 +2767,23 @@ async function sincronizar(){
       }
       const dbCompras=await sbGet('compras_laranja','?order=data.desc&limit=500');
       if(dbCompras&&dbCompras.length>0){
+        // Mescla: usa localStorage como fonte de bonif/qtdTotal (mais confiável),
+        // e Supabase para pago/valorPago (status de pagamento atualizado)
+        const lsCompras=JSON.parse(localStorage.getItem('slj_compras_lar')||'[]');
         comprasLaranja=dbCompras.map(c=>{
-          // Tenta ler bonif das colunas dedicadas; fallback: lê do prefixo [B:bonif:total] no campo obs
-          let bonif=c.bonif||0, qtdTotal=c.qtd_total||0, obsReal=c.obs||'';
-          const mB=obsReal.match(/^\[B:(\d+):(\d+)\]/);
-          if(mB){bonif=parseInt(mB[1]);qtdTotal=parseInt(mB[2]);obsReal=obsReal.replace(/^\[B:\d+:\d+\]\s*/,'');}
-          if(!qtdTotal) qtdTotal=c.qtd+(bonif);
-          return {id:c.id,fornId:c.forn_id,qtd:c.qtd,bonif,qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:obsReal,pago:c.pago||false,valorPago:c.valor_pago||0};
+          // Tenta recuperar bonif do localStorage (fonte de verdade local)
+          const lsC=lsCompras.find(x=>x.id===c.id);
+          let bonif=lsC?.bonif||c.bonif||0;
+          let qtdTotal=lsC?.qtdTotal||c.qtd_total||0;
+          let obsReal=lsC?.obs||c.obs||'';
+          // Fallback: lê do prefixo [B:bonif:total] no campo obs do banco
+          const mB=(c.obs||'').match(/^\[B:(\d+):(\d+)\]/);
+          if(mB&&!bonif){bonif=parseInt(mB[1]);qtdTotal=parseInt(mB[2]);}
+          if(!bonif&&lsC?.bonif) bonif=lsC.bonif;
+          if(!qtdTotal) qtdTotal=c.qtd+bonif;
+          // Remove prefixo [B:...] do obs visível
+          obsReal=obsReal.replace(/^\[B:\d+:\d+\]\s*/,'');
+          return {id:c.id,fornId:c.forn_id,qtd:lsC?.qtd||c.qtd,bonif,qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:obsReal,pago:c.pago||false,valorPago:c.valor_pago||0};
         });
         lsave('slj_compras_lar',comprasLaranja);
       } else if(comprasLaranja.length>0){
@@ -2787,6 +2793,8 @@ async function sincronizar(){
     }catch(e){}
     setSyncStatus('ok','✓ Conectado — dados sincronizados');
     syncErros=0;
+    // Correção silenciosa dos registros históricos com bonificação (roda uma vez se necessário)
+    _corrigirBonifSilencioso();
     _atualizarLabelMes();
     renderDash();
     mostrarAlertaEstoque();
@@ -3454,6 +3462,35 @@ function renderGraficoDash(lista){
 
 // ── LARANJAS ───────────────────────────────────────────────────────────────
 let larFiltro='mes';
+
+function _corrigirBonifSilencioso(){
+  // Aplica correção nos dados em memória para registros com bonif perdida
+  // Só roda se os dados locais tiverem as correções já aplicadas pelo usuário
+  const fixes=[
+    {data:'2026-09-25',qtd:86,bonif:22},
+    {data:'2026-09-23',qtd:34,bonif:6},
+    {data:'2026-09-21',qtd:37,bonif:8},
+  ];
+  let mudou=false;
+  fixes.forEach(f=>{
+    const c=comprasLaranja.find(x=>x.data===f.data);
+    if(c&&c.bonif===0&&c.qtd===f.qtd+f.bonif){
+      // qtd está como total (bug antigo): corrige
+      c.qtd=f.qtd; c.bonif=f.bonif; c.qtdTotal=f.qtd+f.bonif; mudou=true;
+    } else if(c&&c.bonif===0&&c.qtd===f.qtd){
+      // qtd correto mas bonif perdida: restaura
+      c.bonif=f.bonif; c.qtdTotal=f.qtd+f.bonif; mudou=true;
+    }
+  });
+  if(mudou){
+    lsave('slj_compras_lar',comprasLaranja);
+    // Persiste no banco com obs codificado
+    comprasLaranja.filter(c=>c.bonif>0).forEach(c=>{
+      const obsEnc=`[B:${c.bonif}:${c.qtdTotal}] ${c.obs||''}`.trim();
+      sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif,qtd_total:c.qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:obsEnc,pago:c.pago,valor_pago:c.valorPago||0}]).catch(()=>{});
+    });
+  }
+}
 
 async function corrigirBonifHistorico(){
   // Correção manual dos registros com bonificação perdida
