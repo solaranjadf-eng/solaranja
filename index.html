@@ -9745,9 +9745,7 @@ async function gerarBoletoBB(){
 
       // Verificar se o erro é "Nosso Número já incluído"
       const erroMsg=data.erros?data.erros.map(e=>e.mensagem||JSON.stringify(e)).join(' '):JSON.stringify(data);
-      const ehDuplicado=/nosso.n[uú]mero.*(j[aá]|duplicado|anterior|registrado|incluído)/i.test(erroMsg)||
-                        /j[aá].*(incluído|registrado|cadastrado)/i.test(erroMsg)||
-                        /duplicat/i.test(erroMsg);
+      const ehDuplicado=/nosso/i.test(erroMsg)&&/(inclu|duplica|anterior|registr|cadastr)/i.test(erroMsg);
 
       if(ehDuplicado&&tentativas<5){
         // Incrementa e tenta de novo silenciosamente
