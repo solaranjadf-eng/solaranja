@@ -2813,6 +2813,8 @@ async function sincronizar(){
     renderDash();
     mostrarAlertaEstoque();
     verificarAlertasVencimento();
+    // Validação silenciosa de débitos fantasmas (remove do local o que não existe no banco)
+    setTimeout(()=>validarDebitosNoBanco(true),2000);
     // Carregar compras, boletos e notas do banco
     try{
       const dbCC=await sbGet('compras_cartao','?order=created_at');
@@ -8971,37 +8973,37 @@ async function quitarDebitoAlerta(clienteId){
   atualizarBadges();renderFinanceiro();verificarClientesSemPagar();renderDash();
 }
 
-async function validarDebitosNoBanco(){
-  toast('Consultando banco de dados...');
+async function validarDebitosNoBanco(silencioso){
+  if(!silencioso) toast('Consultando banco de dados...');
   try{
-    // Busca do banco todos pedidos entregues e não pagos
-    const dbAbertos=await sbGet('pedidos','?entregue=eq.true&pago=eq.false&select=id,cliente_nome,data,total');
-    if(!dbAbertos||!dbAbertos.length){
-      // Nenhum débito real no banco — limpa os locais marcando como pagos
-      const todos=[...pedidos,...pedidosOntem,...Object.values(historico).flat()];
-      todos.filter(p=>p.entregue&&!p.pago).forEach(p=>{
-        p.pago=true;
-        [pedidos,pedidosOntem,pedidosAmanha].forEach(arr=>{const x=arr.find(x=>x.id===p.id);if(x)x.pago=true;});
-        Object.values(historico).forEach(d=>d.forEach(x=>{if(x.id===p.id)x.pago=true;}));
-      });
-      toast('✓ Nenhum débito real encontrado. Alertas removidos.');
-      verificarClientesSemPagar();renderFinanceiro();renderDash();
+    // Busca do banco TODOS os pedidos entregues e não pagos (sem limite)
+    const dbAbertos=await sbGet('pedidos','?entregue=eq.true&pago=eq.false&select=id,cliente_id,cliente_nome,data,total&limit=1000');
+    // Segurança: se a resposta for null/undefined (erro de rede), não faz nada
+    if(dbAbertos===null||dbAbertos===undefined){
+      if(!silencioso) toast('Erro ao consultar banco — nenhum dado alterado.');
       return;
     }
     const idsReais=new Set(dbAbertos.map(p=>p.id));
-    // Remove do local os que não existem mais no banco como abertos
-    const todos=[...pedidos,...pedidosOntem,...Object.values(historico).flat()];
+    // Todos os pedidos carregados localmente (hoje + ontem + histórico)
+    const todos=[...pedidos,...pedidosOntem,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
     let corrigidos=0;
+    // Remove localmente pedidos marcados como não-pagos que o banco confirma como pagos (ou inexistentes)
     todos.filter(p=>p.entregue&&!p.pago&&!idsReais.has(p.id)).forEach(p=>{
       p.pago=true;
       [pedidos,pedidosOntem,pedidosAmanha].forEach(arr=>{const x=arr.find(x=>x.id===p.id);if(x)x.pago=true;});
       Object.values(historico).forEach(d=>d.forEach(x=>{if(x.id===p.id)x.pago=true;}));
       corrigidos++;
     });
-    const nomes=[...new Set(dbAbertos.map(p=>p.cliente_nome))];
-    toast('Banco: '+dbAbertos.length+' pedido(s) real(ais) em aberto de: '+nomes.join(', ')+(corrigidos>0?'. '+corrigidos+' fantasmas removidos.':'.'));
+    if(!silencioso){
+      if(!dbAbertos.length){
+        toast('✓ Nenhum débito real encontrado. Alertas removidos.');
+      } else {
+        const nomes=[...new Set(dbAbertos.map(p=>p.cliente_nome))];
+        toast('Banco: '+dbAbertos.length+' pedido(s) real(ais) em aberto de: '+nomes.join(', ')+(corrigidos>0?'. '+corrigidos+' fantasmas removidos.':'.'));
+      }
+    }
     verificarClientesSemPagar();renderFinanceiro();renderDash();
-  }catch(e){toast('Erro ao consultar banco.');}
+  }catch(e){if(!silencioso)toast('Erro ao consultar banco.');}
 }
 
 // ── 4. RELATÓRIO MENSAL PDF ─────────────────────────────────────────────────
