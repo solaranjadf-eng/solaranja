@@ -1605,6 +1605,10 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- Lista de compras -->
   <p class="sec-label">Compras registradas</p>
+  <div id="btn-fix-bonif" style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+    <span style="font-size:12px;color:#92400E;font-weight:600">⚠️ Bonificações perdidas detectadas — clique para corrigir automaticamente</span>
+    <button onclick="corrigirBonifHistorico()" style="background:#F59E0B;color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">🔧 Corrigir agora</button>
+  </div>
   <div id="lar-lista"></div>
 
   <!-- Fornecedores -->
@@ -3450,6 +3454,33 @@ function renderGraficoDash(lista){
 
 // ── LARANJAS ───────────────────────────────────────────────────────────────
 let larFiltro='mes';
+
+async function corrigirBonifHistorico(){
+  // Correção manual dos registros com bonificação perdida
+  const fixes=[
+    {data:'2026-09-25',qtd:86,bonif:22},
+    {data:'2026-09-23',qtd:34,bonif:6},
+    {data:'2026-09-21',qtd:37,bonif:8},
+  ];
+  let corrigidos=0;
+  for(const f of fixes){
+    const c=comprasLaranja.find(x=>x.data===f.data&&x.fornId);
+    if(!c)continue;
+    c.qtd=f.qtd;
+    c.bonif=f.bonif;
+    c.qtdTotal=f.qtd+f.bonif;
+    c.total=f.qtd*c.preco;
+    const obsEnc=`[B:${f.bonif}:${c.qtdTotal}] ${c.obs||''}`.trim();
+    await sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif,qtd_total:c.qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:obsEnc,pago:c.pago,valor_pago:c.valorPago||0}]);
+    corrigidos++;
+  }
+  lsave('slj_compras_lar',comprasLaranja);
+  toast(`✓ ${corrigidos} registro(s) corrigido(s)!`);
+  // Remove o botão após correção
+  const btn=document.getElementById('btn-fix-bonif');
+  if(btn)btn.remove();
+  renderLaranjas();
+}
 
 function renderLaranjas(){
   // Garantir data padrão = hoje
