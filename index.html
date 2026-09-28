@@ -1637,6 +1637,32 @@ a{color:var(--orange);text-decoration:none}
     <button class="btn btn-primary btn-full" onclick="addFornecedor()">Adicionar Fornecedor</button>
     <div style="margin-top:14px" id="forn-lista"></div>
   </div>
+
+  <!-- Modal editar compra de laranja -->
+  <div id="modal-edit-lar" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+    <div style="background:var(--white);border-radius:var(--radius);padding:20px;width:100%;max-width:400px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <strong>✏️ Editar Compra de Laranja</strong>
+        <button onclick="document.getElementById('modal-edit-lar').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <input type="hidden" id="edit-lar-id">
+      <div class="form-group">
+        <label>Fornecedor</label>
+        <select id="edit-lar-forn" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);background:var(--white)"></select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group" style="margin:0"><label>Qtd. Sacos Pagos</label><input type="number" id="edit-lar-qtd" min="1" placeholder="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text)" oninput="calcEditLar()"></div>
+        <div class="form-group" style="margin:0"><label>Bonificação</label><input type="number" id="edit-lar-bonif" min="0" placeholder="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);background:var(--green-bg)" oninput="calcEditLar()"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+        <div class="form-group" style="margin:0"><label>Preço/Saco (R$)</label><input type="number" id="edit-lar-preco" step="0.01" min="0" placeholder="0,00" inputmode="decimal" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text)" oninput="calcEditLar()"></div>
+        <div class="form-group" style="margin:0"><label>Total</label><input type="number" id="edit-lar-total" step="0.01" readonly style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);background:var(--bg2)"></div>
+      </div>
+      <div class="form-group" style="margin-top:10px"><label>Data</label><input type="date" id="edit-lar-data" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text)"></div>
+      <div class="form-group"><label>Observação</label><input type="text" id="edit-lar-obs" placeholder="Opcional" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text)"></div>
+      <button class="btn btn-primary btn-full" onclick="salvarEditarCompraLaranja()">Salvar alterações</button>
+    </div>
+  </div>
 </main>
 
 <!-- HISTÓRICO -->
@@ -3488,6 +3514,7 @@ function renderLaranjas(){
               <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
                 ${btnParcial}
                 ${btnPago}
+                <button onclick="abrirEditarCompraLaranja('${c.id}')" style="font-size:11px;color:var(--text2);background:var(--bg2);border:1px solid var(--border2);border-radius:3px;padding:2px 8px;cursor:pointer">✏️</button>
                 <button onclick="delCompraLaranja('${c.id}')" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 8px;font-size:11px;cursor:pointer">✕</button>
               </div>
             </div>
@@ -3628,6 +3655,57 @@ function delCompraLaranja(id){
   lsave('slj_compras_lar',comprasLaranja);
   sbDel('compras_laranja',`?id=eq.${id}`).catch(()=>{});
   toast('Compra removida.');
+  renderLaranjas();
+}
+
+function abrirEditarCompraLaranja(id){
+  const c=comprasLaranja.find(x=>x.id===id);
+  if(!c)return;
+  document.getElementById('edit-lar-id').value=id;
+  document.getElementById('edit-lar-qtd').value=c.qtd||'';
+  document.getElementById('edit-lar-bonif').value=c.bonif||0;
+  document.getElementById('edit-lar-preco').value=c.preco||'';
+  document.getElementById('edit-lar-total').value=c.total||'';
+  document.getElementById('edit-lar-data').value=c.data||'';
+  document.getElementById('edit-lar-obs').value=c.obs||'';
+  // Popular select de fornecedores
+  const sel=document.getElementById('edit-lar-forn');
+  sel.innerHTML=fornecedores.map(f=>`<option value="${f.id}" ${f.id===c.fornId?'selected':''}>${f.nome}</option>`).join('');
+  document.getElementById('modal-edit-lar').style.display='flex';
+}
+
+function calcEditLar(){
+  const qtd=parseFloat(document.getElementById('edit-lar-qtd')?.value)||0;
+  const preco=parseFloat(document.getElementById('edit-lar-preco')?.value)||0;
+  const total=qtd*preco;
+  const tEl=document.getElementById('edit-lar-total');
+  if(tEl)tEl.value=total.toFixed(2);
+}
+
+function salvarEditarCompraLaranja(){
+  const id=document.getElementById('edit-lar-id').value;
+  const c=comprasLaranja.find(x=>x.id===id);
+  if(!c)return;
+  const qtd=parseFloat(document.getElementById('edit-lar-qtd').value)||0;
+  const bonif=parseFloat(document.getElementById('edit-lar-bonif').value)||0;
+  const preco=parseFloat(document.getElementById('edit-lar-preco').value)||0;
+  const data=document.getElementById('edit-lar-data').value;
+  const obs=document.getElementById('edit-lar-obs').value.trim();
+  const fornId=document.getElementById('edit-lar-forn').value;
+  if(!qtd||!preco){toast('Preencha quantidade e preço.');return;}
+  c.qtd=qtd;
+  c.bonif=bonif;
+  c.qtdTotal=qtd+bonif;
+  c.preco=preco;
+  c.total=qtd*preco;
+  c.data=data;
+  c.obs=obs;
+  c.fornId=fornId;
+  lsave('slj_compras_lar',comprasLaranja);
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif,qtd_total:c.qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago,valor_pago:c.valorPago||0}])
+    .then(()=>toast('✓ Compra atualizada!'))
+    .catch(()=>toast('Erro ao salvar.'));
+  document.getElementById('modal-edit-lar').style.display='none';
   renderLaranjas();
 }
 
