@@ -2778,7 +2778,7 @@ async function sincronizar(){
         lsave('slj_compras_lar',comprasLaranja);
       } else if(comprasLaranja.length>0){
         // Migrar do localStorage para o banco
-        await sbUps('compras_laranja',comprasLaranja.map(c=>({id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif||0,qtd_total:c.qtdTotal||(c.qtd+(c.bonif||0)),preco:c.preco,total:c.total,data:c.data,obs:c.obs||''})));
+        await sbUps('compras_laranja',comprasLaranja.map(c=>({id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif||0,qtd_total:c.qtdTotal||(c.qtd+(c.bonif||0)),preco:c.preco,total:c.total,data:c.data,obs:(c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||c.qtd+c.bonif}] `:'')+( c.obs||'')})));
       }
     }catch(e){}
     setSyncStatus('ok','✓ Conectado — dados sincronizados');
@@ -3600,7 +3600,8 @@ function registrarCompraLaranja(){
   const compra={id:Date.now().toString(),fornId,qtd,bonif,qtdTotal,preco,total:qtd*preco,data,obs,pago:larPagamentoSel==='pago',valorPago:larPagamentoSel==='pago'?qtd*preco:0};
   comprasLaranja.unshift(compra);
   lsave('slj_compras_lar',comprasLaranja);
-  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd:compra.qtd,bonif:compra.bonif||0,qtd_total:compra.qtdTotal,preco,total:compra.total,data,obs,pago:compra.pago,valor_pago:compra.valorPago}])
+  const _obsEnc=compra.bonif>0?`[B:${compra.bonif}:${compra.qtdTotal}] ${obs}`:obs;
+  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd:compra.qtd,bonif:compra.bonif||0,qtd_total:compra.qtdTotal,preco,total:compra.total,data,obs:_obsEnc,pago:compra.pago,valor_pago:compra.valorPago}])
     .then(()=>setSyncStatus('ok','✓ Conectado'))
     .catch(()=>setSyncStatus('err','Erro ao sincronizar'));
   document.getElementById('lar-qtd').value='';
@@ -3622,7 +3623,8 @@ function togglePagoLaranja(id){
   if(c.pago) c.valorPago=c.total; // pago total
   else c.valorPago=0;
   lsave('slj_compras_lar',comprasLaranja);
-  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif||0,qtd_total:c.qtdTotal||(c.qtd+(c.bonif||0)),preco:c.preco,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago,valor_pago:c.valorPago}])
+  const _obsTp=c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||(c.qtd+c.bonif)}] ${c.obs||''}`:c.obs||'';
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif||0,qtd_total:c.qtdTotal||(c.qtd+(c.bonif||0)),preco:c.preco,total:c.total,data:c.data,obs:_obsTp,pago:c.pago,valor_pago:c.valorPago}])
     .then(()=>toast(c.pago?'✓ Marcado como pago':'Desmarcado.'))
     .catch(()=>toast('Erro ao salvar.'));
   renderLaranjas();
@@ -3650,7 +3652,8 @@ function abrirPagamentoParcialLaranja(id){
     c.pago=true;
   }
   lsave('slj_compras_lar',comprasLaranja);
-  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif||0,qtd_total:c.qtdTotal||(c.qtd+(c.bonif||0)),preco:c.preco,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago,valor_pago:c.valorPago}])
+  const _obsPar=c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||(c.qtd+c.bonif)}] ${c.obs||''}`:c.obs||'';
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif||0,qtd_total:c.qtdTotal||(c.qtd+(c.bonif||0)),preco:c.preco,total:c.total,data:c.data,obs:_obsPar,pago:c.pago,valor_pago:c.valorPago}])
     .then(()=>toast('✓ Pagamento de '+moeda(valorNovo)+' registrado.'))
     .catch(()=>toast('Erro ao salvar.'));
   renderLaranjas();
@@ -3709,7 +3712,8 @@ function salvarEditarCompraLaranja(){
   c.obs=obs;
   c.fornId=fornId;
   lsave('slj_compras_lar',comprasLaranja);
-  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif,qtd_total:c.qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:c.obs||'',pago:c.pago,valor_pago:c.valorPago||0}])
+  const _obsEdit=c.bonif>0?`[B:${c.bonif}:${c.qtdTotal}] ${c.obs||''}`:c.obs||'';
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif,qtd_total:c.qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:_obsEdit,pago:c.pago,valor_pago:c.valorPago||0}])
     .then(()=>toast('✓ Compra atualizada!'))
     .catch(()=>toast('Erro ao salvar.'));
   document.getElementById('modal-edit-lar').style.display='none';
