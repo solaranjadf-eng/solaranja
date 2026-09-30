@@ -9694,37 +9694,45 @@ async function gerarBoletoBB(){
   document.getElementById('boleto-bb-erro').style.display='none';
   modal.style.display='flex';
 
-  // Tenta gerar boleto, se "Nosso Número já incluído" incrementa e tenta de novo (até 5x)
-  let tentativas=0;
-  while(tentativas<5){
-    tentativas++;
-    try{
-      const payload={
-        valor: parseFloat(totalAberto.toFixed(2)),
-        vencimento: vencStr,
-        nossoNumero: nossoNum,
-        numeroTitulo: String(nossoNum),
-        nomePagador: cli.nome,
-        cnpjPagador: (cli.cnpj||'').replace(/\D/g,''),
-        tipoPagador: (cli.cnpj||'').replace(/\D/g,'').length===14?2:1,
-        enderecoPagador: cli.endereco||cli.enderecoCompleto||'',
-        cepPagador: (cli.cep||'').replace(/\D/g,''),
-        cidadePagador: cli.cidade||'Brasilia',
-        bairroPagador: cli.bairro||'',
-        ufPagador: cli.uf||'DF',
-        observacaoDatas: pedsSel.sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
-          const [aa,mm,dd]=p.data.split('-');return dd+'/'+mm;
-        }).join(', '),
-      };
-      const resp=await fetch('https://solaranja-bb.solaranjadf.workers.dev/boleto',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(payload)
-      });
-      const data=await resp.json();
+  // Função que faz uma tentativa com um nossoNum específico
+  async function _enviarBoleto(num){
+    const payload={
+      valor: parseFloat(totalAberto.toFixed(2)),
+      vencimento: vencStr,
+      nossoNumero: num,
+      numeroTitulo: String(num),
+      nomePagador: cli.nome,
+      cnpjPagador: (cli.cnpj||'').replace(/\D/g,''),
+      tipoPagador: (cli.cnpj||'').replace(/\D/g,'').length===14?2:1,
+      enderecoPagador: cli.endereco||cli.enderecoCompleto||'',
+      cepPagador: (cli.cep||'').replace(/\D/g,''),
+      cidadePagador: cli.cidade||'Brasilia',
+      bairroPagador: cli.bairro||'',
+      ufPagador: cli.uf||'DF',
+      observacaoDatas: pedsSel.sort((a,b)=>a.data.localeCompare(b.data)).map(p=>{
+        const [aa,mm,dd]=p.data.split('-');return dd+'/'+mm;
+      }).join(', '),
+    };
+    const resp=await fetch('https://solaranja-bb.solaranjadf.workers.dev/boleto',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+    });
+    return await resp.json();
+  }
 
+  function _mostrarErroBoleto(msg){
+    document.getElementById('boleto-bb-status').style.display='none';
+    document.getElementById('boleto-bb-erro').style.display='block';
+    document.getElementById('boleto-bb-erro-msg').textContent=msg;
+  }
+
+  // Tenta até 10 vezes incrementando nossoNum se vier "já incluído"
+  try{
+    let data=null;
+    for(let i=0;i<10;i++){
+      document.getElementById('boleto-bb-status').textContent='⏳ Gerando boleto... (tentativa '+(i+1)+')';
+      data=await _enviarBoleto(nossoNum);
       if(data.numero||data.linhaDigitavel||data.codigoBarraNumerico){
-        // Sucesso — salva o nossoNum usado
+        // Sucesso
         localStorage.setItem('slj_bb_nosso_num',String(nossoNum));
         document.getElementById('boleto-bb-status').style.display='none';
         document.getElementById('boleto-bb-resultado').style.display='block';
@@ -9734,40 +9742,29 @@ async function gerarBoletoBB(){
         document.getElementById('boleto-bb-linha').textContent=data.linhaDigitavel||data.codigoBarraNumerico||'—';
         window._boletoLinhaDigitavel=data.linhaDigitavel||data.codigoBarraNumerico||'';
         const linkEl=document.getElementById('boleto-bb-link');
-        if(data.urlImagemBoleto){linkEl.href=data.urlImagemBoleto;linkEl.style.display='flex';}
-        else{linkEl.style.display='none';}
+        if(data.urlImagemBoleto){linkEl.href=data.urlImagemBoleto;linkEl.style.display='flex';}else{linkEl.style.display='none';}
         const pixEl=document.getElementById('boleto-bb-pix');
-        if(data.qrCode&&data.qrCode.url){pixEl.href=data.qrCode.url;pixEl.style.display='flex';}
-        else{pixEl.style.display='none';}
+        if(data.qrCode&&data.qrCode.url){pixEl.href=data.qrCode.url;pixEl.style.display='flex';}else{pixEl.style.display='none';}
         toast('✅ Boleto gerado! Nosso nº '+nossoNum);
-        return; // saiu com sucesso
+        return;
       }
-
-      // Verificar se o erro é "Nosso Número já incluído"
+      // Verificar se é erro de número duplicado
       const erroMsg=data.erros?data.erros.map(e=>e.mensagem||JSON.stringify(e)).join(' '):JSON.stringify(data);
       const ehDuplicado=/nosso/i.test(erroMsg)&&/(inclu|duplica|anterior|registr|cadastr)/i.test(erroMsg);
-
-      if(ehDuplicado&&tentativas<5){
-        // Incrementa e tenta de novo silenciosamente
-        nossoNum++;
-        localStorage.setItem('slj_bb_nosso_num',String(nossoNum));
-        continue;
+      if(!ehDuplicado){
+        _mostrarErroBoleto(erroMsg);
+        localStorage.setItem('slj_bb_nosso_num',String(nossoNum-1));
+        return;
       }
-
-      // Outro erro — exibir mensagem
-      document.getElementById('boleto-bb-status').style.display='none';
-      document.getElementById('boleto-bb-erro').style.display='block';
-      document.getElementById('boleto-bb-erro-msg').textContent=erroMsg;
-      localStorage.setItem('slj_bb_nosso_num',String(nossoNum-1));
-      return;
-
-    }catch(e){
-      document.getElementById('boleto-bb-status').style.display='none';
-      document.getElementById('boleto-bb-erro').style.display='block';
-      document.getElementById('boleto-bb-erro-msg').textContent=e.message||String(e);
-      localStorage.setItem('slj_bb_nosso_num',String(nossoNum-1));
-      return;
+      // É duplicado — incrementa e tenta de novo
+      nossoNum++;
+      localStorage.setItem('slj_bb_nosso_num',String(nossoNum));
     }
+    // Esgotou tentativas
+    _mostrarErroBoleto('Não foi possível gerar após 10 tentativas. Verifique o número sequencial.');
+  }catch(e){
+    _mostrarErroBoleto(e.message||String(e));
+    localStorage.setItem('slj_bb_nosso_num',String(nossoNum-1));
   }
 }
 
