@@ -2802,7 +2802,7 @@ async function sincronizar(){
         lsave('slj_compras_lar',comprasLaranja);
       } else if(comprasLaranja.length>0){
         // Migrar do localStorage para o banco
-        await sbUps('compras_laranja',comprasLaranja.map(c=>({id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif||0,qtd_total:c.qtdTotal||(c.qtd+(c.bonif||0)),preco:c.preco,total:c.total,data:c.data,obs:(c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||c.qtd+c.bonif}] `:'')+( c.obs||'')})));
+        await sbUps('compras_laranja',comprasLaranja.map(c=>({id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:(c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||c.qtd+c.bonif}] `:'')+( c.obs||''),pago:c.pago||false,valor_pago:c.valorPago||0})));
       }
     }catch(e){}
     setSyncStatus('ok','✓ Conectado — dados sincronizados');
@@ -3503,7 +3503,7 @@ function _corrigirBonifSilencioso(){
     // Persiste no banco com obs codificado
     comprasLaranja.filter(c=>c.bonif>0).forEach(c=>{
       const obsEnc=`[B:${c.bonif}:${c.qtdTotal}] ${c.obs||''}`.trim();
-      sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif,qtd_total:c.qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:obsEnc,pago:c.pago,valor_pago:c.valorPago||0}]).catch(()=>{});
+      sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:obsEnc,pago:c.pago,valor_pago:c.valorPago||0}]).catch(()=>{});
     });
   }
 }
@@ -3524,7 +3524,7 @@ async function corrigirBonifHistorico(){
     c.qtdTotal=f.qtd+f.bonif;
     c.total=f.qtd*c.preco;
     const obsEnc=`[B:${f.bonif}:${c.qtdTotal}] ${c.obs||''}`.trim();
-    await sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif,qtd_total:c.qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:obsEnc,pago:c.pago,valor_pago:c.valorPago||0}]);
+    await sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:obsEnc,pago:c.pago,valor_pago:c.valorPago||0}]);
     corrigidos++;
   }
   lsave('slj_compras_lar',comprasLaranja);
@@ -3685,7 +3685,7 @@ function registrarCompraLaranja(){
   comprasLaranja.unshift(compra);
   lsave('slj_compras_lar',comprasLaranja);
   const _obsEnc=compra.bonif>0?`[B:${compra.bonif}:${compra.qtdTotal}] ${obs}`:obs;
-  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd:compra.qtd,bonif:compra.bonif||0,qtd_total:compra.qtdTotal,preco,total:compra.total,data,obs:_obsEnc,pago:compra.pago,valor_pago:compra.valorPago}])
+  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd:compra.qtd,preco,total:compra.total,data,obs:_obsEnc,pago:compra.pago,valor_pago:compra.valorPago}])
     .then(()=>setSyncStatus('ok','✓ Conectado'))
     .catch(e=>{setSyncStatus('err','Erro ao sincronizar');console.error('Erro sbUps compras_laranja:',e);toast('⚠ Salvo local, erro no banco: '+(e.message||'').substring(0,80));});
   document.getElementById('lar-qtd').value='';
@@ -3708,7 +3708,7 @@ function togglePagoLaranja(id){
   else c.valorPago=0;
   lsave('slj_compras_lar',comprasLaranja);
   const _obsTp=c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||(c.qtd+c.bonif)}] ${c.obs||''}`:c.obs||'';
-  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif||0,qtd_total:c.qtdTotal||(c.qtd+(c.bonif||0)),preco:c.preco,total:c.total,data:c.data,obs:_obsTp,pago:c.pago,valor_pago:c.valorPago}])
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:_obsTp,pago:c.pago,valor_pago:c.valorPago}])
     .then(()=>toast(c.pago?'✓ Marcado como pago':'Desmarcado.'))
     .catch(e=>{toast('⚠ Salvo local, erro no banco: '+(e.message||'').substring(0,80));console.error('Erro sbUps pago laranja:',e);});
   renderLaranjas();
@@ -3737,7 +3737,7 @@ function abrirPagamentoParcialLaranja(id){
   }
   lsave('slj_compras_lar',comprasLaranja);
   const _obsPar=c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||(c.qtd+c.bonif)}] ${c.obs||''}`:c.obs||'';
-  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif||0,qtd_total:c.qtdTotal||(c.qtd+(c.bonif||0)),preco:c.preco,total:c.total,data:c.data,obs:_obsPar,pago:c.pago,valor_pago:c.valorPago}])
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:_obsPar,pago:c.pago,valor_pago:c.valorPago}])
     .then(()=>toast('✓ Pagamento de '+moeda(valorNovo)+' registrado.'))
     .catch(()=>toast('Erro ao salvar.'));
   renderLaranjas();
@@ -3797,7 +3797,7 @@ function salvarEditarCompraLaranja(){
   c.fornId=fornId;
   lsave('slj_compras_lar',comprasLaranja);
   const _obsEdit=c.bonif>0?`[B:${c.bonif}:${c.qtdTotal}] ${c.obs||''}`:c.obs||'';
-  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif,qtd_total:c.qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:_obsEdit,pago:c.pago,valor_pago:c.valorPago||0}])
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:_obsEdit,pago:c.pago,valor_pago:c.valorPago||0}])
     .then(()=>toast('✓ Compra atualizada!'))
     .catch(()=>toast('Erro ao salvar.'));
   document.getElementById('modal-edit-lar').style.display='none';
