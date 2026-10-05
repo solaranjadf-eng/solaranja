@@ -2419,7 +2419,7 @@ const sbGet=(t,q)=>sb('GET',t,null,q);
 const sbPost=(t,b)=>sb('POST',t,b);
 const sbPatch=(t,q,b)=>sb('PATCH',t,b,q);
 const sbDel=(t,q)=>sb('DELETE',t,null,q);
-const sbUps=(t,b)=>fetch(`${SB_URL}/${t}`,{method:'POST',headers:{...HDR,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(b)}).then(r=>r.json());
+const sbUps=async(t,b)=>{const r=await fetch(`${SB_URL}/${t}`,{method:'POST',headers:{...HDR,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(b)});if(!r.ok){const e=await r.text();throw new Error(e);}const tx=await r.text();return tx?JSON.parse(tx):null;};
 
 // ── CONSTANTES ─────────────────────────────────────────────────────────────
 const TAMS=['copo200ml','200ml','300ml','500ml','1L','5L'];
@@ -3687,7 +3687,7 @@ function registrarCompraLaranja(){
   const _obsEnc=compra.bonif>0?`[B:${compra.bonif}:${compra.qtdTotal}] ${obs}`:obs;
   sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd:compra.qtd,bonif:compra.bonif||0,qtd_total:compra.qtdTotal,preco,total:compra.total,data,obs:_obsEnc,pago:compra.pago,valor_pago:compra.valorPago}])
     .then(()=>setSyncStatus('ok','✓ Conectado'))
-    .catch(()=>setSyncStatus('err','Erro ao sincronizar'));
+    .catch(e=>{setSyncStatus('err','Erro ao sincronizar');console.error('Erro sbUps compras_laranja:',e);toast('⚠ Salvo local, erro no banco: '+(e.message||'').substring(0,80));});
   document.getElementById('lar-qtd').value='';
   document.getElementById('lar-bonificacao').value='';
   document.getElementById('lar-preço').value='';
@@ -3710,7 +3710,7 @@ function togglePagoLaranja(id){
   const _obsTp=c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||(c.qtd+c.bonif)}] ${c.obs||''}`:c.obs||'';
   sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,bonif:c.bonif||0,qtd_total:c.qtdTotal||(c.qtd+(c.bonif||0)),preco:c.preco,total:c.total,data:c.data,obs:_obsTp,pago:c.pago,valor_pago:c.valorPago}])
     .then(()=>toast(c.pago?'✓ Marcado como pago':'Desmarcado.'))
-    .catch(()=>toast('Erro ao salvar.'));
+    .catch(e=>{toast('⚠ Salvo local, erro no banco: '+(e.message||'').substring(0,80));console.error('Erro sbUps pago laranja:',e);});
   renderLaranjas();
 }
 
