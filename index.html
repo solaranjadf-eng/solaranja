@@ -1529,9 +1529,28 @@ a{color:var(--orange);text-decoration:none}
       <div class="stat-sub" id="lar-sacos-mes-sub"></div>
     </div>
     <div class="stat-card orange">
-      <div class="stat-label">Gasto total — mês</div>
+      <div class="stat-label">Custo total — mês</div>
       <div class="stat-val" id="lar-gasto-mes">R$ 0</div>
       <div class="stat-sub" id="lar-gasto-mes-sub"></div>
+    </div>
+  </div>
+  <div class="stats-row" style="margin-bottom:8px">
+    <div class="stat-card" style="background:var(--green-bg);border:1px solid var(--green-b)">
+      <div class="stat-label" style="color:var(--green)">Sacos pagos — mês</div>
+      <div class="stat-val" id="lar-sacos-pagos" style="color:var(--green)">0</div>
+      <div class="stat-sub" id="lar-sacos-pagos-sub" style="color:var(--green)"></div>
+    </div>
+    <div class="stat-card" style="background:#F0FDF4;border:1px solid #86EFAC">
+      <div class="stat-label" style="color:#15803D">Sacos bonificados — mês</div>
+      <div class="stat-val" id="lar-sacos-bonif" style="color:#15803D">0</div>
+      <div class="stat-sub" id="lar-sacos-bonif-sub" style="color:#15803D"></div>
+    </div>
+  </div>
+  <div class="stats-row" style="margin-bottom:14px">
+    <div class="stat-card" style="background:#ECFDF5;border:1px solid #6EE7B7">
+      <div class="stat-label" style="color:#065F46">💰 Economizado c/ bonif.</div>
+      <div class="stat-val" id="lar-economizado" style="color:#065F46">R$ 0</div>
+      <div class="stat-sub" id="lar-economizado-sub" style="color:#065F46"></div>
     </div>
   </div>
   <div class="stats-row" style="margin-bottom:14px">
@@ -3580,10 +3599,17 @@ function renderLaranjas(){
   const gastoMes=doFiltro.reduce((s,c)=>s+(c.total||0),0);
   const preçoMed=sacosPagos>0?gastoMes/sacosPagos:0;
   const sm=document.getElementById('lar-sacos-mes');
-  if(sm) sm.innerHTML=sacosTotal+'<div style="font-size:10px;color:var(--text3);margin-top:2px">'+sacosPagos+' pagos'+(sacosBonif>0?' + <span style="color:var(--green)">'+sacosBonif+' bonif.</span>':'')+'</div>';
+  if(sm) sm.textContent=sacosTotal;
   const gm=document.getElementById('lar-gasto-mes');if(gm)gm.textContent=moeda(gastoMes);
   const pm=document.getElementById('lar-preço-med');if(pm)pm.textContent=moeda(preçoMed);
   const km=document.getElementById('lar-kg-mes');if(km)km.textContent=(sacosTotal*20)+' kg';
+  const sp=document.getElementById('lar-sacos-pagos');if(sp)sp.textContent=sacosPagos;
+  const spSub=document.getElementById('lar-sacos-pagos-sub');if(spSub)spSub.textContent=sacosPagos>0?moeda(gastoMes):'';
+  const sb=document.getElementById('lar-sacos-bonif');if(sb)sb.textContent=sacosBonif;
+  const sbSub=document.getElementById('lar-sacos-bonif-sub');if(sbSub)sbSub.textContent=sacosBonif>0?(sacosBonif*100/Math.max(sacosPagos,1)).toFixed(0)+'% dos pagos':'';
+  const economizado=doFiltro.reduce((s,c)=>s+((c.bonif||0)*(c.preco||0)),0);
+  const eco=document.getElementById('lar-economizado');if(eco)eco.textContent=moeda(economizado);
+  const ecoSub=document.getElementById('lar-economizado-sub');if(ecoSub)ecoSub.textContent=sacosBonif>0?sacosBonif+' saco(s) bonificado(s)':'Nenhuma bonificação no período';
   let lista=doFiltro;
   lista=[...lista].sort((a,b)=>b.data.localeCompare(a.data));
   const el=document.getElementById('lar-lista');
