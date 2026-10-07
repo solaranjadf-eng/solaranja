@@ -1213,6 +1213,7 @@ a{color:var(--orange);text-decoration:none}
 
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
     <button class="btn btn-outline" onclick="abrirDatasManuais()" style="height:32px;font-size:12px">📅 Definir datas de cobrança do mês</button>
+    <button class="btn btn-outline" onclick="importarDevedoresCobranca()" style="height:32px;font-size:12px;color:var(--red);border-color:var(--red-b)">📥 Importar clientes com débito</button>
     <span style="font-size:11px;color:var(--text3)" id="cob-datas-info"></span>
   </div>
 
@@ -5835,6 +5836,38 @@ function mudarMesCobranca(delta){
   renderCobrancas();
 }
 
+async function importarDevedoresCobranca(){
+  toast('🔄 Consultando banco...');
+  let dbDebitos=null;
+  try{
+    dbDebitos=await sbGet('pedidos','?entregue=eq.true&pago=eq.false&select=cliente_id,cliente_nome&limit=2000');
+  }catch(e){}
+  if(!dbDebitos){
+    const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()]
+      .filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+    dbDebitos=todos.filter(p=>p.entregue&&!p.pago).map(p=>({cliente_id:p.clienteId,cliente_nome:p.clienteNome}));
+  }
+  if(!dbDebitos.length){toast('Nenhum cliente com débito em aberto.');return;}
+  const devedoresMap={};
+  dbDebitos.forEach(p=>{if(!devedoresMap[p.cliente_id])devedoresMap[p.cliente_id]=p.cliente_nome;});
+  let adicionados=0;
+  Object.entries(devedoresMap).forEach(([clienteId,clienteNome])=>{
+    const cliente=clientes.find(c=>String(c.id)===String(clienteId));
+    const nome=(cliente&&(cliente.apelido||cliente.nome))||clienteNome||'—';
+    if(cobrancas.find(c=>c.nome===nome||String(c.clienteId)===String(clienteId)))return;
+    const cob={id:Date.now().toString()+Math.random().toString(36).slice(2),nome,email:'',diasVencimento:[],diaVencimento:null,clienteId:String(clienteId),ativo:true};
+    cobrancas.push(cob);
+    sbUps('cobrancas',[{id:cob.id,nome:cob.nome,email:cob.email,ativo:true}]).catch(()=>{});
+    adicionados++;
+  });
+  if(adicionados>0){
+    lsave('slj_cobrancas',cobrancas);
+    toast('✓ '+adicionados+' cliente(s) importado(s) para cobranças.');
+    renderCobrancas();
+  }else{
+    toast('Todos os devedores já estão na lista de cobranças.');
+  }
+}
 function addClienteCobranca(){
   const nome=document.getElementById('cob-novo-nome')?.value.trim();
   const email=document.getElementById('cob-novo-email')?.value.trim();
