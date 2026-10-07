@@ -6000,21 +6000,32 @@ function toggleAcompCobrado(acompId,semana){
   renderAcompanhamento();
 }
 
-function importarDevedores(){
-  // Buscar todos os pedidos entregues e não pagos
-  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()]
-    .filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
-  const devedores=new Set(
-    todos.filter(p=>p.entregue&&!p.pago).map(p=>p.clienteId)
-  );
-  if(!devedores.size){toast('Nenhum cliente com débito em aberto.');return;}
+async function importarDevedores(){
+  toast('🔄 Consultando banco...');
+  let dbDebitos=null;
+  try{
+    dbDebitos=await sbGet('pedidos','?entregue=eq.true&pago=eq.false&select=cliente_id,cliente_nome&limit=500');
+  }catch(e){}
+
+  // fallback para dados locais se banco falhar
+  if(!dbDebitos){
+    const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()]
+      .filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+    dbDebitos=todos.filter(p=>p.entregue&&!p.pago).map(p=>({cliente_id:p.clienteId,cliente_nome:p.clienteNome}));
+  }
+
+  if(!dbDebitos.length){toast('Nenhum cliente com débito em aberto.');return;}
+
+  // unificar por cliente_id
+  const devedoresMap={};
+  dbDebitos.forEach(p=>{
+    if(!devedoresMap[p.cliente_id]) devedoresMap[p.cliente_id]=p.cliente_nome;
+  });
 
   let adicionados=0;
-  devedores.forEach(clienteId=>{
+  Object.entries(devedoresMap).forEach(([clienteId,clienteNome])=>{
     const cliente=clientes.find(c=>String(c.id)===String(clienteId));
-    if(!cliente)return;
-    const nome=cliente.apelido||cliente.nome;
-    // Verificar por clienteId OU por nome para evitar duplicatas
+    const nome=(cliente&&(cliente.apelido||cliente.nome))||clienteNome||'—';
     if(acompanhamentos.find(a=>String(a.clienteId)===String(clienteId)||a.nome===nome)) return;
     const novo={id:Date.now().toString()+Math.random().toString(36).slice(2),clienteId:String(clienteId),nome,ativo:true};
     acompanhamentos.push(novo);
@@ -6810,22 +6821,59 @@ function renderFinanceiro(){
   if(secLabel) secLabel.textContent=periodoLabel;
 
   if(filtroFin==='debito-total'){
-    const emDebito=lista.filter(p=>p.entregue&&!p.pago);
     const el=document.getElementById('fin-list');
-    if(!emDebito.length){
-      el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum débito em aberto no período selecionado.</p></div>';
-      return;
-    }
-    const porData={};
-    emDebito.forEach(p=>{if(!porData[p.data])porData[p.data]=[];porData[p.data].push(p);});
-    const datasOrd=Object.keys(porData).sort((a,b)=>b.localeCompare(a));
-    el.innerHTML=datasOrd.map(dk=>{
-      const dFmt=new Date(dk+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
-      const tval=porData[dk].reduce((s,p)=>s+p.total,0);
-      return`<div style="margin-bottom:14px">
-        <div class="sec-label" style="margin-bottom:6px">${dFmt} · ${moeda(tval)} a receber</div>
-        ${porData[dk].map(p=>renderFinItem(p,dk)).join('')}
-      </div>`;}).join('');
+    el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">🔄 Consultando banco...</div>';
+    sbGet('pedidos','?entregue=eq.true&pago=eq.false&select=id,cliente_id,cliente_nome,cnpj,data,hora,total,itens&order=data.desc&limit=500').then(dbDebitos=>{
+      if(!dbDebitos||!dbDebitos.length){
+        el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum débito em aberto.</p></div>';
+        return;
+      }
+      // normalizar campos para o padrão local
+      const emDebito=dbDebitos.map(p=>({
+        id:p.id,
+        clienteId:p.cliente_id,
+        clienteNome:p.cliente_nome,
+        cnpj:p.cnpj,
+        data:p.data,
+        hora:p.hora,
+        total:p.total,
+        itens:typeof p.itens==='string'?JSON.parse(p.itens):p.itens||[],
+        entregue:true,
+        pago:false
+      }));
+      const porCliente={};
+      emDebito.forEach(p=>{
+        if(!porCliente[p.clienteId])porCliente[p.clienteId]={nome:p.clienteNome,total:0,pedidos:[]};
+        porCliente[p.clienteId].total+=p.total;
+        porCliente[p.clienteId].pedidos.push(p);
+      });
+      const clientesOrd=Object.values(porCliente).sort((a,b)=>b.total-a.total);
+      const totalGeral=emDebito.reduce((s,p)=>s+p.total,0);
+      el.innerHTML=`<div style="background:var(--red-bg);border:1px solid var(--red-b);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:12px;font-weight:700;color:var(--red)">${emDebito.length} pedido(s) em aberto · ${clientesOrd.length} cliente(s)</div>
+        <div style="font-size:16px;font-weight:800;color:var(--red)">${moeda(totalGeral)}</div>
+      </div>`+clientesOrd.map(c=>`<div class="card" style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:14px;font-weight:700">${c.nome}</div>
+          <div style="font-size:15px;font-weight:800;color:var(--red)">${moeda(c.total)}</div>
+        </div>
+        ${c.pedidos.map(p=>`<div style="border-top:1px solid var(--border);padding-top:6px;margin-top:6px">
+          ${renderFinItem(p,p.data)}
+        </div>`).join('')}
+      </div>`).join('');
+    }).catch(()=>{
+      // fallback para dados locais se banco falhar
+      const emDebito=todosGeral.filter(p=>p.entregue&&!p.pago);
+      if(!emDebito.length){el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum débito em aberto.</p></div>';return;}
+      const porData={};
+      emDebito.forEach(p=>{if(!porData[p.data])porData[p.data]=[];porData[p.data].push(p);});
+      const datasOrd=Object.keys(porData).sort((a,b)=>b.localeCompare(a));
+      el.innerHTML=datasOrd.map(dk=>{
+        const dFmt=new Date(dk+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
+        const tval=porData[dk].reduce((s,p)=>s+p.total,0);
+        return`<div style="margin-bottom:14px"><div class="sec-label" style="margin-bottom:6px">${dFmt} · ${moeda(tval)} a receber</div>${porData[dk].map(p=>renderFinItem(p,dk)).join('')}</div>`;
+      }).join('');
+    });
     return;
   }
 
