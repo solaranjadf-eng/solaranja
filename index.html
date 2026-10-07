@@ -6005,14 +6005,16 @@ async function importarDevedores(){
   let dbDebitos=null;
   try{
     dbDebitos=await sbGet('pedidos','?entregue=eq.true&pago=eq.false&select=cliente_id,cliente_nome&limit=2000');
-    // diagnóstico: buscar pedidos da Silvia/Centro Anglicana para debug
-    const todosSilvia=await sbGet('pedidos','?cliente_nome=ilike.*Silvia*&select=id,cliente_nome,entregue,pago,data&limit=20').catch(()=>[]);
-    if(todosSilvia&&todosSilvia.length){
-      const abertos=todosSilvia.filter(p=>p.entregue&&!p.pago);
-      console.log('[DEBUG Silvia] pedidos no banco:',todosSilvia);
-      console.log('[DEBUG Silvia] entregue+nao pago:',abertos);
-      if(!abertos.length) toast('⚠ Silvia encontrada no banco mas entregue='+todosSilvia[0].entregue+' pago='+todosSilvia[0].pago);
-    }
+    // diagnóstico: buscar pedidos da Silvia
+    try{
+      const todosSilvia=await sbGet('pedidos','?cliente_nome=ilike.*Silvia*&select=id,cliente_nome,entregue,pago,data&limit=10');
+      if(todosSilvia&&todosSilvia.length){
+        const p=todosSilvia[0];
+        toast('Silvia no banco: entregue='+p.entregue+' pago='+p.pago+' ('+todosSilvia.length+' ped.)');
+      } else {
+        toast('Silvia NÃO encontrada no banco pelo nome');
+      }
+    }catch(ex){toast('Erro busca Silvia: '+ex.message);}
   }catch(e){console.error('importarDevedores erro:',e);}
 
   // fallback para dados locais se banco falhar
