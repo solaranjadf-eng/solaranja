@@ -3297,10 +3297,18 @@ function renderDash(){
 
     // Conta unidades por sabor (pedidos normais, sem troca)
     const unSabor={};
+    const unSaborTam={}; // {sabor: {tam: qtd}}
     const trocaSabor={};
     lista.forEach(p=>{
       const dest=p.troca?trocaSabor:unSabor;
-      p.itens.forEach(it=>{const s=it.sabor||'laranja';dest[s]=(dest[s]||0)+it.qtd;});
+      p.itens.forEach(it=>{
+        const s=it.sabor||'laranja';
+        dest[s]=(dest[s]||0)+it.qtd;
+        if(!p.troca){
+          if(!unSaborTam[s])unSaborTam[s]={};
+          unSaborTam[s][it.tam]=(unSaborTam[s][it.tam]||0)+it.qtd;
+        }
+      });
       (p.itensTroca||[]).forEach(it=>{const s=it.sabor||'laranja';trocaSabor[s]=(trocaSabor[s]||0)+it.qtd;});
     });
 
@@ -3350,13 +3358,20 @@ function renderDash(){
       el('dash-sabor-legenda').innerHTML=saboresAtivos.length
         ?saboresAtivos.map(s=>{
           const pct=totalUn>0?((unSabor[s]/totalUn)*100).toFixed(0):0;
-          return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
-            <div style="width:10px;height:10px;border-radius:50%;background:${CORES_SABOR[s]||'#888'};flex-shrink:0"></div>
-            <div style="flex:1;font-size:12px;font-weight:600;color:var(--text)">${SL[s]}</div>
-            <div style="text-align:right;flex-shrink:0">
-              <div style="font-size:13px;font-weight:700;color:var(--text)">${unSabor[s]} un</div>
-              <div style="font-size:10px;color:var(--text3)">${pct}% do total</div>
+          const tams=TAMS.filter(t=>(unSaborTam[s]||{})[t]>0);
+          const tamsHtml=tams.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">`+
+            tams.map(t=>`<span style="font-size:10px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:1px 6px;color:var(--text2)">${TL[t]}: <strong>${unSaborTam[s][t]}</strong></span>`).join('')+
+            `</div>`:'';
+          return`<div style="padding:7px 0;border-bottom:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:10px;height:10px;border-radius:50%;background:${CORES_SABOR[s]||'#888'};flex-shrink:0"></div>
+              <div style="flex:1;font-size:12px;font-weight:600;color:var(--text)">${SL[s]}</div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:13px;font-weight:700;color:var(--text)">${unSabor[s]} un</div>
+                <div style="font-size:10px;color:var(--text3)">${pct}% do total</div>
+              </div>
             </div>
+            ${tamsHtml}
           </div>`;
         }).join('')
         :'<div style="font-size:13px;color:var(--text3)">Sem vendas no período</div>';
