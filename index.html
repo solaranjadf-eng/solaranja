@@ -902,6 +902,15 @@ a{color:var(--orange);text-decoration:none}
         <p class="sec-label" style="margin-bottom:7px;color:var(--orange-deeper)">Resumo do pedido</p>
         <div id="resumo-rows"></div>
         <div class="rp-row total"><span>Total a pagar</span><span id="resumo-total-val">R$ 0,00</span></div>
+        <div id="parceria-wrap" style="margin-top:10px;background:#EFF6FF;border:1px solid #93C5FD;border-radius:10px;padding:10px 12px;cursor:pointer" onclick="document.getElementById('novo-parceria').click()">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="novo-parceria" style="width:18px;height:18px;cursor:pointer;accent-color:#2563EB" onclick="event.stopPropagation()">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#1D4ED8">🤝 É uma entrega em parceria</div>
+              <div style="font-size:11px;color:var(--text3)">Suco dado de graça — não conta como venda, aparece separado no painel</div>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="action-row">
         <button class="btn btn-outline" onclick="limpar()" style="flex:1">Limpar</button>
@@ -4299,7 +4308,7 @@ function atualizarResumo(){
   if(sel.minimo>0&&tval<sel.minimo){av.style.display='block';av.textContent=`Mínimo: ${moeda(sel.minimo)}. Pedido atual: ${moeda(tval)}.`;}
   else av.style.display='none';
 }
-function limpar(){qtds={};qtdsTroca={};saborAtualPedido='laranja';document.getElementById('obs').value='';renderGarrafas();atualizarResumo();}
+function limpar(){qtds={};qtdsTroca={};saborAtualPedido='laranja';document.getElementById('obs').value='';const cp=document.getElementById('novo-parceria');if(cp)cp.checked=false;renderGarrafas();atualizarResumo();}
 let _confirmando=false; // proteção contra duplo clique
 let _ultimoPedidoHash=''; // proteção extra contra duplicatas
 
@@ -4307,11 +4316,12 @@ async function confirmar(){
   if(_confirmando){toast('Aguarde, salvando...');return;}
   if(!sel){toast('Selecione um cliente.');return;}
   if(sel.bloqueado){toast('🔒 Cliente bloqueado. Quite a dívida antes de lançar pedido.');return;}
+  const ehParceria=!!(document.getElementById('novo-parceria')&&document.getElementById('novo-parceria').checked);
   const itens=Object.keys(qtds).filter(key=>qtds[key]>0).map(key=>{
     const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
-    const p=sel.precos[key]||(s==='laranja'?sel.precos[t]:0);
+    const p=ehParceria?0:(sel.precos[key]||(s==='laranja'?sel.precos[t]:0));
     return {tam:t,sabor:s,qtd:qtds[key],preço:p};
-  }).filter(it=>it.preço>0);
+  }).filter(it=>it.qtd>0);
   if(!itens.length){toast('Adicione ao menos um item.');return;}
 
   // Verificar se já existe pedido para este cliente na mesma data de entrega
@@ -4351,12 +4361,12 @@ async function confirmar(){
     return {tam:t,sabor:s,qtd:qtdsTroca[key],preço:p};
   }).filter(it=>it.preço>0);
   const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  const total=itens.reduce((s,i)=>s+i.preço*i.qtd,0);
+  const total=ehParceria?0:itens.reduce((s,i)=>s+i.preço*i.qtd,0);
   setSyncStatus('loading','Salvando...');
   let pedidoSalvo=false;
   try{
     const numeroPedido = await getNextNumeroPedido();
-    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido,troca:false,itens_troca:itensTroca.length>0?itensTroca:null}]);
+    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido,troca:false,parceria:ehParceria,itens_troca:itensTroca.length>0?itensTroca:null}]);
     const ped=Array.isArray(res)?res[0]:res;
     const obj=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
     // Adicionar ao array correto baseado na data de entrega
@@ -4373,7 +4383,7 @@ async function confirmar(){
     pedidoSalvo=true;
     registrarAtividadePedido();
     setSyncStatus('ok','Sincronizado — nuvem ativa');
-    toast('✓ Pedido de '+sel.nome+' confirmado.'+(itensTroca.length?' (+troca incluída)':''));
+    toast('✓ '+(ehParceria?'Parceria':'Pedido')+' de '+sel.nome+' confirmado.'+(itensTroca.length?' (+troca incluída)':'')+(ehParceria?' 🤝':''));
     atualizarBadges();verificarAlertasEstoque();
     renderRota();
     renderDia();
