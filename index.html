@@ -1717,6 +1717,17 @@ a{color:var(--orange);text-decoration:none}
     <p style="font-size:11px;color:var(--text3);margin-top:8px">⚠ Após adicionar um sabor, recarregue a página para que apareça nos pedidos.</p>
   </div>
 
+  <!-- CONFIG BLING POR SABOR+TAMANHO -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">🏷️ Configuração NF-e — Código de barras por sabor</div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:10px">Configure o código de barras (EAN) e o nome do produto para cada combinação de sabor + embalagem. Usado na emissão de NF-e no Bling.</p>
+    <div id="bling-config-tabela"></div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button class="btn btn-orange" style="flex:1;height:36px;font-size:12px" onclick="salvarBlingConfig()">💾 Salvar configuração</button>
+    </div>
+    <p style="font-size:11px;color:var(--text3);margin-top:8px">⚠ Campos vazios usam o código/nome padrão da laranja para aquele tamanho.</p>
+  </div>
+
   <p class="sec-label">Clientes por faturamento</p>
   <div id="ranking-list"></div>
 
@@ -2930,7 +2941,7 @@ function setTab(t){
   if(t==='colaboradores') {renderColaboradores();renderDiaristasMesLabel();renderDiaristas();renderMensalistas();}
   if(t==='laranjas') renderLaranjas();
   if(t==='historico')renderHistorico();
-  if(t==='ranking'){renderRanking();renderSaboresLista();}
+  if(t==='ranking'){renderRanking();renderSaboresLista();renderBlingConfigTabela();}
   if(t==='clientes') renderClientes();
 }
 
@@ -7602,6 +7613,81 @@ function removerSabor(id){
   renderSaboresLista();
   toast('Sabor removido. Recarregue a página para aplicar.');
 }
+// ── BLING CONFIG POR SABOR+TAMANHO ───────────────────────────────────────────
+function getBlingConfig(){
+  return JSON.parse(localStorage.getItem('slj_bling_config')||'{}');
+}
+function saveBlingConfig(cfg){
+  localStorage.setItem('slj_bling_config',JSON.stringify(cfg));
+}
+function renderBlingConfigTabela(){
+  const el=document.getElementById('bling-config-tabela');
+  if(!el)return;
+  const cfg=getBlingConfig();
+  const sabores=_saboresList;
+  const tams=TAMS;
+  // Cabeçalho
+  let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  html+='<thead><tr><th style="text-align:left;padding:6px 8px;background:var(--bg2);border:1px solid var(--border);white-space:nowrap">Sabor</th>';
+  tams.forEach(t=>{ html+=`<th style="text-align:center;padding:6px 4px;background:var(--bg2);border:1px solid var(--border);white-space:nowrap">${TL[t]}</th>`; });
+  html+='</tr></thead><tbody>';
+  const saboresConfig=sabores.filter(s=>s.id!=='laranja');
+  if(!saboresConfig.length){
+    el.innerHTML='<p style="font-size:12px;color:var(--text3);padding:8px 0">Nenhum sabor adicional cadastrado. Adicione um sabor acima para configurar seus códigos de NF-e.</p>';
+    return;
+  }
+  saboresConfig.forEach(s=>{
+    html+=`<tr><td style="padding:6px 8px;border:1px solid var(--border);font-weight:600;white-space:nowrap;background:var(--bg)">${s.nome}</td>`;
+    tams.forEach(t=>{
+      const key=s.id+'__'+t;
+      const cur=cfg[key]||{};
+      const defCodigo='';
+      const defNome='Garrafa de suco de '+s.nome+' '+TL[t]+' natural';
+      html+=`<td style="padding:4px;border:1px solid var(--border);vertical-align:top;min-width:150px">
+        <input type="text" data-key="${key}" data-field="codigo" value="${cur.codigo||''}" placeholder="${defCodigo}" maxlength="40"
+          style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:3px;font-size:11px;margin-bottom:3px;font-family:inherit" title="Código de barras (EAN)">
+        <input type="text" data-key="${key}" data-field="nome" value="${cur.nome||''}" placeholder="${defNome}" maxlength="80"
+          style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:3px;font-size:11px;font-family:inherit" title="Nome do produto na NF-e">
+      </td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+  el.innerHTML=html;
+}
+function salvarBlingConfig(){
+  const cfg=getBlingConfig();
+  document.querySelectorAll('#bling-config-tabela input[data-key]').forEach(inp=>{
+    const key=inp.dataset.key;
+    const field=inp.dataset.field;
+    const val=inp.value.trim();
+    if(!cfg[key])cfg[key]={};
+    if(val) cfg[key][field]=val;
+    else delete cfg[key][field];
+    if(!cfg[key].codigo&&!cfg[key].nome) delete cfg[key];
+  });
+  saveBlingConfig(cfg);
+  toast('✓ Configuração salva!');
+}
+function getBlingCodigoNome(sabor,tam){
+  const s=sabor||'laranja';
+  // Laranja: usa sempre os dados padrão do BLING_PRODUTO, sem precisar configurar
+  if(s==='laranja'){
+    return {
+      codigo: BLING_PRODUTO.codigos[tam]||'0042882898382',
+      nome: BLING_PRODUTO.nomes[tam]||('Garrafa de suco de laranja '+TL[tam]+' natural')
+    };
+  }
+  // Outros sabores: busca da configuração; fallback para nome genérico
+  const cfg=getBlingConfig();
+  const key=s+'__'+tam;
+  const cur=cfg[key]||{};
+  const nomeSaborDisp=(_saboresList.find(x=>x.id===s)||{nome:s}).nome;
+  return {
+    codigo: cur.codigo||'',
+    nome: cur.nome||('Garrafa de suco de '+nomeSaborDisp+' '+TL[tam]+' natural')
+  };
+}
 function renderRanking(){
   const todos=[...pedidos];Object.values(historico).forEach(d=>d.forEach(p=>todos.push(p)));
   const mapa={};
@@ -10142,30 +10228,37 @@ async function emitirNFeCliente(){
   const pedsSel=todos.filter(p=>idsSel.has(String(p.id)));
   const totalNF=pedsSel.reduce((s,p)=>s+(p.total||0),0);
 
-  const qtdPorTam={};
-  const precoPorTam={};
+  // Agrupar por sabor+tamanho para suportar múltiplos sabores na mesma NF
+  const qtdPorSaborTam={};   // key = 'sabor__tam'
+  const precoPorSaborTam={}; // key = 'sabor__tam'
   pedsSel.forEach(p=>p.itens.forEach(it=>{
-    qtdPorTam[it.tam]=(qtdPorTam[it.tam]||0)+it.qtd;
+    const sabor=it.sabor||'laranja';
+    const key=sabor+'__'+it.tam;
+    qtdPorSaborTam[key]=(qtdPorSaborTam[key]||0)+it.qtd;
     const preco=it.preco||Object.entries(it).find(([k])=>k.startsWith('pre'))?.[1]||0;
-    if(!precoPorTam[it.tam]) precoPorTam[it.tam]=parseFloat(preco)||0;
+    if(!precoPorSaborTam[key]) precoPorSaborTam[key]=parseFloat(preco)||0;
   }));
 
   const hoje2=new Date();
   const dataOp=hoje2.toISOString().slice(0,10);
 
-  const itensNF=Object.entries(qtdPorTam).map(([tam,qtd])=>({
-    descricao: BLING_PRODUTO.nomes[tam]||('Garrafa de suco de laranja '+TL[tam]+' natural'),
-    unidade: BLING_PRODUTO.unidade,
-    codigo: BLING_PRODUTO.codigos[tam]||'0042882898382',
-    ncm: BLING_PRODUTO.ncm,
-    origem: 0,
-    quantidade: qtd,
-    valor: precoPorTam[tam]||0,
-    valorUnitario: precoPorTam[tam]||0,
-    tipo: 'P',
-    cfop: BLING_PRODUTO.cfop,
-    impostos:[{tipo:'S',csosn:BLING_PRODUTO.csosn}]
-  }));
+  const itensNF=Object.entries(qtdPorSaborTam).map(([key,qtd])=>{
+    const [sabor,tam]=key.split('__');
+    const {codigo,nome}=getBlingCodigoNome(sabor,tam);
+    return {
+      descricao: nome,
+      unidade: BLING_PRODUTO.unidade,
+      codigo: codigo,
+      ncm: BLING_PRODUTO.ncm,
+      origem: 0,
+      quantidade: qtd,
+      valor: precoPorSaborTam[key]||0,
+      valorUnitario: precoPorSaborTam[key]||0,
+      tipo: 'P',
+      cfop: BLING_PRODUTO.cfop,
+      impostos:[{tipo:'S',csosn:BLING_PRODUTO.csosn}]
+    };
+  });
 
   const payload={
     tipo: 1,
