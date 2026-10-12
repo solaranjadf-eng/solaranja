@@ -636,6 +636,15 @@ a{color:var(--orange);text-decoration:none}
     </div>
   </div>
 
+  <!-- Parcerias -->
+  <div id="dash-parceria-row" style="display:none;margin-bottom:8px">
+    <div class="stat-card" style="background:#EFF6FF;border:1px solid #93C5FD">
+      <div class="stat-label" style="color:#1D4ED8">🤝 Parcerias (entregas gratuitas)</div>
+      <div class="stat-val" id="dash-parceria-qtd" style="color:#1D4ED8">0 un</div>
+      <div class="stat-sub" id="dash-parceria-sub" style="color:#1D4ED8"></div>
+    </div>
+  </div>
+
   <!-- Meta do mês -->
   <div class="card" style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -1175,11 +1184,18 @@ a{color:var(--orange);text-decoration:none}
         <label>Observações</label>
         <textarea id="novo-fin-obs" placeholder="Observações do pedido..."></textarea>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff8e1;border:1px solid #f5a623;border-radius:var(--radius);margin-bottom:12px;cursor:pointer" onclick="document.getElementById('novo-fin-troca').click()">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff8e1;border:1px solid #f5a623;border-radius:var(--radius);margin-bottom:8px;cursor:pointer" onclick="document.getElementById('novo-fin-troca').click()">
         <input type="checkbox" id="novo-fin-troca" style="width:18px;height:18px;cursor:pointer;accent-color:var(--orange)">
         <div>
           <div style="font-size:13px;font-weight:700;color:var(--orange-dark)">🔄 É uma troca / substituição</div>
           <div style="font-size:11px;color:var(--text3)">Pedido não será cobrado do cliente</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#EFF6FF;border:1px solid #93C5FD;border-radius:var(--radius);margin-bottom:12px;cursor:pointer" onclick="document.getElementById('novo-fin-parceria').click()">
+        <input type="checkbox" id="novo-fin-parceria" style="width:18px;height:18px;cursor:pointer;accent-color:#2563EB">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#1D4ED8">🤝 É uma entrega em parceria</div>
+          <div style="font-size:11px;color:var(--text3)">Suco dado de graça — não conta como venda, aparece separado no painel</div>
         </div>
       </div>
       <div style="background:var(--bg);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;color:var(--text)" id="novo-fin-resumo"></div>
@@ -2903,7 +2919,7 @@ async function sincronizar(){
   }
 }
 
-function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],itensTroca:p.itens_troca||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null,troca:p.troca||false};}
+function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],itensTroca:p.itens_troca||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null,troca:p.troca||false,parceria:p.parceria||false};}
 
 // ── TABS ───────────────────────────────────────────────────────────────────
 const TAB_LABELS={'dash':'Início','pedido':'Novo Pedido','dia':'Do Dia','rota':'Rota','resumo':'Resumo','producao':'Produção','financeiro':'Financeiro','estoque':'Estoque','custos':'Custos','laranjas':'Laranjas','historico':'Histórico','ranking':'Ranking','clientes':'Clientes'};
@@ -3054,12 +3070,16 @@ function renderDash(){
   const dd=document.getElementById('dash-data-ext');if(dd)dd.textContent=hoje.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
 
   const lista=getDashPedidos();
-  const fat=lista.reduce((s,p)=>s+p.total,0);
-  const qtdPed=lista.length;
-  const entregues=lista.filter(p=>p.entregue).length;
-  const arec=lista.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
-  const litros=lista.reduce((s,p)=>p.itens.reduce((ss,it)=>ss+(LITROS[it.tam]||0)*it.qtd,s),0);
-  const garrafas=lista.reduce((s,p)=>p.itens.reduce((ss,it)=>ss+it.qtd,s),0);
+  const listaVendas=lista.filter(p=>!p.parceria); // parceria não conta como venda
+  const fat=listaVendas.reduce((s,p)=>s+p.total,0);
+  const qtdPed=listaVendas.length;
+  const entregues=listaVendas.filter(p=>p.entregue).length;
+  const arec=listaVendas.filter(p=>p.entregue&&!p.pago).reduce((s,p)=>s+p.total,0);
+  const litros=listaVendas.reduce((s,p)=>p.itens.reduce((ss,it)=>ss+(LITROS[it.tam]||0)*it.qtd,s),0);
+  const garrafas=listaVendas.reduce((s,p)=>p.itens.reduce((ss,it)=>ss+it.qtd,s),0);
+  // Parcerias do período
+  const listaParceria=lista.filter(p=>p.parceria);
+  const qtdParceria=listaParceria.reduce((s,p)=>p.itens.reduce((ss,it)=>ss+it.qtd,s),0);
 
   const el=id=>document.getElementById(id);
   if(el('dash-fat'))     el('dash-fat').textContent=moeda(fat);
@@ -3069,7 +3089,12 @@ function renderDash(){
   if(el('dash-lit'))     el('dash-lit').textContent=litros.toFixed(1)+' L';
   if(el('dash-lit-sub')) el('dash-lit-sub').textContent='';
   if(el('dash-arec'))    el('dash-arec').textContent=moeda(arec);
-  if(el('dash-arec-sub'))el('dash-arec-sub').textContent=lista.filter(p=>p.entregue&&!p.pago).length+' clientes';
+  if(el('dash-arec-sub'))el('dash-arec-sub').textContent=listaVendas.filter(p=>p.entregue&&!p.pago).length+' clientes';
+  // Parcerias
+  const rowParceria=el('dash-parceria-row');
+  if(rowParceria) rowParceria.style.display=qtdParceria>0?'':'none';
+  if(el('dash-parceria-qtd')) el('dash-parceria-qtd').textContent=qtdParceria+' un';
+  if(el('dash-parceria-sub')) el('dash-parceria-sub').textContent=listaParceria.length+(listaParceria.length===1?' entrega grátis':' entregas grátis');
 
   // Custos do mês — separados corretamente
   const mesAtual=dashPeriodo==='ano'?hojeKey.slice(0,4):getMesDashKey();
@@ -3078,7 +3103,7 @@ function renderDash(){
   const metaMesInp=document.getElementById('meta-mes-input');
   if(metaMesInp&&!metaMesInp.value&&metaMes>0) metaMesInp.value=metaMes;
   const todosM2=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
-  const fatMesAtual=todosM2.filter(p=>p.data&&p.data.startsWith(mesAtual)).reduce((s,p)=>s+p.total,0);
+  const fatMesAtual=todosM2.filter(p=>p.data&&p.data.startsWith(mesAtual)&&!p.parceria).reduce((s,p)=>s+p.total,0);
   const pctMeta=metaMes>0?Math.min(100,Math.round(fatMesAtual/metaMes*100)):0;
   const faltaMeta=metaMes>0?Math.max(0,metaMes-fatMesAtual):0;
   if(el('dash-meta-fat'))       el('dash-meta-fat').textContent=moeda(fatMesAtual);
@@ -5218,11 +5243,13 @@ function renderRota(){
     const end=[c.bairro,c.regiao].filter(Boolean).join(' — ')||c.endereco||'Endereço não cadastrado';
     const mapsUrl=c.maps||'';
     const bgCard=p.entregue
-      ?'background:linear-gradient(135deg,#E3F7EB,#F0FBF4);border:1.5px solid #9FE0B4'
+      ?(p.parceria?'background:linear-gradient(135deg,#DBEAFE,#EFF6FF);border:1.5px solid #93C5FD':'background:linear-gradient(135deg,#E3F7EB,#F0FBF4);border:1.5px solid #9FE0B4')
       :p.naoEntregue
       ?'background:#FFF0F0;border:1.5px solid #FFAAAA'
+      :p.parceria
+      ?'background:#EFF6FF;border:1.5px solid #93C5FD'
       :'background:var(--white);border:1.5px solid var(--border)';
-    const numBg=p.entregue?'var(--green)':p.naoEntregue?'var(--red)':'var(--orange)';
+    const numBg=p.entregue?(p.parceria?'#2563EB':'var(--green)'):p.naoEntregue?'var(--red)':p.parceria?'#2563EB':'var(--orange)';
     return `<div style="${bgCard};border-radius:var(--radius);padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px">
       ${p.entregue||p.naoEntregue?`
       <div style="width:32px;height:32px;border-radius:50%;background:${numBg};color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0">
@@ -5232,7 +5259,7 @@ function renderRota(){
         ${num}
       </div>`}
       <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:700;color:${p.entregue?'var(--green)':'var(--text)'};text-decoration:${p.entregue?'line-through':'none'}">${p.clienteNome}</div>
+        <div style="font-size:14px;font-weight:700;color:${p.entregue?(p.parceria?'#2563EB':'var(--green)'):(p.parceria?'#1D4ED8':'var(--text)')};text-decoration:${p.entregue?'line-through':'none'}">${p.clienteNome}${p.parceria?'<span style="margin-left:6px;font-size:10px;background:#DBEAFE;color:#1D4ED8;border-radius:3px;padding:1px 6px;font-weight:700;vertical-align:middle">🤝 PARCERIA</span>':''}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">📍 ${end}${dist!==null?` · ${dist.toFixed(1)} km`:''}</div>
         <div style="display:flex;gap:8px;margin-top:4px;align-items:center;flex-wrap:wrap">
           <div style="font-size:11px;font-weight:600;color:${p.entregue?'var(--green)':'var(--orange-dark)'}">
@@ -6896,8 +6923,8 @@ function renderFinanceiro(){
         el.innerHTML='<div class="empty"><span class="empty-icon">○</span><p>Nenhum débito em aberto.</p></div>';
         return;
       }
-      // normalizar campos para o padrão local
-      const emDebito=dbDebitos.map(p=>({
+      // normalizar campos para o padrão local, excluir parcerias (não são dívidas)
+      const emDebito=dbDebitos.filter(p=>!p.parceria).map(p=>({
         id:p.id,
         clienteId:p.cliente_id,
         clienteNome:p.cliente_nome,
@@ -7066,8 +7093,8 @@ function renderExtratocliente(){
   Object.values(historico).forEach(d=>d.forEach(p=>{if(!todos.find(x=>x.id===p.id))todos.push(p);}));
   const pedsCli = todos.filter(p=>p.clienteId===finCliSelecionado.id).sort((a,b)=>b.data.localeCompare(a.data));
 
-  const totalGeral = pedsCli.filter(p=>!p.troca).reduce((s,p)=>s+p.total,0);
-  const debito = pedsCli.filter(p=>p.entregue&&!p.pago&&!p.troca).reduce((s,p)=>s+p.total,0);
+  const totalGeral = pedsCli.filter(p=>!p.troca&&!p.parceria).reduce((s,p)=>s+p.total,0);
+  const debito = pedsCli.filter(p=>p.entregue&&!p.pago&&!p.troca&&!p.parceria).reduce((s,p)=>s+p.total,0);
   document.getElementById('fin-cli-total').textContent = moeda(totalGeral);
   document.getElementById('fin-cli-debito').textContent = moeda(debito);
 
@@ -7105,14 +7132,20 @@ function renderExtratocliente(){
         ${pedsCli.map((p,idx)=>{
           const dataFmt = p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
           const num = p.numeroPedido||'—';
-          const situacao = p.troca
+          const situacao = p.parceria
+            ? `<span style="background:#DBEAFE;color:#1D4ED8;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">🤝 Parceria</span>`
+            : p.troca
             ? `<span style="background:#EDE9FE;color:#5B21B6;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">🔄 Troca</span>`
             : p.pago
             ? `<span style="background:#D1FAE5;color:#065F46;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pago</span>`
             : p.entregue
             ? `<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Em aberto</span>`
             : `<span style="background:var(--bg2);color:var(--text3);font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pendente</span>`;
-          const btnAcao = p.troca && !p.entregue
+          const btnAcao = p.parceria && !p.entregue
+            ? `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:#1D4ED8;background:#DBEAFE;border:1px solid #93C5FD;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">🤝 Confirmar entrega</button>`
+            : p.parceria && p.entregue
+            ? `<span style="font-size:11px;color:#1D4ED8;font-style:italic">entregue · grátis</span>`
+            : p.troca && !p.entregue
             ? `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:#5B21B6;background:#EDE9FE;border:1px solid #C4B5FD;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">🔄 Confirmar entrega</button>`
             : p.troca && p.entregue
             ? `<span style="font-size:11px;color:#5B21B6;font-style:italic">entregue · sem cobrança</span>`
@@ -7124,14 +7157,14 @@ function renderExtratocliente(){
                 <button onclick="desmarcarEntregueFinItem(${p.id})" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:2px 6px;cursor:pointer">↩ Desmarcar</button>
                </div>`
             : `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:var(--od);background:var(--ol);border:1px solid rgba(224,122,47,.3);border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">Marcar Entregue</button>`;
-          const rowBg = p.troca ? 'background:#F5F3FF' : idx%2===1 ? 'background:#F8F9FC' : '';
+          const rowBg = p.parceria ? 'background:#EFF6FF' : p.troca ? 'background:#F5F3FF' : idx%2===1 ? 'background:#F8F9FC' : '';
           return `<tr style="border-bottom:1px solid var(--border);${rowBg}">
-            <td style="padding:8px;text-align:center"><input type="checkbox" class="fin-sel-ped" data-id="${p.id}" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)" ${p.troca?'disabled':''}></td>
+            <td style="padding:8px;text-align:center"><input type="checkbox" class="fin-sel-ped" data-id="${p.id}" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)" ${(p.troca||p.parceria)?'disabled':''}></td>
             <td style="padding:8px 10px;color:var(--text3);font-weight:600">${num}</td>
             <td style="padding:8px 10px;white-space:nowrap">${dataFmt}</td>
             <td style="padding:8px 10px;color:var(--text2)">${p.itens.map(it=>itemLabelPedido(it,p.itens)+'×'+it.qtd).join(' · ')}</td>
             <td style="padding:8px 10px;color:var(--text3);font-style:italic;font-size:11px">${p.obs||'—'}</td>
-            <td style="padding:8px 10px;text-align:right;font-weight:700;${p.troca?'color:#5B21B6;text-decoration:line-through':''}">${p.troca?'—':moeda(p.total)}</td>
+            <td style="padding:8px 10px;text-align:right;font-weight:700;${p.parceria?'color:#1D4ED8;text-decoration:line-through':p.troca?'color:#5B21B6;text-decoration:line-through':''}">${(p.troca||p.parceria)?'—':moeda(p.total)}</td>
             <td style="padding:8px 10px;text-align:center">${situacao}</td>
             <td style="padding:8px 10px;text-align:center">${btnAcao}</td>
             <td style="padding:8px;text-align:center"><button onclick="delPedidoFin(${p.id},'${p.data||''}')" title="Excluir" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 7px;font-size:11px;cursor:pointer">✕</button></td>
@@ -7445,6 +7478,8 @@ function initNovoFinForm(){
   document.getElementById('novo-fin-cli-results').innerHTML='';
   document.getElementById('novo-fin-resumo').textContent='';
   document.getElementById('novo-fin-obs').value='';
+  document.getElementById('novo-fin-troca').checked=false;
+  document.getElementById('novo-fin-parceria').checked=false;
   renderNovoFinGarrafas();
 }
 
@@ -7526,14 +7561,15 @@ async function salvarPedidoRetroativo(){
   const data = document.getElementById('novo-fin-data').value;
   if(!data){toast('Selecione a data do pedido.');return;}
   const ehTroca = document.getElementById('novo-fin-troca').checked;
+  const ehParceria = document.getElementById('novo-fin-parceria').checked;
   const itens = Object.keys(novoFinQtds).filter(key=>novoFinQtds[key]>0).map(key=>{
     const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
     const p=novoFinCliSelecionado.precos[key]||(s==='laranja'?novoFinCliSelecionado.precos[t]:0);
     return {tam:t,sabor:s,qtd:novoFinQtds[key],preço:p};
-  }).filter(it=>it.preço>0);
+  }).filter(it=>it.qtd>0);
   if(!itens.length){toast('Adicione ao menos um item.');return;}
-  const totalReal = itens.reduce((s,i)=>s+i.preço*i.qtd,0);
-  const total = ehTroca ? 0 : totalReal;
+  const totalReal = itens.reduce((s,i)=>s+(i.preço||0)*i.qtd,0);
+  const total = (ehTroca||ehParceria) ? 0 : totalReal;
   const hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const numeroPedido = await getNextNumeroPedido();
   try{
@@ -7546,13 +7582,14 @@ async function salvarPedidoRetroativo(){
       obs:document.getElementById('novo-fin-obs').value.trim(),
       itens,total,
       precos:novoFinCliSelecionado.precos,
-      entregue: ehTroca ? false : true,
-      hora_entrega: ehTroca ? null : hora,
+      entregue: ehTroca ? false : false,
+      hora_entrega: null,
       data,
       pago:false,
       foto:null,
       numero_pedido:numeroPedido,
-      troca: ehTroca
+      troca: ehTroca,
+      parceria: ehParceria
     }]);
     // Adicionar ao array local correto
     const novo = mapPedido({
@@ -7568,7 +7605,7 @@ async function salvarPedidoRetroativo(){
       if(!historico[data]) historico[data]=[];
       historico[data].push(novo);
     }
-    toast(ehTroca ? '🔄 Troca #'+numeroPedido+' registrada!' : '✓ Pedido #'+numeroPedido+' salvo!');
+    toast(ehParceria ? '🤝 Parceria #'+numeroPedido+' registrada!' : ehTroca ? '🔄 Troca #'+numeroPedido+' registrada!' : '✓ Pedido #'+numeroPedido+' salvo!');
     initNovoFinForm();
     renderFinanceiro();
     atualizarBadges();
