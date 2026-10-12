@@ -4366,7 +4366,15 @@ async function confirmar(){
   let pedidoSalvo=false;
   try{
     const numeroPedido = await getNextNumeroPedido();
-    const res=await sbPost('pedidos',[{cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido,troca:false,parceria:ehParceria,itens_troca:itensTroca.length>0?itensTroca:null}]);
+    const payload={cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido,troca:false,parceria:ehParceria,itens_troca:itensTroca.length>0?itensTroca:null};
+    let res;
+    try{ res=await sbPost('pedidos',[payload]); }
+    catch(e1){
+      // Coluna parceria pode não existir no banco — tenta sem ela
+      const {parceria:_p,...payloadSem}=payload;
+      try{ res=await sbPost('pedidos',[payloadSem]); }
+      catch(e2){ throw e1; }
+    }
     const ped=Array.isArray(res)?res[0]:res;
     const obj=mapPedido({...ped,cliente_id:sel.id,cliente_nome:sel.nome});
     // Adicionar ao array correto baseado na data de entrega
