@@ -4322,7 +4322,8 @@ async function confirmar(){
     const p=ehParceria?0:(sel.precos[key]||(s==='laranja'?sel.precos[t]:0));
     return {tam:t,sabor:s,qtd:qtds[key],preço:p};
   }).filter(it=>it.qtd>0);
-  if(!itens.length){toast('Adicione ao menos um item.');return;}
+  const temTroca=Object.keys(qtdsTroca).some(key=>qtdsTroca[key]>0);
+  if(!itens.length&&!temTroca){toast('Adicione ao menos um item.');return;}
 
   // Verificar se já existe pedido para este cliente na mesma data de entrega
   const dataEntrega=getDataEntregaKey();
@@ -4359,7 +4360,7 @@ async function confirmar(){
     const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
     const p=sel.precos[key]||(s==='laranja'?sel.precos[t]:0);
     return {tam:t,sabor:s,qtd:qtdsTroca[key],preço:p};
-  }).filter(it=>it.preço>0);
+  }).filter(it=>it.qtd>0);
   const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const total=ehParceria?0:itens.reduce((s,i)=>s+i.preço*i.qtd,0);
   setSyncStatus('loading','Salvando...');
