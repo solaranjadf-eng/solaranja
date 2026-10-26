@@ -2772,7 +2772,13 @@ async function sincronizar(){
       }
       const dbAcompMarcados=await sbGet('acompanhamento_marcados','?order=semana&limit=1000');
       if(dbAcompMarcados&&dbAcompMarcados.length>0){
-        acompMarcados=dbAcompMarcados.map(m=>({id:m.id,acompId:m.acomp_id,semana:m.semana,cobrado:m.cobrado||false}));
+        // Mesclar: estado local tem prioridade para evitar sobrescrever cliques recentes
+        const dbAArr=dbAcompMarcados.map(m=>({id:m.id,acompId:m.acomp_id,semana:m.semana,cobrado:m.cobrado||false}));
+        dbAArr.forEach(dbItem=>{
+          const localById=acompMarcados.find(x=>x.id===dbItem.id);
+          const localByKey=acompMarcados.find(x=>x.acompId===dbItem.acompId&&x.semana===dbItem.semana);
+          if(!localById&&!localByKey) acompMarcados.push(dbItem);
+        });
         lsave('slj_acomp_marcados',acompMarcados);
       }
 
@@ -2786,7 +2792,14 @@ async function sincronizar(){
       }
       const dbCobMarcados=await sbGet('cobrancas_datas','?order=data&limit=2000');
       if(dbCobMarcados&&dbCobMarcados.length>0){
-        cobrancasMarcados=dbCobMarcados.map(d=>({id:d.id,cobrancaId:d.cobranca_id,data:d.data,cobrado:d.cobrado||false}));
+        // Mesclar: estado local tem prioridade para evitar sobrescrever cliques recentes não sincronizados
+        const dbArr=dbCobMarcados.map(d=>({id:d.id,cobrancaId:d.cobranca_id,data:d.data,cobrado:d.cobrado||false}));
+        dbArr.forEach(dbItem=>{
+          const localById=cobrancasMarcados.find(x=>x.id===dbItem.id);
+          const localByKey=cobrancasMarcados.find(x=>x.cobrancaId===dbItem.cobrancaId&&x.data===dbItem.data);
+          if(!localById&&!localByKey) cobrancasMarcados.push(dbItem); // novo do servidor
+          // se já existe localmente (por id ou por chave), manter estado local
+        });
         lsave('slj_cobrancas_marcados',cobrancasMarcados);
       }
       try{
@@ -4264,6 +4277,18 @@ function altTroca(t,d){
   if(!(p>0)) return;
   qtdsTroca[key]=Math.max(0,(qtdsTroca[key]||0)+d);
   document.getElementById('qt-'+t).textContent=qtdsTroca[key];
+  // Atualiza obs automaticamente com texto de troca
+  const temTroca=Object.keys(qtdsTroca).some(k=>qtdsTroca[k]>0);
+  const obsEl=document.getElementById('obs');
+  if(obsEl){
+    const obsAtual=obsEl.value;
+    const marcador='[TROCA]';
+    if(temTroca&&!obsAtual.includes(marcador)){
+      obsEl.value=(obsAtual?obsAtual+'\n':'')+marcador+' Pedido contém itens de troca/substituição.';
+    } else if(!temTroca&&obsAtual.includes(marcador)){
+      obsEl.value=obsAtual.replace(/\n?\[TROCA\] Pedido contém itens de troca\/substituição\./g,'').trim();
+    }
+  }
   atualizarResumo();
 }
 function atualizarResumo(){
@@ -5282,7 +5307,13 @@ function renderRota(){
         <div style="font-size:11px;color:var(--text3);margin-top:2px">📍 ${end}${dist!==null?` · ${dist.toFixed(1)} km`:''}</div>
         <div style="display:flex;gap:8px;margin-top:4px;align-items:center;flex-wrap:wrap">
           <div style="font-size:11px;font-weight:600;color:${p.entregue?'var(--green)':'var(--orange-dark)'}">
-            ${(()=>{const todos=[...p.itens,...(p.itensTroca||[])];const agrup={};todos.forEach(it=>{agrup[it.tam]=(agrup[it.tam]||0)+it.qtd;});return Object.entries(agrup).map(([t,q])=>TL[t]+'×'+q).join(' · ');})()}
+            ${(()=>{
+              const agrupN={};p.itens.forEach(it=>{agrupN[it.tam]=(agrupN[it.tam]||0)+it.qtd;});
+              const agrupT={};(p.itensTroca||[]).forEach(it=>{agrupT[it.tam]=(agrupT[it.tam]||0)+it.qtd;});
+              const parteN=Object.entries(agrupN).map(([t,q])=>TL[t]+'×'+q).join(' · ');
+              const parteT=Object.entries(agrupT).map(([t,q])=>TL[t]+'×'+q).join(' · ');
+              return [parteN,parteT?'<span style="color:#7C3AED;font-weight:700">🔄 '+parteT+'</span>':''].filter(Boolean).join(' · ');
+            })()}
           </div>
           ${mapsUrl?`<a href="${mapsUrl}" target="_blank" style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:2px 7px;border-radius:4px;font-weight:700;text-decoration:none;white-space:nowrap">Maps ↗</a>`:''}
         </div>
