@@ -6068,7 +6068,7 @@ function salvarDatasMesNoBanco(){
     .catch(()=>{});
 }
 
-function toggleCobradoData(cobrancaId,data){
+async function toggleCobradoData(cobrancaId,data){
   let m=cobrancasMarcados.find(x=>x.cobrancaId===cobrancaId&&x.data===data);
   if(!m){
     m={id:Date.now().toString()+'_'+data,cobrancaId,data,cobrado:true};
@@ -6077,9 +6077,13 @@ function toggleCobradoData(cobrancaId,data){
     m.cobrado=!m.cobrado;
   }
   lsave('slj_cobrancas_marcados',cobrancasMarcados);
-  sbUps('cobrancas_datas',[{id:m.id,cobranca_id:m.cobrancaId,data:m.data,cobrado:m.cobrado}])
-    .catch(()=>{});
   renderCobrancas();
+  try{
+    await sbUps('cobrancas_datas',[{id:m.id,cobranca_id:m.cobrancaId,data:m.data,cobrado:m.cobrado}]);
+  }catch(e){
+    console.error('[cobranca] Erro ao salvar no banco:',e);
+    toast('Erro ao salvar — verifique a conexão');
+  }
 }
 
 // ── ACOMPANHAMENTO SEMANAL ─────────────────────────────────────────────────
