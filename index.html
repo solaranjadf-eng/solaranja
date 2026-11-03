@@ -6126,7 +6126,7 @@ function delAcompanhamento(id){
   renderAcompanhamento();
 }
 
-function toggleAcompCobrado(acompId,semana){
+async function toggleAcompCobrado(acompId,semana){
   let m=acompMarcados.find(x=>x.acompId===acompId&&x.semana===semana);
   if(!m){
     m={id:Date.now().toString(),acompId,semana,cobrado:true};
@@ -6135,8 +6135,13 @@ function toggleAcompCobrado(acompId,semana){
     m.cobrado=!m.cobrado;
   }
   lsave('slj_acomp_marcados',acompMarcados);
-  sbUps('acompanhamento_marcados',[{id:m.id,acomp_id:m.acompId,semana:m.semana,cobrado:m.cobrado}]).catch(()=>{});
   renderAcompanhamento();
+  try{
+    await sbUps('acompanhamento_marcados',[{id:m.id,acomp_id:m.acompId,semana:m.semana,cobrado:m.cobrado}]);
+  }catch(e){
+    console.error('[acomp] Erro ao salvar no banco:',e);
+    toast('Erro ao salvar — verifique a conexão');
+  }
 }
 
 async function importarDevedores(){
