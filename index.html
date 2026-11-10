@@ -1291,7 +1291,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-n)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-o)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2014,6 +2014,7 @@ a{color:var(--orange);text-decoration:none}
       <button onclick="fecharCobrancaLote()" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
     </div>
     <div id="lote-info" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
+    <input type="text" id="lote-busca" placeholder="🔍 Buscar cliente..." oninput="loteRender()" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;margin-bottom:8px;box-sizing:border-box">
     <div id="lote-lista" style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;min-height:120px"></div>
     <div id="lote-opcoes">
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500;color:var(--text)"><input type="checkbox" id="lote-enviar" checked style="width:16px;height:16px;accent-color:var(--orange)"> Enviar o e-mail automaticamente (NF-e, boleto e extrato em anexo)</label>
@@ -10477,6 +10478,7 @@ async function abrirCobrancaLote(){
   const modal=document.getElementById('modal-cob-lote');modal.style.display='flex';
   document.getElementById('lote-lista').innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">🔄 Buscando clientes em débito...</div>';
   document.getElementById('lote-resumo').textContent='';
+  const _b=document.getElementById('lote-busca');if(_b)_b.value='';
   const btn=document.getElementById('lote-btn');btn.disabled=true;btn.textContent='Gerar para os selecionados';
   document.getElementById('lote-parar').style.display='none';
   document.getElementById('lote-opcoes').style.display='block';
@@ -10502,7 +10504,7 @@ async function abrirCobrancaLote(){
     const ja=envios.filter(e=>e.nfe_numero&&(e.pedidos_ids||[]).some(i=>set.has(String(i))));
     const salvo=mapa[cid];
     const retoma=salvo&&(salvo.nfe||salvo.boleto)&&salvo.status!=='ok'&&JSON.stringify(salvo.pedIds.map(String).sort())===JSON.stringify(peds.map(p=>String(p.id)).sort());
-    return {cid,cli,peds,valor,ja,retoma:retoma?salvo:null,sel:!ja.length,estado:'pend',det:''};
+    return {cid,cli,peds,valor,ja,retoma:retoma?salvo:null,sel:false,estado:'pend',det:''};
   }).filter(Boolean).sort((a,b)=>a.peds[0].data.localeCompare(b.peds[0].data));
   loteRender();
   btn.disabled=false;
@@ -10512,7 +10514,9 @@ function loteRender(){
   if(!loteItens.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum cliente em débito. 🎉</div>';document.getElementById('lote-info').textContent='';return;}
   const ic={pend:'',run:'⏳',ok:'✅',wait:'⏸',err:'❌',skip:'➖'};
   const cor={pend:'var(--text3)',run:'var(--orange)',ok:'#16a34a',wait:'#c2410c',err:'#dc2626',skip:'var(--text3)'};
+  const _q=((document.getElementById('lote-busca')||{}).value||'').toLowerCase().trim();
   el.innerHTML=loteItens.map((it,i)=>{
+    if(_q&&!((it.cli.apelido||'')+' '+it.cli.nome).toLowerCase().includes(_q))return '';
     const nome=cobEsc(it.cli.apelido||it.cli.nome);
     const avisos=[];
     if(!it.cli.email)avisos.push('⚠ sem e-mail cadastrado');
@@ -10533,7 +10537,7 @@ function loteResumo(){
   document.getElementById('lote-info').textContent=loteItens.length+' cliente(s) com débito em aberto — '+moeda(loteItens.reduce((s,i)=>s+i.valor,0));
   document.getElementById('lote-resumo').innerHTML='Selecionados: <strong>'+sel.length+'</strong> cliente(s) · <strong>'+moeda(tot)+'</strong> · vencimento dos boletos em 7 dias <a onclick="loteMarcar(true)" style="margin-left:10px;cursor:pointer;color:var(--blue)">marcar todos</a> · <a onclick="loteMarcar(false)" style="cursor:pointer;color:var(--blue)">desmarcar</a>';
 }
-function loteMarcar(v){if(loteRodando)return;loteItens.forEach(i=>i.sel=v);loteRender();}
+function loteMarcar(v){if(loteRodando)return;const q=((document.getElementById('lote-busca')||{}).value||'').toLowerCase().trim();loteItens.forEach(i=>{if(!q||((i.cli.apelido||'')+' '+i.cli.nome).toLowerCase().includes(q))i.sel=v;});loteRender();}
 function loteParar(){loteParou=true;document.getElementById('lote-parar').textContent='Parando...';}
 function fecharCobrancaLote(){
   if(loteRodando&&!confirm('A cobrança em lote está em andamento. Fechar não cancela o que já foi feito. Fechar mesmo assim?'))return;
