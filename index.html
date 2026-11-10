@@ -1288,7 +1288,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-d)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-e)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -7284,7 +7284,7 @@ function renderExtratocliente(){
             <td style="padding:8px;text-align:center"><input type="checkbox" class="fin-sel-ped" data-id="${p.id}" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)" ${(p.troca||p.parceria)?'disabled':''}></td>
             <td style="padding:8px 10px;color:var(--text3);font-weight:600">${num}</td>
             <td style="padding:8px 10px;white-space:nowrap">${dataFmt}</td>
-            <td style="padding:8px 10px;color:var(--text2)">${p.itens.map(it=>itemLabelPedido(it,p.itens)+'×'+it.qtd).join(' · ')}</td>
+            <td style="padding:8px 10px;color:var(--text2)">${p.localEntrega?`<div style="font-size:10px;font-weight:700;color:#C2410C;margin-bottom:2px">📍 ${escLoc(p.localEntrega)}</div>`:''}${p.itens.map(it=>itemLabelPedido(it,p.itens)+'×'+it.qtd).join(' · ')}</td>
             <td style="padding:8px 10px;color:var(--text3);font-style:italic;font-size:11px">${p.obs||'—'}</td>
             <td style="padding:8px 10px;text-align:right;font-weight:700;${p.parceria?'color:#1D4ED8;text-decoration:line-through':p.troca?'color:#5B21B6;text-decoration:line-through':''}">${(p.troca||p.parceria)?'—':moeda(p.total)}</td>
             <td style="padding:8px 10px;text-align:center">${situacao}</td>
@@ -7508,7 +7508,7 @@ function gerarPDFCliente(){
     head:[['Nº Pedido','Data','Descrição dos itens','Valor total','Situação']],
     body: pedsCli.map(p=>{
       const dataFmt=p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
-      const itensDesc=p.itens.map(it=>{
+      const itensDesc=(p.localEntrega?'Local: '+p.localEntrega+'\n':'')+p.itens.map(it=>{
         const s=it.sabor||'laranja';
         const label=TL[it.tam]+' '+SL[s];
         return label+' × '+it.qtd+' = R$ '+((it.preco||it.preço||0)*it.qtd).toFixed(2).replace('.',',');
