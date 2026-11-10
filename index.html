@@ -1289,7 +1289,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-j)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-k)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -10204,10 +10204,12 @@ async function abrirCobrancaAuto(){
   const pedIds=peds.map(p=>p.id);
   // retomar fluxo salvo (mesmo cliente e mesmos pedidos) se ainda não terminou
   let salvo=null;try{salvo=JSON.parse(localStorage.getItem(COB_LS)||'null');}catch(e){}
-  const mesmo=salvo&&String(salvo.cliId)===String(cli.id)&&salvo.status!=='ok'&&JSON.stringify([...salvo.pedIds].map(String).sort())===JSON.stringify([...pedIds].map(String).sort());
+  const mesmo=salvo&&(salvo.nfe||salvo.boleto)&&String(salvo.cliId)===String(cli.id)&&salvo.status!=='ok'&&JSON.stringify([...salvo.pedIds].map(String).sort())===JSON.stringify([...pedIds].map(String).sort());
   const hoje=new Date();const venc=new Date(hoje);venc.setDate(venc.getDate()+7);
   const vencStr=venc.toLocaleDateString('pt-BR');
-  if(mesmo){cobFx=salvo;cobFx.passos=cobFx.passos||[];}
+  if(mesmo){cobFx=salvo;cobFx.erro=null;cobFx.passos=[];COB_PASSOS.forEach((_,i)=>cobFx.passos[i]={e:'pend',d:''});if(cobFx.nfe)cobFx.passos[0]={e:'ok',d:'NF-e nº '+(cobFx.nfe.numero||'')+' já criada no Bling'};if(cobFx.boleto)cobFx.passos[1]={e:'ok',d:'Boleto nosso nº '+cobFx.boleto.nossoNum+' já gerado'};}
+  else{try{localStorage.removeItem(COB_LS);}catch(e){}}
+  if(false){}
   else cobFx={id:'cob_'+Date.now(),cliId:cli.id,cliNome:cli.nome,pedIds,valor,vencStr,nfe:null,boleto:null,extrato:null,passos:[],status:'iniciado',etapa:'',para:cli.email||''};
   const corpo=COB_TEXTO_PADRAO;
   document.getElementById('cob-para').value=cobFx.para||cli.email||'';
@@ -10220,7 +10222,7 @@ async function abrirCobrancaAuto(){
   document.getElementById('cob-form').style.display='block';
   const btn=document.getElementById('cob-btn');btn.disabled=false;btn.textContent=mesmo?'Continuar de onde parou':'Gerar tudo e enviar';
   const av=document.getElementById('cob-aviso');av.style.display='none';
-  if(mesmo){av.style.display='block';av.innerHTML='↩ Já existe uma cobrança iniciada para estes pedidos'+(cobFx.nfe?' (NF-e nº '+cobFx.nfe.numero+' já emitida)':'')+'. Ela vai continuar de onde parou, <strong>sem emitir nota ou boleto de novo</strong>.';}
+  if(mesmo){av.style.display='block';av.innerHTML='↩ Esta cobrança já foi iniciada'+(cobFx.nfe?' (NF-e nº '+cobFx.nfe.numero+' já criada no Bling'+(cobFx.boleto?', boleto já gerado':'')+')':'')+'. Ela vai continuar de onde parou, <strong>sem criar nota ou boleto de novo</strong>.';}
   if(!cobFx.passos.length)COB_PASSOS.forEach((_,i)=>cobFx.passos[i]={e:'pend',d:''});
   cobRenderPassos();
   document.getElementById('modal-cob-auto').style.display='flex';
@@ -10399,10 +10401,11 @@ async function executarCobranca(){
   }catch(e){
     const msg=String((e&&e.message)||e);
     cobPasso(passoAtual.i,'err',msg.slice(0,160));
-    fx.erro=msg;fx.status=fx.status==='iniciado'?'erro':fx.status;cobSalvarLocal();cobPersistir();
+    fx.erro=msg;fx.status=fx.status==='iniciado'?'erro':fx.status;
+    if(fx.nfe||fx.boleto){cobSalvarLocal();cobPersistir();}else{try{localStorage.removeItem(COB_LS);}catch(e2){}}
     errEl.style.display='block';errEl.textContent=msg;
     document.getElementById('cob-form').style.display='block';
-    btn.disabled=false;btn.textContent='Tentar de novo (continua de onde parou)';
+    btn.disabled=false;btn.textContent=(fx.nfe||fx.boleto)?'Tentar de novo (continua de onde parou)':'Tentar de novo';
   }finally{cobRodando=false;}
 }
 function cobMostrarFinal(enviou){
