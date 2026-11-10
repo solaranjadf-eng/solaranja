@@ -10461,6 +10461,12 @@ function cobBaixarExtrato(){
 // ── COBRANÇA EM LOTE ──────────────────────────────────────────────────────────
 const LOTE_LS='slj_cob_lote';
 let loteItens=[], loteRodando=false, loteParou=false;
+function loteEmailsDe(cli){
+  const reg=cobrancas.find(c=>(c.clienteId&&String(c.clienteId)===String(cli.id))||(c.nome||'').toLowerCase().trim()===(cli.nome||'').toLowerCase().trim()||(c.nome||'').toLowerCase().trim()===(cli.apelido||'').toLowerCase().trim());
+  const bruto=(cli.email||'')+' '+((reg&&reg.email)||'');
+  const lista=bruto.split(/[\s,;]+/).map(e=>e.trim().toLowerCase()).filter(e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+  return [...new Set(lista)];
+}
 function loteMapa(){try{return JSON.parse(localStorage.getItem(LOTE_LS)||'{}')||{};}catch(e){return {};}}
 function loteSalvarFx(fx){const m=loteMapa();m[String(fx.cliId)]=fx;try{localStorage.setItem(LOTE_LS,JSON.stringify(m));}catch(e){}}
 function loteRemoverFx(cliId){const m=loteMapa();delete m[String(cliId)];try{localStorage.setItem(LOTE_LS,JSON.stringify(m));}catch(e){}}
@@ -10521,7 +10527,7 @@ function loteRender(){
     if(_q&&!((it.cli.apelido||'')+' '+it.cli.nome).toLowerCase().includes(_q))return '';
     const nome=cobEsc(it.cli.apelido||it.cli.nome);
     const avisos=[];
-    if(!it.cli.email)avisos.push('⚠ sem e-mail cadastrado');
+    if(!loteEmailsDe(it.cli).length)avisos.push('⚠ sem e-mail cadastrado');
     if(it.ja.length)avisos.push('⚠ já cobrado antes (NF-e nº '+it.ja.map(e=>e.nfe_numero).join(', ')+')');
     if(it.retoma)avisos.push('↩ continua: NF-e nº '+(it.retoma.nfe?it.retoma.nfe.numero:'—')+' já criada'+(it.retoma.boleto?', boleto já gerado':''));
     return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-bottom:1px solid var(--border)">
@@ -10549,11 +10555,11 @@ function loteSet(it,estado,det){it.estado=estado;it.det=det||'';loteRender();}
 async function loteRodarCliente(it,opts){
   const cli=it.cli,peds=it.peds;
   let fx=it.retoma||{id:'cob_'+Date.now()+'_'+it.cid,cliId:cli.id,cliNome:cli.nome,pedIds:peds.map(p=>p.id),valor:it.valor,
-    vencStr:(()=>{const v=new Date();v.setDate(v.getDate()+7);return v.toLocaleDateString('pt-BR');})(),nfe:null,boleto:null,status:'iniciado',etapa:'',para:cli.email||''};
+    vencStr:(()=>{const v=new Date();v.setDate(v.getDate()+7);return v.toLocaleDateString('pt-BR');})(),nfe:null,boleto:null,status:'iniciado',etapa:'',para:loteEmailsDe(cli).join(' ')};
   it.retoma=fx;
   const enviar=opts.enviar;
-  if(enviar&&!cli.email){loteSet(it,'skip','Sem e-mail cadastrado — pulado (cadastre o e-mail ou desligue o envio)');return;}
-  fx.para=(cli.email||'').toLowerCase();
+  if(enviar&&!loteEmailsDe(cli).length){loteSet(it,'skip','Sem e-mail cadastrado — pulado (cadastre o e-mail ou desligue o envio)');return;}
+  fx.para=loteEmailsDe(cli).join(' ');
   try{
     // 1) NF-e
     fx.etapa='nfe';
