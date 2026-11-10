@@ -1289,7 +1289,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-h)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-i)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2016,7 +2016,7 @@ a{color:var(--orange);text-decoration:none}
     <div id="cob-form">
       <div class="form-group"><label>E-mail do cliente</label><input type="email" id="cob-para" placeholder="cliente@empresa.com.br"></div>
       <div class="form-group"><label>Assunto</label><input type="text" id="cob-assunto"></div>
-      <div class="form-group"><label>Mensagem <span style="font-size:10px;color:var(--text3)">(vencimento e linha digitável do boleto são adicionados no final automaticamente)</span></label><textarea id="cob-texto" rows="9" style="width:100%;font-size:12px"></textarea></div>
+      <div class="form-group"><label>Mensagem <span style="font-size:10px;color:var(--text3)">(vencimento, valor e linha digitável do boleto são inseridos automaticamente antes do agradecimento)</span></label><textarea id="cob-texto" rows="9" style="width:100%;font-size:12px"></textarea></div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer"><input type="checkbox" id="cob-enviar" checked style="width:16px;height:16px;accent-color:var(--orange)"> Enviar o e-mail automaticamente ao cliente (com NF-e, boleto e extrato em anexo)</label>
     </div>
     <div id="cob-passos" style="margin-bottom:10px"></div>
@@ -10150,6 +10150,8 @@ function renderBoletos(){
 }
 
 // ── COBRANÇA COMPLETA: NF-e única + boleto + extrato + e-mail ─────────────────
+const COB_TEXTO_PADRAO='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\nAgradecemos pela parceria e pela confiança no melhor suco natural de laranja de Brasília.\n--\nAtenciosamente,\n Xavier Filho\n Financeiro\n Tel: (61) 99828-2205\n PA 04 Lote 4 S/N Sala 211 e 212 – Jardins Mangueiral - DF\n CEP: 71699-603';
+function cobInserirPagamento(texto,bloco){const i=texto.indexOf('\n\nAgradecemos');return i>=0?texto.slice(0,i)+bloco+texto.slice(i):texto+bloco;}
 let cobFx=null, cobRodando=false, cobEnviosCache=[];
 const COB_LS='slj_cob_fluxo';
 const COB_PASSOS=['Nota fiscal (NF-e única)','Boleto (Banco do Brasil)','Extrato de pedidos (PDF)','E-mail ao cliente'];
@@ -10206,14 +10208,7 @@ async function abrirCobrancaAuto(){
   const vencStr=venc.toLocaleDateString('pt-BR');
   if(mesmo){cobFx=salvo;cobFx.passos=cobFx.passos||[];}
   else cobFx={id:'cob_'+Date.now(),cliId:cli.id,cliNome:cli.nome,pedIds,valor,vencStr,nfe:null,boleto:null,extrato:null,passos:[],status:'iniciado',etapa:'',para:cli.email||''};
-  // corpo padrão
-  let corpo='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\n';
-  peds.forEach(p=>{
-    const _m=new Set(p.itens.map(x=>x.sabor||'laranja'));
-    const it=p.itens.map(x=>x.qtd+(x.qtd===1?' unidade':' unidades')+' ('+itemLabel(x,_m.size>1)+')').join(', ');
-    corpo+=cobFmtData(p.data)+' – '+it+': R$ '+(p.total||0).toFixed(2).replace('.',',')+'\n';
-  });
-  corpo+='\nTotal: R$ '+valor.toFixed(2).replace('.',',')+'\n\nAgradecemos pela parceria e pela confiança em nossos produtos.\n\nAtenciosamente,\nXavier Filho\nFinanceiro\nTel: (61) 99828-2205';
+  const corpo=COB_TEXTO_PADRAO;
   document.getElementById('cob-para').value=cobFx.para||cli.email||'';
   document.getElementById('cob-assunto').value='BOLETO E NOTA FISCAL SUCO NATURAL DE LARANJA - Só Laranja';
   document.getElementById('cob-texto').value=corpo;
@@ -10343,11 +10338,11 @@ async function executarCobranca(){
     passoAtual.i=3;fx.etapa='email';
     if(enviar){
       cobPasso(3,'run','Enviando para '+para+'...');
-      const bloco='\n\n— Dados do pagamento —\nVencimento: '+fx.vencStr+'\nValor: '+moeda(fx.valor)+(fx.boleto.linha?'\nLinha digitável: '+fx.boleto.linha:'')+(fx.boleto.pix?'\nPIX: '+fx.boleto.pix:'')+'\nNF-e nº '+(fx.nfe.numero||'');
+      const bloco='\n\nDados do pagamento:\nVencimento: '+fx.vencStr+'\nValor: '+moeda(fx.valor)+(fx.boleto.linha?'\nLinha digitável: '+fx.boleto.linha:'')+(fx.boleto.pix?'\nPIX: '+fx.boleto.pix:'')+'\nNF-e nº '+(fx.nfe.numero||'');
       const anexos=[{filename:'NF-e '+(fx.nfe.numero||''),url:fx.nfe.link}];
       if(fx.boleto.link)anexos.push({filename:'Boleto',url:fx.boleto.link});
       anexos.push({filename:ex.filename,base64:ex.base64});
-      const r=await cobChamarFn('enviar-cobranca',{para,assunto,texto:texto+bloco,anexos});
+      const r=await cobChamarFn('enviar-cobranca',{para,assunto,texto:cobInserirPagamento(texto,bloco),anexos});
       if(!r.success) throw new Error('E-mail não enviado: '+(r.erro||'erro desconhecido'));
       cobPasso(3,'ok','Enviado para '+para+' ('+(r.anexos||[]).length+' anexos)');
       fx.status='ok';fx.erro=null;cobPersistir({enviado_em:new Date().toISOString()});
@@ -10396,14 +10391,7 @@ function enviarEmailCliente(){
   const nome=cli.apelido||cli.nome;
   const totalAberto=pedsSel.reduce((s,p)=>s+(p.total||0),0);
 
-  let corpo='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\n';
-  pedsSel.sort((a,b)=>a.data.localeCompare(b.data)).forEach(p=>{
-    const dt=new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-    const _mSabs=new Set(p.itens.map(x=>x.sabor||'laranja'));
-    const itens=p.itens.map(it=>it.qtd+(it.qtd===1?' unidade':' unidades')+' ('+itemLabel(it,_mSabs.size>1)+')').join(', ');
-    corpo+=dt+' – '+itens+': R$ '+p.total.toFixed(2).replace('.',',')+'\n';
-  });
-  corpo+='\nTotal: R$ '+totalAberto.toFixed(2).replace('.',',')+'\n\nAgradecemos pela parceria e pela confiança em nossos produtos.\n\nAtenciosamente,\nXavier Filho\nFinanceiro\nTel: (61) 99828-2205';
+  const corpo=COB_TEXTO_PADRAO;
 
   // Mostrar modal com e-mail, assunto e corpo para copiar
   const modal=document.getElementById('modal-email-cli');
