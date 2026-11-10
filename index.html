@@ -1288,7 +1288,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-f)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-g)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2396,6 +2396,17 @@ a{color:var(--orange);text-decoration:none}
   </div>
 </div>
 
+<!-- MODAL TROCAR LOCAL DE ENTREGA (só do pedido) -->
+<div class="modal-bg" id="modal-trocar-local">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📍 Local de entrega do pedido</div>
+    <div id="tl-info" style="font-size:12px;color:var(--text3);margin-bottom:10px"></div>
+    <div class="form-group"><label>Local de entrega</label><select id="tl-select" style="width:100%;height:42px"></select></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Altera apenas este pedido. O cadastro do cliente não muda.</div>
+    <div class="action-row" style="gap:8px"><button class="btn btn-outline" style="flex:1" onclick="fecharModal('trocar-local')">Cancelar</button><button class="btn btn-primary" style="flex:1" onclick="salvarTrocarLocal()">Salvar</button></div>
+  </div>
+</div>
 <!-- MODAL EDITAR CLIENTE -->
 <div class="modal-bg" id="modal-cliente">
   <div class="modal-box">
@@ -4589,6 +4600,7 @@ function renderDia(){
             +(p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPago(${i})">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
             +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:(p.entregue?`<button class="psm" style="background:var(--bg);color:var(--text3);border:1px dashed var(--border2)" onclick="abrirInserirFoto(${p.id})">+📷</button>`:''))
+            +(['admin','gerente'].includes(perfilAtual)&&localTrocavel(p)?`<button class="psm" style="background:#FFF3E0;color:#C2410C" onclick="abrirTrocarLocal(${p.id})">📍 Local</button>`:'')
             +(['admin','gerente'].includes(perfilAtual)?`<button class="psm psm-edit" onclick="abrirModalEdit(${i})">Editar</button>`:'')
             +`<button class="psm psm-wpp" onclick="enviarWhats(${i})">WPP</button>`
             +(perfilAtual==='admin'?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="emitirNFe(${i})">NF-e</button>`:'')
@@ -4597,6 +4609,7 @@ function renderDia(){
             (p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPagoHistorico(${p.id},'${dataSel}')">Pago</button>`:'')
             +(p.pago?`<button class="psm psm-pago-ok">✓ Pago</button>`:'')
             +(p.foto?`<button class="psm" style="background:var(--blue-bg);color:var(--blue)" onclick="verFotoEntrega(${p.id})">📷</button>`:(p.entregue?`<button class="psm" style="background:var(--bg);color:var(--text3);border:1px dashed var(--border2)" onclick="abrirInserirFoto(${p.id})">+📷</button>`:''))
+            +(['admin','gerente'].includes(perfilAtual)&&localTrocavel(p)?`<button class="psm" style="background:#FFF3E0;color:#C2410C" onclick="abrirTrocarLocal(${p.id})">📍 Local</button>`:'')
             +(['admin','gerente'].includes(perfilAtual)?`<button class="psm psm-edit" onclick="abrirModalEditHist(${p.id},'${dataSel}')">Editar</button>`:'')
             +`<button class="psm psm-wpp" onclick="enviarWhats(-1,'${dataSel}',${p.id})">WPP</button>`
             +`<button class="psm psm-del" onclick="delPedidoUniversal(${p.id},'${dataSel}')">✕</button>`
@@ -8107,6 +8120,48 @@ async function salvarEdicaoCliente(){
   }catch(e){setSyncStatus('err','Erro ao sincronizar');}
   lsave('slj_cli_bk',clientes);
   fecharModal('cliente');renderClientes();toast('Cliente atualizado.');
+}
+let tlPedidoId=null;
+function acharPedidoPorId(id){
+  const listas=[pedidos,pedidosOntem,pedidosAmanha,...Object.values(historico)];
+  for(const l of listas){const p=(l||[]).find(x=>String(x.id)===String(id));if(p)return p;}
+  return null;
+}
+function localTrocavel(p){
+  const c=clientes.find(x=>String(x.id)===String(p.clienteId));
+  return !!(p.localEntrega||(c&&Array.isArray(c.locais)&&c.locais.some(l=>l&&l.nome)));
+}
+function abrirTrocarLocal(id){
+  const p=acharPedidoPorId(id);if(!p)return;
+  const c=clientes.find(x=>String(x.id)===String(p.clienteId))||{};
+  const L=(Array.isArray(c.locais)?c.locais:[]).filter(l=>l&&l.nome);
+  tlPedidoId=id;
+  document.getElementById('tl-info').textContent=p.clienteNome+(p.numeroPedido?' · Pedido nº '+p.numeroPedido:'');
+  const atual=p.localEntrega||'';
+  let opts='<option value="__principal__"'+(atual?'':' selected')+'>Endereço principal'+(c.bairro?' ('+escLoc(c.bairro)+')':'')+'</option>';
+  opts+=L.map(l=>`<option value="${escLoc(l.nome)}"${l.nome===atual?' selected':''}>${escLoc(l.nome)}</option>`).join('');
+  if(atual&&!L.some(l=>l.nome===atual)) opts+=`<option value="${escLoc(atual)}" selected>${escLoc(atual)} (local removido do cadastro)</option>`;
+  document.getElementById('tl-select').innerHTML=opts;
+  const m=document.getElementById('modal-trocar-local');m.classList.add('open');m.style.display='flex';m.style.opacity='1';m.style.pointerEvents='all';
+}
+async function salvarTrocarLocal(){
+  const p=acharPedidoPorId(tlPedidoId);if(!p){fecharModal('trocar-local');return;}
+  const v=document.getElementById('tl-select').value;
+  const novo=v==='__principal__'?'':v;
+  const antigo=p.localEntrega||'';
+  fecharModal('trocar-local');
+  if(novo===antigo){return;}
+  p.localEntrega=novo;
+  lsave('slj_ped_bk',pedidos);lsave('slj_ped_ontem_bk',pedidosOntem);lsave('slj_ped_amanha_bk',pedidosAmanha);lsave('slj_hist_bk',historico);
+  renderDia();try{renderRota();}catch(e){}
+  try{
+    await sbPatch('pedidos',`?id=eq.${p.id}`,{local_entrega:novo||null});
+    setSyncStatus('ok','Sincronizado — nuvem ativa');
+    toast('✓ Local do pedido alterado'+(novo?' para '+novo:' para o endereço principal')+'.');
+  }catch(e){
+    p.localEntrega=antigo;renderDia();try{renderRota();}catch(e2){}
+    setSyncStatus('err','Erro ao sincronizar');toast('⚠ Não foi possível salvar o local no banco: '+String((e&&e.message)||e).slice(0,100));
+  }
 }
 function fecharModal(m){const el=document.getElementById('modal-'+m);if(el){el.classList.remove('open');el.style.display='none';}}
 
