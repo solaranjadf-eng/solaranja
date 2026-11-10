@@ -1287,7 +1287,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança</div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-c)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2482,6 +2482,7 @@ async function sb(m,t,b,q=''){
   const tx=await r.text();return tx?JSON.parse(tx):null;
 }
 const sbGet=(t,q)=>sb('GET',t,null,q);
+const sbGetAll=async(t,q)=>{let out=[],off=0;for(let i=0;i<20;i++){const r=await sbGet(t,q+'&limit=1000&offset='+off);if(!r)return out.length?out:r;out=out.concat(r);if(r.length<1000)break;off+=1000;}return out;};
 const sbPost=(t,b)=>sb('POST',t,b);
 const sbPatch=(t,q,b)=>sb('PATCH',t,b,q);
 const sbDel=(t,q)=>sb('DELETE',t,null,q);
@@ -2775,7 +2776,7 @@ async function sincronizar(){
         lsave('slj_acomp',acompanhamentos);
       }
       const tIniAcomp=Date.now();
-      const dbAcompMarcados=await sbGet('acompanhamento_marcados','?order=semana&limit=1000');
+      const dbAcompMarcados=await sbGetAll('acompanhamento_marcados','?order=semana,id');
       if(dbAcompMarcados){
         // O banco é a fonte da verdade; só prevalece o local o que ainda não foi gravado (pendente) ou foi clicado durante esta sync
         const mapa={};
