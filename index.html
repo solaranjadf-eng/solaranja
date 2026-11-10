@@ -1226,6 +1226,24 @@ a{color:var(--orange);text-decoration:none}
   <!-- ALERTAS DE VENCIMENTO -->
   <div id="alerta-vencimento-cob" style="margin-bottom:12px"></div>
 
+  <!-- AUTOMAÇÃO DE COBRANÇA: lembretes + baixa -->
+  <div class="card" id="card-automacao-cob" style="margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🔔 Lembretes e baixa automática</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Todo dia às 8h o sistema avisa o cliente 2 dias antes do vencimento e depois de 1, 5 e 15 dias de atraso. Boletos já pagos são ignorados.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <label style="font-size:12px;font-weight:600">Lembretes:</label>
+      <select id="lemb-modo" onchange="lembMudarModo(this.value)" style="height:34px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:13px">
+        <option value="desligado">Desligado</option>
+        <option value="teste">Modo teste (e-mails só para mim)</option>
+        <option value="ligado">Ligado (envia aos clientes)</option>
+      </select>
+      <button class="btn btn-outline" onclick="lembEnviarExemplo()" style="height:34px;font-size:12px">✉ Enviar exemplo para mim</button>
+      <button class="btn btn-primary" onclick="concAbrir()" style="height:34px;font-size:12px">💰 Conferir pagamentos (extrato)</button>
+    </div>
+    <div id="lemb-status" style="font-size:11px;color:var(--text3);margin-top:8px"></div>
+  </div>
+
+
   <div class="card" style="margin-bottom:12px">
     <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">+ Adicionar estabelecimento</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1298,7 +1316,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-q)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-r)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -6473,6 +6491,7 @@ function renderAcompanhamento(){
 }
 
 function renderCobrancas(){
+  try{lembCarregar();}catch(e){}
   const [ano,mesN]=cobMesVisivel.split('-').map(Number);
   const mesNome=new Date(ano,mesN-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const lbl=document.getElementById('cob-mes-label');
@@ -11306,6 +11325,116 @@ function cobVencimentoStr(cli){
   const cc=cobCicloAtual(cli);
   if(cc&&cc.temRegra)return cc.venc.toLocaleDateString('pt-BR');
   const v=new Date();v.setDate(v.getDate()+7);return v.toLocaleDateString('pt-BR');
+}
+// ── LEMBRETES AUTOMÁTICOS + BAIXA POR EXTRATO ───────────────────────────────
+let lembModo='teste',lembCarregado=false;
+async function lembCarregar(){
+  if(lembCarregado)return;
+  try{const r=await sbGet('cobranca_config','?chave=eq.lembretes_modo&select=valor');lembModo=(r&&r[0]&&r[0].valor)||'teste';lembCarregado=true;}catch(e){}
+  lembRender();
+}
+function lembRender(){
+  const sel=document.getElementById('lemb-modo');if(sel)sel.value=lembModo;
+  const st=document.getElementById('lemb-status');if(!st)return;
+  st.textContent=lembModo==='ligado'?'✅ Ligado: os clientes recebem os lembretes (você recebe cópia oculta).':lembModo==='teste'?'🧪 Modo teste: os e-mails chegam só para você, com o aviso de quem receberia. Quando estiver satisfeito, mude para "Ligado".':'⏸ Desligado: nenhum lembrete é enviado.';
+}
+async function lembMudarModo(v){
+  if(v==='ligado'&&!confirm('Ligar os lembretes? A partir de amanhã às 8h os clientes com boleto a vencer ou vencido e não pago recebem e-mail automático.')){lembRender();return;}
+  try{await sbUps('cobranca_config',[{chave:'lembretes_modo',valor:v,atualizado_em:new Date().toISOString()}]);lembModo=v;toast('✓ Lembretes: '+(v==='ligado'?'ligados':v==='teste'?'modo teste':'desligados'));}
+  catch(e){toast('Não foi possível salvar: '+String(e.message||e).slice(0,80));}
+  lembRender();
+}
+async function lembEnviarExemplo(){
+  toast('Enviando exemplo...');
+  try{const d=await cobChamarFn('lembretes-cobranca',{acao:'teste'});toast(d.success?'✓ 2 e-mails de exemplo enviados para '+d.para:'⚠ '+(d.erro||'falha ao enviar').slice(0,120));}
+  catch(e){toast('⚠ '+String(e.message||e).slice(0,100));}
+}
+function concParseExtrato(txt){
+  const out=[];
+  if(/<STMTTRN>/i.test(txt)){
+    txt.split(/<STMTTRN>/i).slice(1).forEach(b=>{
+      const g=t=>{const m=b.match(new RegExp('<'+t+'>([^<\\r\\n]*)','i'));return m?m[1].trim():'';};
+      const v=parseFloat(g('TRNAMT').replace(',','.'));const d=g('DTPOSTED').slice(0,8);
+      if(v>0&&d.length>=8)out.push({data:d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8),valor:v,memo:(g('MEMO')||g('NAME'))});
+    });
+    return out;
+  }
+  txt.split(/\r?\n/).forEach(l=>{
+    const dm=l.match(/(\d{2})\/(\d{2})\/(\d{4})/)||null;const di=l.match(/(\d{4})-(\d{2})-(\d{2})/);
+    let data=dm?dm[3]+'-'+dm[2]+'-'+dm[1]:di?di[0]:null;if(!data)return;
+    const nums=(l.match(/-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d+\.\d{2}(?!\d)/g)||[]);if(!nums.length)return;
+    if(/(;|\s|^)D(;|\s|$)|\(-\)|débito|debito/i.test(l))return;
+    const raw=nums[nums.length>1?nums.length-2:0];
+    const v=parseFloat(raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw);
+    if(v>0)out.push({data,valor:v,memo:l.replace(/\s+/g,' ').slice(0,80)});
+  });
+  return out;
+}
+let concEnvios=[],concLinhas=[];
+async function concAbrir(){
+  let m=document.getElementById('modal-conc');
+  if(!m){m=document.createElement('div');m.id='modal-conc';document.body.appendChild(m);}
+  m.style.cssText='display:flex;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:12px';
+  m.innerHTML='<div style="background:var(--white,#fff);border-radius:14px;padding:16px;max-width:760px;width:100%;max-height:90vh;overflow:auto"><div style="font-size:15px;font-weight:700;margin-bottom:6px">💰 Conferir pagamentos pelo extrato</div><div style="font-size:12px;color:var(--text3);margin-bottom:10px">Baixe o extrato do BB em <strong>OFX</strong> (ou CSV) e envie aqui. O sistema acha os créditos que batem com os boletos em aberto e você confirma de uma vez.</div><input type="file" id="conc-arq" accept=".ofx,.csv,.txt" onchange="concLerArquivo(this)" style="margin-bottom:10px"><div id="conc-res"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn btn-outline" onclick="document.getElementById(\'modal-conc\').style.display=\'none\'">Fechar</button><button class="btn btn-primary" id="conc-ok" style="display:none" onclick="concConfirmar()">Dar baixa nos marcados</button></div></div>';
+  try{
+    const env=await sbGet('cobranca_envios','?status=eq.ok&boleto_nosso_numero=not.is.null&order=created_at.desc&limit=300&select=id,cliente_nome,pedidos_ids,valor,vencimento,nfe_numero,created_at');
+    concEnvios=(env||[]).filter(e=>(e.pedidos_ids||[]).some(i=>{const p=acharPedidoPorId(i);return !p||!p.pago;}));
+  }catch(e){concEnvios=[];}
+  document.getElementById('conc-res').innerHTML='<div style="font-size:12px;color:var(--text3)">'+concEnvios.length+' boleto(s) em aberto para conferir.</div>';
+}
+function concVencDate(e){const m=String(e.vencimento||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?new Date(+m[3],+m[2]-1,+m[1]):null;}
+function concLerArquivo(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    const cred=concParseExtrato(String(rd.result||''));
+    const usados=new Set();concLinhas=[];
+    cred.forEach(c=>{
+      const dc=new Date(c.data+'T12:00:00');
+      const cands=concEnvios.filter(e=>{
+        const v=Number(e.valor||0);const venc=concVencDate(e);
+        const dias=venc?Math.max(0,Math.round((dc-venc)/86400000)):0;
+        const max=v*(1.02+0.01*dias/30)+0.05;
+        const criado=new Date(e.created_at);
+        return c.valor>=v-0.01&&c.valor<=(dias>0?max:v+0.01)&&dc>=new Date(criado.getFullYear(),criado.getMonth(),criado.getDate()-1);
+      }).map(e=>{
+        const nome=String(e.cliente_nome||'').toLowerCase().split(/\s+/).filter(w=>w.length>3);
+        const memo=c.memo.toLowerCase();
+        return {e,exato:Math.abs(c.valor-Number(e.valor))<0.02,nome:nome.some(w=>memo.includes(w))};
+      }).sort((a,b)=>(b.nome-a.nome)||(b.exato-a.exato));
+      if(!cands.length)return;
+      let pre=null;
+      const livres=cands.filter(x=>!usados.has(x.e.id));
+      if(livres.length===1||(livres.length&&livres[0].nome&&!(livres[1]&&livres[1].nome)))pre=livres[0].e.id;
+      if(pre)usados.add(pre);
+      concLinhas.push({c,cands:cands.map(x=>x.e),pre});
+    });
+    const el=document.getElementById('conc-res');
+    if(!concLinhas.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">Li '+cred.length+' crédito(s) no arquivo e nenhum bate com boletos em aberto.</div>';document.getElementById('conc-ok').style.display='none';return;}
+    el.innerHTML='<div style="font-size:12px;margin-bottom:6px">Li '+cred.length+' crédito(s); <strong>'+concLinhas.length+'</strong> podem ser boletos. Confira e marque:</div>'+concLinhas.map((l,i)=>
+      '<div style="display:flex;gap:8px;align-items:center;border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px;flex-wrap:wrap"><input type="checkbox" id="conc-ck-'+i+'" '+(l.pre?'checked':'')+'><div style="flex:1;min-width:180px;font-size:12px"><strong>'+moeda(l.c.valor)+'</strong> · '+l.c.data.split('-').reverse().join('/')+'<br><span style="color:var(--text3)">'+escLoc(l.c.memo.slice(0,60))+'</span></div><select id="conc-sel-'+i+'" onchange="document.getElementById(\'conc-ck-'+i+'\').checked=!!this.value" style="height:32px;font-size:12px;border:1px solid var(--border2);border-radius:6px;max-width:320px"><option value="">— não é boleto —</option>'+l.cands.map(e=>'<option value="'+escLoc(e.id)+'" '+(e.id===l.pre?'selected':'')+'>'+escLoc(e.cliente_nome)+' · NF '+escLoc(e.nfe_numero||'?')+' · '+moeda(Number(e.valor))+' · venc '+escLoc(e.vencimento)+'</option>').join('')+'</select></div>').join('');
+    document.getElementById('conc-ok').style.display='inline-flex';
+  };
+  rd.readAsText(f,'latin1');
+}
+async function concConfirmar(){
+  const feitos=new Set();let n=0;
+  for(let i=0;i<concLinhas.length;i++){
+    const ck=document.getElementById('conc-ck-'+i),sel=document.getElementById('conc-sel-'+i);
+    if(!ck||!ck.checked||!sel||!sel.value||feitos.has(sel.value))continue;
+    const e=concEnvios.find(x=>String(x.id)===sel.value);if(!e)continue;
+    feitos.add(sel.value);
+    for(const id of (e.pedidos_ids||[])){
+      const p=acharPedidoPorId(id);if(p)p.pago=true;
+      try{await sbPatch('pedidos',`?id=eq.${id}`,{pago:true});}catch(er){console.warn('baixa',er);}
+    }
+    n++;
+  }
+  try{lsave('slj_ped_bk',pedidos);lsave('slj_hist_bk',historico);}catch(e){}
+  try{atualizarBadges();}catch(e){}
+  try{if(typeof renderFinanceiro==='function')renderFinanceiro();}catch(e){}
+  document.getElementById('modal-conc').style.display='none';
+  toast(n?'✓ Baixa dada em '+n+' cobrança(s).':'Nada marcado.');
 }
 function enviarEmailCliente(){
   if(!finCliSelecionado){toast('Selecione um cliente primeiro.');return;}
