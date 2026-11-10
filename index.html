@@ -1289,7 +1289,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-i)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-j)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2018,6 +2018,7 @@ a{color:var(--orange);text-decoration:none}
       <div class="form-group"><label>Assunto</label><input type="text" id="cob-assunto"></div>
       <div class="form-group"><label>Mensagem <span style="font-size:10px;color:var(--text3)">(vencimento, valor e linha digitável do boleto são inseridos automaticamente antes do agradecimento)</span></label><textarea id="cob-texto" rows="9" style="width:100%;font-size:12px"></textarea></div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer"><input type="checkbox" id="cob-enviar" checked style="width:16px;height:16px;accent-color:var(--orange)"> Enviar o e-mail automaticamente ao cliente (com NF-e, boleto e extrato em anexo)</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer"><input type="checkbox" id="cob-anexar-nf" checked style="width:16px;height:16px;accent-color:var(--orange)"> Anexar o PDF da NF-e (o sistema espera a nota ser emitida no Bling)</label>
     </div>
     <div id="cob-passos" style="margin-bottom:10px"></div>
     <div id="cob-erro" style="display:none;background:#fff0f0;border:1px solid #ffcccc;color:#b91c1c;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:10px"></div>
@@ -10154,7 +10155,7 @@ const COB_TEXTO_PADRAO='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fi
 function cobInserirPagamento(texto,bloco){const i=texto.indexOf('\n\nAgradecemos');return i>=0?texto.slice(0,i)+bloco+texto.slice(i):texto+bloco;}
 let cobFx=null, cobRodando=false, cobEnviosCache=[];
 const COB_LS='slj_cob_fluxo';
-const COB_PASSOS=['Nota fiscal (NF-e única)','Boleto (Banco do Brasil)','Extrato de pedidos (PDF)','E-mail ao cliente'];
+const COB_PASSOS=['Nota fiscal (NF-e única, via Bling)','Boleto (Banco do Brasil)','Extrato de pedidos (PDF)','E-mail ao cliente'];
 function cobEsc(t){return escLoc(t);}
 function cobHdr(){return {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};}
 function cobPedidosSel(){
@@ -10236,6 +10237,37 @@ function fecharCobrancaAuto(){
   if(cobRodando&&!confirm('A cobrança está em andamento. Fechar agora não cancela o que já foi feito. Fechar mesmo assim?'))return;
   document.getElementById('modal-cob-auto').style.display='none';
 }
+
+function cobMontarPayloadNF(cli,peds){
+  const qtd={},preco={};
+  peds.forEach(p=>p.itens.forEach(it=>{
+    const sabor=it.sabor||'laranja';const key=sabor+'__'+it.tam;
+    qtd[key]=(qtd[key]||0)+it.qtd;
+    const pr=it.preco||Object.entries(it).find(([k])=>k.startsWith('pre'))?.[1]||0;
+    if(!preco[key])preco[key]=parseFloat(pr)||0;
+  }));
+  const itens=Object.entries(qtd).map(([key,q])=>{
+    const [sabor,tam]=key.split('__');
+    const {codigo,nome}=getBlingCodigoNome(sabor,tam);
+    return {descricao:nome,unidade:BLING_PRODUTO.unidade,codigo,ncm:BLING_PRODUTO.ncm,origem:0,quantidade:q,valor:preco[key]||0,valorUnitario:preco[key]||0,tipo:'P',cfop:BLING_PRODUTO.cfop,impostos:[{tipo:'S',csosn:BLING_PRODUTO.csosn}]};
+  });
+  const soma=Math.round(itens.reduce((t,i)=>t+i.quantidade*i.valor,0)*100)/100;
+  const payload={tipo:1,finalidade:1,dataOperacao:new Date().toISOString().slice(0,10),naturezaOperacao:'Venda de mercadoria a não contribuinte',
+    contato:{nome:cli.nome,tipoPessoa:(cli.cnpj||'').replace(/\D/g,'').length>11?'J':'F',numeroDocumento:(cli.cnpj||'').replace(/\D/g,''),ie:cli.ie||'',indicadorIE:9,email:cli.email||'',telefone:(cli.tel||'').replace(/\D/g,''),
+      endereco:{endereco:(cli.endereco||'Nao informado').slice(0,100),numero:cli.numero||'SN',complemento:cli.complemento||'',bairro:cli.bairro||'Centro',municipio:cli.cidade||'Brasilia',uf:cli.uf||'DF',cep:(cli.cep||'').replace(/\D/g,''),pais:'Brasil'}},
+    itens};
+  return {payload,soma,temItemZerado:itens.some(i=>!(i.valor>0)||!(i.quantidade>0))};
+}
+async function cobBuscarLinkNF(token,nfeId){
+  try{
+    const r=await fetch(BLING_WORKER+'/bling/nfe/'+nfeId+'?access_token='+encodeURIComponent(token));
+    const d=await r.json();const n=d&&d.data;if(!n)return null;
+    const sit=n.situacao&&typeof n.situacao==='object'?n.situacao.valor:n.situacao;
+    const autorizada=(typeof sit!=='number')||[5,6,7].includes(sit);
+    const link=n.linkDanfe||n.linkPDF||null;
+    return {numero:n.numero||null,link:autorizada?link:null};
+  }catch(e){return null;}
+}
 async function cobChamarFn(nome,corpo){
   const r=await fetch(SUPABASE_FUNCTIONS_URL+'/'+nome,{method:'POST',headers:cobHdr(),body:JSON.stringify(corpo)});
   const d=await r.json().catch(()=>({}));
@@ -10294,30 +10326,39 @@ async function executarCobranca(){
       const t=await cobChamarFn('enviar-cobranca',{teste:true});
       if(!t.success||!t.configurado) throw new Error('O envio automático de e-mail ainda não está configurado no Supabase (RESEND_API_KEY e EMAIL_FROM). Nada foi emitido. Desmarque "Enviar o e-mail automaticamente" para gerar só os documentos.');
     }
-    // 1) NF-e única
+    // 1) NF-e única (mesmo caminho do botão "Emitir NF-e" do Financeiro: Bling via navegador)
     passoAtual.i=0;fx.etapa='nfe';
+    const anexarNF=document.getElementById('cob-anexar-nf').checked;
     if(!fx.nfe){
-      cobPasso(0,'run','Emitindo no Bling...');
-      const itensNF=cobItensNF(peds);
-      if(itensNF.some(i=>!(i.preco>0)||!(i.qtd>0))) throw new Error('Há item sem preço ou sem quantidade nos pedidos. Corrija antes de emitir a nota.');
-      const somaNF=Math.round(itensNF.reduce((s,i)=>s+i.qtd*i.preco,0)*100)/100;
-      if(Math.abs(somaNF-fx.valor)>0.01) throw new Error('A soma dos itens ('+moeda(somaNF)+') é diferente do total dos pedidos ('+moeda(fx.valor)+'). Confira os pedidos antes de emitir a nota.');
-      const d=await cobChamarFn('bling-emitir-nfe',{pedido:{itens:itensNF,obs:'Ref. entregas: '+peds.map(p=>cobFmtData(p.data)).join(', ')},cliente:{nome:cli.nome,cnpj:cli.cnpj||'',tel:cli.tel||''}});
-      if(!d.success) throw new Error('Erro ao emitir NF-e: '+(d.erro||'desconhecido'));
-      fx.nfe={id:d.nfeId,numero:d.numero,link:d.linkDanfe||null};
+      cobPasso(0,'run','Enviando a nota ao Bling...');
+      const token=await blingGetToken();
+      if(!token) throw new Error('Bling não autenticado neste navegador. Clique em "Bling NF" no menu lateral, autorize e tente de novo. Nada foi emitido.');
+      const {payload,soma,temItemZerado}=cobMontarPayloadNF(cli,peds);
+      if(temItemZerado) throw new Error('Há item sem preço ou sem quantidade nos pedidos. Corrija antes de emitir a nota.');
+      if(Math.abs(soma-fx.valor)>0.01) throw new Error('A soma dos itens ('+moeda(soma)+') é diferente do total dos pedidos ('+moeda(fx.valor)+'). Confira os pedidos antes de emitir a nota.');
+      const r=await fetch(BLING_WORKER+'/bling/nfe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload})});
+      const d=await r.json();
+      if(!d.data||!d.data.id) throw new Error('Erro Bling: '+String(d.error?.description||d.errors?.[0]?.description||JSON.stringify(d)).slice(0,220));
+      fx.nfe={id:d.data.id,numero:d.data.numero||null,link:null};
       fx.status='nfe_ok';cobSalvarLocal();cobPersistir();
     }
-    if(!fx.nfe.link){
-      cobPasso(0,'run','NF-e nº '+(fx.nfe.numero||'')+' emitida. Aguardando o PDF ficar disponível...');
-      for(let t=0;t<8&&!fx.nfe.link;t++){
-        await new Promise(r=>setTimeout(r,4000));
-        const l=await cobChamarFn('bling-nfe-link',{nfeId:fx.nfe.id});
-        if(l.success){if(l.numero)fx.nfe.numero=l.numero;if(l.linkDanfe)fx.nfe.link=l.linkDanfe;}
+    if(anexarNF&&!fx.nfe.link){
+      cobPasso(0,'run','NF-e nº '+(fx.nfe.numero||'')+' criada no Bling. Aguardando a emissão...');
+      const token=await blingGetToken();
+      if(!token) throw new Error('Bling não autenticado neste navegador. Clique em "Bling NF" no menu lateral, autorize e clique em Continuar. A nota não será criada de novo.');
+      if(!fx.nfe.emitTentada){
+        fx.nfe.emitTentada=true;cobSalvarLocal();
+        try{await fetch(BLING_WORKER+'/bling/nfe/'+fx.nfe.id+'/emitir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload:{}})});}catch(e){}
+      }
+      for(let t=0;t<7&&!fx.nfe.link;t++){
+        const l=await cobBuscarLinkNF(token,fx.nfe.id);
+        if(l){if(l.numero)fx.nfe.numero=l.numero;if(l.link)fx.nfe.link=l.link;}
+        if(!fx.nfe.link)await new Promise(r=>setTimeout(r,4000));
       }
       cobSalvarLocal();cobPersistir();
-      if(!fx.nfe.link) throw new Error('A NF-e nº '+(fx.nfe.numero||'')+' foi emitida, mas o Bling ainda não liberou o PDF. Clique em "Continuar de onde parou" em alguns instantes (a nota não será emitida de novo).');
+      if(!fx.nfe.link) throw new Error('A NF-e nº '+(fx.nfe.numero||'')+' foi criada no Bling, mas ainda não foi emitida (ou o PDF não está disponível). Emita a nota no Bling e clique em "Continuar de onde parou". A nota não será criada de novo. (Se preferir, desmarque "Anexar o PDF da NF-e".)');
     }
-    cobPasso(0,'ok','NF-e nº '+(fx.nfe.numero||'')+' emitida');
+    cobPasso(0,'ok','NF-e nº '+(fx.nfe.numero||'')+(fx.nfe.link?' emitida':' criada no Bling'));
     // 2) Boleto
     passoAtual.i=1;fx.etapa='boleto';
     if(!fx.boleto){
@@ -10338,8 +10379,9 @@ async function executarCobranca(){
     passoAtual.i=3;fx.etapa='email';
     if(enviar){
       cobPasso(3,'run','Enviando para '+para+'...');
-      const bloco='\n\nDados do pagamento:\nVencimento: '+fx.vencStr+'\nValor: '+moeda(fx.valor)+(fx.boleto.linha?'\nLinha digitável: '+fx.boleto.linha:'')+(fx.boleto.pix?'\nPIX: '+fx.boleto.pix:'')+'\nNF-e nº '+(fx.nfe.numero||'');
-      const anexos=[{filename:'NF-e '+(fx.nfe.numero||''),url:fx.nfe.link}];
+      const bloco='\n\nDados do pagamento:\nVencimento: '+fx.vencStr+'\nValor: '+moeda(fx.valor)+(fx.boleto.linha?'\nLinha digitável: '+fx.boleto.linha:'')+(fx.boleto.pix?'\nPIX: '+fx.boleto.pix:'')+(fx.nfe.numero?'\nNF-e nº '+fx.nfe.numero:'');
+      const anexos=[];
+      if(fx.nfe.link)anexos.push({filename:'NF-e '+(fx.nfe.numero||''),url:fx.nfe.link});
       if(fx.boleto.link)anexos.push({filename:'Boleto',url:fx.boleto.link});
       anexos.push({filename:ex.filename,base64:ex.base64});
       const r=await cobChamarFn('enviar-cobranca',{para,assunto,texto:cobInserirPagamento(texto,bloco),anexos});
