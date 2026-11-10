@@ -2058,7 +2058,7 @@ a{color:var(--orange);text-decoration:none}
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
         <label style="font-size:12px;font-weight:600;text-transform:none;letter-spacing:0">Entrega em:</label>
         <input type="date" id="colar-data" onchange="colarRender()" style="padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px">
-        <span id="colar-data-lbl" style="font-size:12px;color:var(--text3)"></span>
+        <button class="btn btn-outline" style="padding:5px 10px;font-size:12px" onclick="colarDataAtalho(0)">Hoje</button><button class="btn btn-outline" style="padding:5px 10px;font-size:12px" onclick="colarDataAtalho(1)">Amanhã</button><span id="colar-data-lbl" style="font-size:12px;color:#dc2626;font-weight:600">Escolha a data de entrega</span>
       </div>
       <div id="colar-lista" style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;min-height:140px"></div>
       <div id="colar-resumo" style="font-size:12px;margin-bottom:8px"></div>
@@ -11096,6 +11096,11 @@ function fecharColarPedidos(){
   if(colarLancando&&!confirm('Os pedidos estão sendo lançados. Fechar não cancela o que já foi lançado. Fechar mesmo assim?'))return;
   document.getElementById('modal-colar').style.display='none';
 }
+function colarDataAtalho(n){
+  const d=new Date(hoje);d.setDate(d.getDate()+n);
+  document.getElementById('colar-data').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  colarRender();
+}
 function colarVoltar(){if(colarLancando)return;document.getElementById('colar-passo1').style.display='flex';document.getElementById('colar-passo2').style.display='none';}
 function analisarColar(){
   const txt=document.getElementById('colar-texto').value||'';
@@ -11120,7 +11125,7 @@ function analisarColar(){
     colarLinhas.push({raw:l,nome,key,itens,pago,erro,cli,auto,local:'',sel:true,estado:'',det:''});
   });
   if(!colarLinhas.length){toast('Não encontrei nenhuma linha com pedido. Formato: Nome (quantidade)tamanho');return;}
-  document.getElementById('colar-data').value=colarDataPorDia(dia);
+  document.getElementById('colar-data').value='';
   document.getElementById('colar-passo1').style.display='none';
   document.getElementById('colar-passo2').style.display='flex';
   colarRender();
@@ -11148,7 +11153,9 @@ function colarStatus(l,dataKey){
 function colarRender(){
   const dataKey=document.getElementById('colar-data').value;
   const el=document.getElementById('colar-lista');
-  if(dataKey)document.getElementById('colar-data-lbl').textContent=new Date(dataKey+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'});
+  const _lb=document.getElementById('colar-data-lbl');
+  if(dataKey){_lb.style.color='var(--text3)';_lb.style.fontWeight='400';_lb.textContent=new Date(dataKey+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'});}
+  else{_lb.style.color='#dc2626';_lb.style.fontWeight='600';_lb.textContent='Escolha a data de entrega';}
   el.innerHTML=colarLinhas.map((l,i)=>{
     const st=colarStatus(l,dataKey);
     const bloqueia=['sem','erro'].includes(st.tipo);
