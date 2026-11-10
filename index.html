@@ -10496,8 +10496,10 @@ async function abrirCobrancaLote(){
   todos.forEach(p=>{(porCli[String(p.clienteId)]=porCli[String(p.clienteId)]||[]).push(p);});
   let envios=[];try{envios=await sbGet('cobranca_envios','?order=created_at.desc&limit=400&select=id,pedidos_ids,nfe_numero,status')||[];}catch(e){}
   const mapa=loteMapa();
+  const _estab=new Set(cobrancas.filter(c=>c.ativo!==false).map(c=>(c.nome||'').toLowerCase().trim()).filter(Boolean));
   loteItens=Object.entries(porCli).map(([cid,peds])=>{
     const cli=clientes.find(c=>String(c.id)===cid);if(!cli)return null;
+    if(!_estab.has((cli.nome||'').toLowerCase().trim())&&!_estab.has((cli.apelido||'').toLowerCase().trim()))return null;
     peds.sort((a,b)=>a.data.localeCompare(b.data));
     const valor=Math.round(peds.reduce((s,p)=>s+(p.total||0),0)*100)/100;
     const set=new Set(peds.map(p=>String(p.id)));
@@ -10511,7 +10513,7 @@ async function abrirCobrancaLote(){
 }
 function loteRender(){
   const el=document.getElementById('lote-lista');
-  if(!loteItens.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum cliente em débito. 🎉</div>';document.getElementById('lote-info').textContent='';return;}
+  if(!loteItens.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum estabelecimento da aba Cobranças com débito em aberto. 🎉</div>';document.getElementById('lote-info').textContent='';return;}
   const ic={pend:'',run:'⏳',ok:'✅',wait:'⏸',err:'❌',skip:'➖'};
   const cor={pend:'var(--text3)',run:'var(--orange)',ok:'#16a34a',wait:'#c2410c',err:'#dc2626',skip:'var(--text3)'};
   const _q=((document.getElementById('lote-busca')||{}).value||'').toLowerCase().trim();
@@ -10534,7 +10536,7 @@ function loteRender(){
 function loteResumo(){
   const sel=loteItens.filter(i=>i.sel);
   const tot=sel.reduce((s,i)=>s+i.valor,0);
-  document.getElementById('lote-info').textContent=loteItens.length+' cliente(s) com débito em aberto — '+moeda(loteItens.reduce((s,i)=>s+i.valor,0));
+  document.getElementById('lote-info').textContent=loteItens.length+' cliente(s) da aba Cobranças com débito em aberto — '+moeda(loteItens.reduce((s,i)=>s+i.valor,0));
   document.getElementById('lote-resumo').innerHTML='Selecionados: <strong>'+sel.length+'</strong> cliente(s) · <strong>'+moeda(tot)+'</strong> · vencimento dos boletos em 7 dias <a onclick="loteMarcar(true)" style="margin-left:10px;cursor:pointer;color:var(--blue)">marcar todos</a> · <a onclick="loteMarcar(false)" style="cursor:pointer;color:var(--blue)">desmarcar</a>';
 }
 function loteMarcar(v){if(loteRodando)return;const q=((document.getElementById('lote-busca')||{}).value||'').toLowerCase().trim();loteItens.forEach(i=>{if(!q||((i.cli.apelido||'')+' '+i.cli.nome).toLowerCase().includes(q))i.sel=v;});loteRender();}
