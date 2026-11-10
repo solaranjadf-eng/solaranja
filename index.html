@@ -1095,6 +1095,8 @@ a{color:var(--orange);text-decoration:none}
     <div class="stat-card full"><div class="stat-label">Total em débito — todos os períodos</div><div class="stat-val" id="fin-debito-total">R$ 0</div><div class="stat-sub" id="fin-debito-clientes"></div></div>
   </div>
 
+  <button class="btn btn-primary btn-full" style="margin-bottom:12px" onclick="abrirCobrancaLote()">🚀 Cobrança em lote (vários clientes de uma vez)</button>
+
   <!-- ABAS INTERNAS -->
   <div style="display:flex;border-bottom:2px solid var(--border);margin-bottom:14px;gap:0">
     <button class="fbtn active" id="fin-aba-lista" onclick="setFinAba('lista',this)" style="border-radius:0;border:none;border-bottom:2px solid var(--orange);margin-bottom:-2px;height:38px;padding:0 16px">Pedidos</button>
@@ -1289,7 +1291,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-m)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-n)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2005,6 +2007,22 @@ a{color:var(--orange);text-decoration:none}
 </div>
 
 <!-- MODAL E-MAIL CLIENTE -->
+<div id="modal-cob-lote" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:12px">
+  <div style="background:var(--white);border-radius:var(--radius);padding:16px;width:100%;max-width:640px;max-height:94vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <strong style="font-size:15px">🚀 Cobrança em lote</strong>
+      <button onclick="fecharCobrancaLote()" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div id="lote-info" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
+    <div id="lote-lista" style="flex:1;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;min-height:120px"></div>
+    <div id="lote-opcoes">
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500;color:var(--text)"><input type="checkbox" id="lote-enviar" checked style="width:16px;height:16px;accent-color:var(--orange)"> Enviar o e-mail automaticamente (NF-e, boleto e extrato em anexo)</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500;color:var(--text)"><input type="checkbox" id="lote-anexar" checked style="width:16px;height:16px;accent-color:var(--orange)"> Anexar o PDF da NF-e (clientes com nota ainda não emitida ficam "aguardando")</label>
+    </div>
+    <div id="lote-resumo" style="font-size:12px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px"><button class="btn btn-outline" style="flex:1" onclick="fecharCobrancaLote()">Fechar</button><button class="btn btn-outline" style="flex:1;display:none" id="lote-parar" onclick="loteParar()">Parar</button><button class="btn btn-primary" style="flex:2" id="lote-btn" onclick="loteExecutar()">Gerar para os selecionados</button></div>
+  </div>
+</div>
 <div id="modal-cob-auto" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:12px">
   <div style="background:var(--white);border-radius:var(--radius);padding:18px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -10437,6 +10455,198 @@ function cobMostrarFinal(enviou){
 function cobBaixarExtrato(){
   if(!window._cobExtratoB64||!cobFx||!cobFx.extrato)return;
   const a=document.createElement('a');a.href='data:application/pdf;base64,'+window._cobExtratoB64;a.download=cobFx.extrato.filename;document.body.appendChild(a);a.click();a.remove();
+}
+
+// ── COBRANÇA EM LOTE ──────────────────────────────────────────────────────────
+const LOTE_LS='slj_cob_lote';
+let loteItens=[], loteRodando=false, loteParou=false;
+function loteMapa(){try{return JSON.parse(localStorage.getItem(LOTE_LS)||'{}')||{};}catch(e){return {};}}
+function loteSalvarFx(fx){const m=loteMapa();m[String(fx.cliId)]=fx;try{localStorage.setItem(LOTE_LS,JSON.stringify(m));}catch(e){}}
+function loteRemoverFx(cliId){const m=loteMapa();delete m[String(cliId)];try{localStorage.setItem(LOTE_LS,JSON.stringify(m));}catch(e){}}
+function lotePersistir(fx,extra){
+  sbUps('cobranca_envios',[{id:fx.id,cliente_id:String(fx.cliId),cliente_nome:fx.cliNome,pedidos_ids:fx.pedIds,valor:fx.valor,vencimento:fx.vencStr,
+    nfe_id:fx.nfe?String(fx.nfe.id||''):null,nfe_numero:fx.nfe?String(fx.nfe.numero||''):null,nfe_link:fx.nfe?fx.nfe.link||null:null,
+    boleto_nosso_numero:fx.boleto?String(fx.boleto.nossoNum):null,boleto_link:fx.boleto?fx.boleto.link||null:null,linha_digitavel:fx.boleto?fx.boleto.linha||null:null,
+    email_para:fx.para||null,status:fx.status,etapa:fx.etapa||null,erro:fx.erro||null,...(extra||{})}]).catch(e=>console.warn('[cobranca_envios]',e));
+}
+function loteTodosLocais(){
+  return [...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>String(x.id)===String(p.id))===i);
+}
+async function abrirCobrancaLote(){
+  if(loteRodando){document.getElementById('modal-cob-lote').style.display='flex';return;}
+  const modal=document.getElementById('modal-cob-lote');modal.style.display='flex';
+  document.getElementById('lote-lista').innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">🔄 Buscando clientes em débito...</div>';
+  document.getElementById('lote-resumo').textContent='';
+  const btn=document.getElementById('lote-btn');btn.disabled=true;btn.textContent='Gerar para os selecionados';
+  document.getElementById('lote-parar').style.display='none';
+  document.getElementById('lote-opcoes').style.display='block';
+  // pedidos em aberto: banco (inclui os mais antigos) + memória local
+  let doBanco=[];
+  try{
+    const db=await sbGet('pedidos','?entregue=eq.true&pago=eq.false&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,troca,parceria,itens_troca,local_entrega&order=data&limit=2000');
+    doBanco=(db||[]).map(mapPedido);
+  }catch(e){}
+  const locais=loteTodosLocais();
+  const ids=new Set(locais.map(p=>String(p.id)));
+  doBanco.forEach(p=>{if(!ids.has(String(p.id))){const dk=p.data||'sem-data';if(!historico[dk])historico[dk]=[];historico[dk].push(p);}});
+  const todos=loteTodosLocais().filter(p=>p.entregue&&!p.pago&&!p.troca&&!p.parceria&&(p.total||0)>0);
+  const porCli={};
+  todos.forEach(p=>{(porCli[String(p.clienteId)]=porCli[String(p.clienteId)]||[]).push(p);});
+  let envios=[];try{envios=await sbGet('cobranca_envios','?order=created_at.desc&limit=400&select=id,pedidos_ids,nfe_numero,status')||[];}catch(e){}
+  const mapa=loteMapa();
+  loteItens=Object.entries(porCli).map(([cid,peds])=>{
+    const cli=clientes.find(c=>String(c.id)===cid);if(!cli)return null;
+    peds.sort((a,b)=>a.data.localeCompare(b.data));
+    const valor=Math.round(peds.reduce((s,p)=>s+(p.total||0),0)*100)/100;
+    const set=new Set(peds.map(p=>String(p.id)));
+    const ja=envios.filter(e=>e.nfe_numero&&(e.pedidos_ids||[]).some(i=>set.has(String(i))));
+    const salvo=mapa[cid];
+    const retoma=salvo&&(salvo.nfe||salvo.boleto)&&salvo.status!=='ok'&&JSON.stringify(salvo.pedIds.map(String).sort())===JSON.stringify(peds.map(p=>String(p.id)).sort());
+    return {cid,cli,peds,valor,ja,retoma:retoma?salvo:null,sel:!ja.length,estado:'pend',det:''};
+  }).filter(Boolean).sort((a,b)=>a.peds[0].data.localeCompare(b.peds[0].data));
+  loteRender();
+  btn.disabled=false;
+}
+function loteRender(){
+  const el=document.getElementById('lote-lista');
+  if(!loteItens.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhum cliente em débito. 🎉</div>';document.getElementById('lote-info').textContent='';return;}
+  const ic={pend:'',run:'⏳',ok:'✅',wait:'⏸',err:'❌',skip:'➖'};
+  const cor={pend:'var(--text3)',run:'var(--orange)',ok:'#16a34a',wait:'#c2410c',err:'#dc2626',skip:'var(--text3)'};
+  el.innerHTML=loteItens.map((it,i)=>{
+    const nome=cobEsc(it.cli.apelido||it.cli.nome);
+    const avisos=[];
+    if(!it.cli.email)avisos.push('⚠ sem e-mail cadastrado');
+    if(it.ja.length)avisos.push('⚠ já cobrado antes (NF-e nº '+it.ja.map(e=>e.nfe_numero).join(', ')+')');
+    if(it.retoma)avisos.push('↩ continua: NF-e nº '+(it.retoma.nfe?it.retoma.nfe.numero:'—')+' já criada'+(it.retoma.boleto?', boleto já gerado':''));
+    return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-bottom:1px solid var(--border)">
+      <input type="checkbox" ${it.sel?'checked':''} ${loteRodando?'disabled':''} onchange="loteItens[${i}].sel=this.checked;loteResumo()" style="width:16px;height:16px;margin-top:2px;accent-color:var(--orange);flex-shrink:0">
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${nome} <span style="font-weight:400;color:var(--text3);font-size:11px">· ${it.peds.length} pedido(s) · desde ${cobFmtData(it.peds[0].data)}</span></div>
+        ${avisos.length?`<div style="font-size:11px;color:#9A3412">${avisos.map(cobEsc).join(' · ')}</div>`:''}
+        ${it.estado!=='pend'?`<div style="font-size:11px;font-weight:600;color:${cor[it.estado]}">${ic[it.estado]} ${cobEsc(it.det)}</div>`:''}
+      </div>
+      <div style="font-size:13px;font-weight:700;white-space:nowrap">${moeda(it.valor)}</div></div>`;}).join('');
+  loteResumo();
+}
+function loteResumo(){
+  const sel=loteItens.filter(i=>i.sel);
+  const tot=sel.reduce((s,i)=>s+i.valor,0);
+  document.getElementById('lote-info').textContent=loteItens.length+' cliente(s) com débito em aberto — '+moeda(loteItens.reduce((s,i)=>s+i.valor,0));
+  document.getElementById('lote-resumo').innerHTML='Selecionados: <strong>'+sel.length+'</strong> cliente(s) · <strong>'+moeda(tot)+'</strong> · vencimento dos boletos em 7 dias <a onclick="loteMarcar(true)" style="margin-left:10px;cursor:pointer;color:var(--blue)">marcar todos</a> · <a onclick="loteMarcar(false)" style="cursor:pointer;color:var(--blue)">desmarcar</a>';
+}
+function loteMarcar(v){if(loteRodando)return;loteItens.forEach(i=>i.sel=v);loteRender();}
+function loteParar(){loteParou=true;document.getElementById('lote-parar').textContent='Parando...';}
+function fecharCobrancaLote(){
+  if(loteRodando&&!confirm('A cobrança em lote está em andamento. Fechar não cancela o que já foi feito. Fechar mesmo assim?'))return;
+  document.getElementById('modal-cob-lote').style.display='none';
+}
+function loteSet(it,estado,det){it.estado=estado;it.det=det||'';loteRender();}
+async function loteRodarCliente(it,opts){
+  const cli=it.cli,peds=it.peds;
+  let fx=it.retoma||{id:'cob_'+Date.now()+'_'+it.cid,cliId:cli.id,cliNome:cli.nome,pedIds:peds.map(p=>p.id),valor:it.valor,
+    vencStr:(()=>{const v=new Date();v.setDate(v.getDate()+7);return v.toLocaleDateString('pt-BR');})(),nfe:null,boleto:null,status:'iniciado',etapa:'',para:cli.email||''};
+  it.retoma=fx;
+  const enviar=opts.enviar;
+  if(enviar&&!cli.email){loteSet(it,'skip','Sem e-mail cadastrado — pulado (cadastre o e-mail ou desligue o envio)');return;}
+  fx.para=(cli.email||'').toLowerCase();
+  try{
+    // 1) NF-e
+    fx.etapa='nfe';
+    if(!fx.nfe){
+      loteSet(it,'run','Criando NF-e no Bling...');
+      const token=await blingGetToken();
+      if(!token) throw new Error('Bling não autenticado neste navegador (menu "Bling NF"). Nada foi emitido.');
+      const {payload,soma,temItemZerado}=cobMontarPayloadNF(cli,peds);
+      if(temItemZerado) throw new Error('Há item sem preço ou quantidade. Corrija os pedidos.');
+      if(Math.abs(soma-fx.valor)>0.01) throw new Error('Soma dos itens ('+moeda(soma)+') diferente do total ('+moeda(fx.valor)+').');
+      const r=await fetch(BLING_WORKER+'/bling/nfe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload})});
+      const d=await r.json();
+      if(!d.data||!d.data.id) throw new Error('Erro Bling: '+String(d.error?.description||d.errors?.[0]?.description||JSON.stringify(d)).slice(0,160));
+      fx.nfe={id:d.data.id,numero:d.data.numero||null,link:null};
+      fx.status='nfe_ok';loteSalvarFx(fx);lotePersistir(fx);
+    }
+    if(opts.anexar&&!fx.nfe.link){
+      loteSet(it,'run','NF-e nº '+(fx.nfe.numero||'')+' criada. Conferindo emissão...');
+      const token=await blingGetToken();
+      if(!fx.nfe.emitTentada){
+        fx.nfe.emitTentada=true;loteSalvarFx(fx);
+        try{await fetch(BLING_WORKER+'/bling/nfe/'+fx.nfe.id+'/emitir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload:{}})});}catch(e){}
+        await new Promise(r=>setTimeout(r,2500));
+      }
+      const l=token?await cobBuscarLinkNF(token,fx.nfe.id):null;
+      if(l){if(l.numero)fx.nfe.numero=l.numero;if(l.link)fx.nfe.link=l.link;}
+      loteSalvarFx(fx);lotePersistir(fx);
+      if(!fx.nfe.link){loteSet(it,'wait','NF-e nº '+(fx.nfe.numero||'')+' criada no Bling — falta emitir. Depois use "Continuar pendentes".');return;}
+    }
+    // 2) boleto
+    fx.etapa='boleto';
+    if(!fx.boleto){
+      loteSet(it,'run','Gerando boleto...');
+      fx.boleto=await cobBoleto(cli,peds,fx.valor,fx.vencStr);
+      fx.status='boleto_ok';loteSalvarFx(fx);lotePersistir(fx);
+    }
+    // 3) extrato
+    fx.etapa='extrato';
+    loteSet(it,'run','Montando extrato...');
+    const _prev=finCliSelecionado;finCliSelecionado=cli;let ex;try{ex=gerarPDFCliente({ids:peds.map(p=>p.id),retornar:true});}finally{finCliSelecionado=_prev;}
+    if(!ex||!ex.base64) throw new Error('Não foi possível montar o extrato.');
+    // 4) e-mail
+    fx.etapa='email';
+    if(enviar){
+      loteSet(it,'run','Enviando e-mail para '+fx.para+'...');
+      const bloco='\n\nDados do pagamento:\nVencimento: '+fx.vencStr+'\nValor: '+moeda(fx.valor)+(fx.boleto.linha?'\nLinha digitável: '+fx.boleto.linha:'')+(fx.boleto.pix?'\nPIX: '+fx.boleto.pix:'')+(fx.nfe.numero?'\nNF-e nº '+fx.nfe.numero:'');
+      const anexos=[];
+      if(fx.nfe.link)anexos.push({filename:'NF-e '+(fx.nfe.numero||''),url:fx.nfe.link});
+      if(fx.boleto.link)anexos.push({filename:nomeArquivoSeguro('Boleto - '+(cli.apelido||cli.nome)),url:fx.boleto.link});
+      anexos.push({filename:ex.filename,base64:ex.base64});
+      const r=await cobChamarFn('enviar-cobranca',{para:fx.para,assunto:'BOLETO E NOTA FISCAL SUCO NATURAL DE LARANJA - Só Laranja',texto:cobInserirPagamento(COB_TEXTO_PADRAO,bloco),anexos});
+      if(!r.success) throw new Error('E-mail não enviado: '+(r.erro||'erro desconhecido'));
+      fx.status='ok';fx.erro=null;lotePersistir(fx,{enviado_em:new Date().toISOString()});
+      loteRemoverFx(cli.id);it.retoma=null;
+      loteSet(it,'ok','Enviado para '+fx.para+(fx.nfe.numero?' · NF-e nº '+fx.nfe.numero:'')+' · boleto nosso nº '+fx.boleto.nossoNum);
+    }else{
+      fx.status='ok';fx.erro=null;lotePersistir(fx);
+      loteRemoverFx(cli.id);it.retoma=null;
+      loteSet(it,'ok','Documentos gerados (sem envio) · NF-e nº '+(fx.nfe.numero||'—')+' · boleto nosso nº '+fx.boleto.nossoNum);
+    }
+  }catch(e){
+    const msg=String((e&&e.message)||e);
+    fx.erro=msg;fx.status=fx.status==='iniciado'?'erro':fx.status;
+    if(fx.nfe||fx.boleto){loteSalvarFx(fx);lotePersistir(fx);}else{it.retoma=null;}
+    loteSet(it,'err',msg.slice(0,200));
+  }
+}
+async function loteExecutar(){
+  if(loteRodando)return;
+  const alvo=loteItens.filter(i=>i.sel&&i.estado!=='ok');
+  if(!alvo.length){toast('Selecione ao menos um cliente.');return;}
+  const enviar=document.getElementById('lote-enviar').checked;
+  const anexar=document.getElementById('lote-anexar').checked;
+  const totalSel=alvo.reduce((s,i)=>s+i.valor,0);
+  if(!confirm('Vai criar '+alvo.length+' NF-e(s) no Bling e '+alvo.length+' boleto(s), somando '+moeda(totalSel)+(enviar?', e enviar os e-mails aos clientes':'')+'.\n\nA nota fiscal não tem volta. Continuar?'))return;
+  const btn=document.getElementById('lote-btn');
+  if(enviar){
+    const t=await cobChamarFn('enviar-cobranca',{teste:true});
+    if(!t.success||!t.configurado){alert('O envio automático de e-mail ainda não está configurado no Supabase (RESEND_API_KEY e EMAIL_FROM). Nada foi emitido. Desmarque "Enviar o e-mail automaticamente" para gerar só os documentos.');return;}
+  }
+  loteRodando=true;loteParou=false;btn.disabled=true;btn.textContent='Gerando... não feche esta tela';
+  document.getElementById('lote-opcoes').style.display='none';
+  const pb=document.getElementById('lote-parar');pb.style.display='';pb.textContent='Parar';
+  loteRender();
+  for(const it of alvo){
+    if(loteParou){loteSet(it,'pend','');continue;}
+    await loteRodarCliente(it,{enviar,anexar});
+    await new Promise(r=>setTimeout(r,400));
+  }
+  loteRodando=false;pb.style.display='none';
+  const ok=loteItens.filter(i=>i.estado==='ok').length,espera=loteItens.filter(i=>i.estado==='wait').length,erro=loteItens.filter(i=>i.estado==='err'||i.estado==='skip').length;
+  document.getElementById('lote-opcoes').style.display='block';
+  btn.disabled=false;
+  btn.textContent=(espera||erro)?'Continuar pendentes':'Gerar para os selecionados';
+  // quem não terminou continua selecionado; quem terminou sai da seleção
+  loteItens.forEach(i=>{if(i.estado==='ok')i.sel=false;});
+  loteRender();
+  document.getElementById('lote-resumo').innerHTML+=`<div style="margin-top:6px;padding:8px 10px;border-radius:8px;background:var(--bg2)">Resultado: ✅ ${ok} concluído(s)${espera?' · ⏸ '+espera+' aguardando emissão da NF-e no Bling':''}${erro?' · ❌ '+erro+' com erro/pulado':''}.${espera?' Emita as notas no Bling e clique em "Continuar pendentes".':''}</div>`;
+  toast('Lote finalizado: '+ok+' concluído(s)'+(espera?', '+espera+' aguardando':'')+(erro?', '+erro+' com erro':''));
 }
 
 function enviarEmailCliente(){
