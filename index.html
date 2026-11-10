@@ -1146,6 +1146,7 @@ a{color:var(--orange);text-decoration:none}
           <button class="btn btn-outline" style="height:34px;font-size:12px;color:#0066cc;border-color:#0066cc" onclick="emitirNFeCliente()">🧾 Emitir NF-e</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px;color:#ea4335;border-color:#ea4335" onclick="enviarEmailCliente()">📧 E-mail</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px;color:#f5a623;border-color:#f5a623" onclick="gerarBoletoBB()">🏦 Boleto BB</button>
+          <button class="btn btn-primary" style="height:34px;font-size:12px" onclick="abrirCobrancaAuto()">🚀 Cobrar: NF + Boleto + E-mail</button>
           <button class="btn btn-outline" style="height:34px;font-size:12px" onclick="limparClienteFin()">✕ Fechar</button>
         </div>
       </div>
@@ -1288,7 +1289,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-g)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-h)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2004,6 +2005,26 @@ a{color:var(--orange);text-decoration:none}
 </div>
 
 <!-- MODAL E-MAIL CLIENTE -->
+<div id="modal-cob-auto" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:12px">
+  <div style="background:var(--white);border-radius:var(--radius);padding:18px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <strong style="font-size:15px">🚀 Cobrar cliente</strong>
+      <button onclick="fecharCobrancaAuto()" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div id="cob-resumo" style="background:var(--bg2);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.6;margin-bottom:10px"></div>
+    <div id="cob-aviso" style="display:none;background:#FFF7ED;border:1px solid #FDBA74;color:#9A3412;border-radius:8px;padding:9px 12px;font-size:12px;margin-bottom:10px"></div>
+    <div id="cob-form">
+      <div class="form-group"><label>E-mail do cliente</label><input type="email" id="cob-para" placeholder="cliente@empresa.com.br"></div>
+      <div class="form-group"><label>Assunto</label><input type="text" id="cob-assunto"></div>
+      <div class="form-group"><label>Mensagem <span style="font-size:10px;color:var(--text3)">(vencimento e linha digitável do boleto são adicionados no final automaticamente)</span></label><textarea id="cob-texto" rows="9" style="width:100%;font-size:12px"></textarea></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer"><input type="checkbox" id="cob-enviar" checked style="width:16px;height:16px;accent-color:var(--orange)"> Enviar o e-mail automaticamente ao cliente (com NF-e, boleto e extrato em anexo)</label>
+    </div>
+    <div id="cob-passos" style="margin-bottom:10px"></div>
+    <div id="cob-erro" style="display:none;background:#fff0f0;border:1px solid #ffcccc;color:#b91c1c;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:10px"></div>
+    <div id="cob-final" style="display:none;margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px"><button class="btn btn-outline" style="flex:1" onclick="fecharCobrancaAuto()">Fechar</button><button class="btn btn-primary" style="flex:2" id="cob-btn" onclick="executarCobranca()">Gerar tudo e enviar</button></div>
+  </div>
+</div>
 <div id="modal-email-cli" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
   <div style="background:var(--white);border-radius:var(--radius);padding:20px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -7397,7 +7418,7 @@ function getIdselecionadosFin(){
   return ids;
 }
 
-function gerarPDFCliente(){
+function gerarPDFCliente(opts){
   if(!finCliSelecionado) return;
   const {jsPDF} = window.jspdf;
   const cli = finCliSelecionado;
@@ -7407,7 +7428,7 @@ function gerarPDFCliente(){
   const todosCli = todos.filter(p=>p.clienteId===cli.id).sort((a,b)=>b.data.localeCompare(a.data));
 
   // Filtrar pelos selecionados
-  const idsSel = getIdselecionadosFin();
+  const idsSel = (opts&&opts.ids)?opts.ids:getIdselecionadosFin();
   const pedsCli = idsSel.length>0 ? todosCli.filter(p=>idsSel.includes(p.id)) : todosCli;
 
   if(!pedsCli.length){toast('Selecione ao menos um pedido para o PDF.');return;}
@@ -7598,7 +7619,9 @@ function gerarPDFCliente(){
   doc.setTextColor(150,150,150);
   doc.text('Extrato gerado em '+new Date().toLocaleString('pt-BR')+' — Só Laranja Sistema de Pedidos',W/2,290,{align:'center'});
 
-  doc.save('extrato-'+cli.nome.substring(0,25).replace(/[\s/\\]/g,'-')+'.pdf');
+  const _nomeArq='extrato-'+cli.nome.substring(0,25).replace(/[\s/\\]/g,'-')+'.pdf';
+  if(opts&&opts.retornar){return {filename:_nomeArq,base64:doc.output('datauristring').split(',')[1]};}
+  doc.save(_nomeArq);
 }
 
 // ── NOVO PEDIDO RETROATIVO ─────────────────────────────────────────────────
@@ -10124,6 +10147,239 @@ function renderBoletos(){
       +'</div>'
       +'</div></div>';
   }).join('');
+}
+
+// ── COBRANÇA COMPLETA: NF-e única + boleto + extrato + e-mail ─────────────────
+let cobFx=null, cobRodando=false, cobEnviosCache=[];
+const COB_LS='slj_cob_fluxo';
+const COB_PASSOS=['Nota fiscal (NF-e única)','Boleto (Banco do Brasil)','Extrato de pedidos (PDF)','E-mail ao cliente'];
+function cobEsc(t){return escLoc(t);}
+function cobHdr(){return {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};}
+function cobPedidosSel(){
+  const cli=finCliSelecionado;
+  const cbs=[...document.querySelectorAll('.fin-sel-ped:checked')];
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
+  const ids=new Set(cbs.map(c=>String(c.dataset.id)));
+  const base=cbs.length?todos.filter(p=>ids.has(String(p.id))):todos.filter(p=>p.entregue&&!p.pago);
+  return base.filter(p=>String(p.clienteId)===String(cli.id)&&!p.troca&&!p.parceria).sort((a,b)=>a.data.localeCompare(b.data));
+}
+function cobItensNF(peds){
+  const m={};
+  peds.forEach(p=>(p.itens||[]).forEach(it=>{
+    const preco=Number(it.preco!=null?it.preco:it['preço'])||0;
+    const k=it.tam+'|'+preco;
+    if(!m[k])m[k]={tam:it.tam,qtd:0,preco};
+    m[k].qtd+=Number(it.qtd)||0;
+  }));
+  return Object.values(m);
+}
+function cobFmtData(d){const [a,m,dd]=d.split('-');return dd+'/'+m;}
+function cobSalvarLocal(){try{localStorage.setItem(COB_LS,JSON.stringify(cobFx));}catch(e){}}
+function cobPersistir(extra){
+  if(!cobFx)return;
+  const fx=cobFx;
+  sbUps('cobranca_envios',[{id:fx.id,cliente_id:String(fx.cliId),cliente_nome:fx.cliNome,pedidos_ids:fx.pedIds,valor:fx.valor,vencimento:fx.vencStr,
+    nfe_id:fx.nfe?String(fx.nfe.id||''):null,nfe_numero:fx.nfe?String(fx.nfe.numero||''):null,nfe_link:fx.nfe?fx.nfe.link||null:null,
+    boleto_nosso_numero:fx.boleto?String(fx.boleto.nossoNum):null,boleto_link:fx.boleto?fx.boleto.link||null:null,linha_digitavel:fx.boleto?fx.boleto.linha||null:null,
+    email_para:fx.para||null,status:fx.status,etapa:fx.etapa||null,erro:fx.erro||null,...(extra||{})}]).catch(e=>console.warn('[cobranca_envios]',e));
+}
+function cobRenderPassos(){
+  const el=document.getElementById('cob-passos');if(!el||!cobFx)return;
+  const ic={pend:'○',run:'⏳',ok:'✅',err:'❌',skip:'➖'};
+  const cor={pend:'var(--text3)',run:'var(--orange)',ok:'#16a34a',err:'#dc2626',skip:'var(--text3)'};
+  el.innerHTML=COB_PASSOS.map((n,i)=>{const st=(cobFx.passos&&cobFx.passos[i])||{e:'pend',d:''};
+    return `<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border)"><span style="width:20px">${ic[st.e]}</span><div style="flex:1"><div style="font-size:13px;font-weight:600;color:${cor[st.e]}">${i+1}. ${n}</div>${st.d?`<div style="font-size:11px;color:var(--text3)">${cobEsc(st.d)}</div>`:''}</div></div>`;}).join('');
+}
+function cobPasso(i,e,d){cobFx.passos[i]={e,d:d||''};cobRenderPassos();}
+async function abrirCobrancaAuto(){
+  if(!finCliSelecionado){toast('Selecione um cliente primeiro.');return;}
+  const cli=finCliSelecionado;
+  const peds=cobPedidosSel();
+  if(!peds.length){toast('Nenhum pedido em aberto (ou selecionado) para este cliente.');return;}
+  const valor=Math.round(peds.reduce((s,p)=>s+(p.total||0),0)*100)/100;
+  if(valor<=0){toast('Total zerado, verifique os pedidos.');return;}
+  const pedIds=peds.map(p=>p.id);
+  // retomar fluxo salvo (mesmo cliente e mesmos pedidos) se ainda não terminou
+  let salvo=null;try{salvo=JSON.parse(localStorage.getItem(COB_LS)||'null');}catch(e){}
+  const mesmo=salvo&&String(salvo.cliId)===String(cli.id)&&salvo.status!=='ok'&&JSON.stringify([...salvo.pedIds].map(String).sort())===JSON.stringify([...pedIds].map(String).sort());
+  const hoje=new Date();const venc=new Date(hoje);venc.setDate(venc.getDate()+7);
+  const vencStr=venc.toLocaleDateString('pt-BR');
+  if(mesmo){cobFx=salvo;cobFx.passos=cobFx.passos||[];}
+  else cobFx={id:'cob_'+Date.now(),cliId:cli.id,cliNome:cli.nome,pedIds,valor,vencStr,nfe:null,boleto:null,extrato:null,passos:[],status:'iniciado',etapa:'',para:cli.email||''};
+  // corpo padrão
+  let corpo='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\n';
+  peds.forEach(p=>{
+    const _m=new Set(p.itens.map(x=>x.sabor||'laranja'));
+    const it=p.itens.map(x=>x.qtd+(x.qtd===1?' unidade':' unidades')+' ('+itemLabel(x,_m.size>1)+')').join(', ');
+    corpo+=cobFmtData(p.data)+' – '+it+': R$ '+(p.total||0).toFixed(2).replace('.',',')+'\n';
+  });
+  corpo+='\nTotal: R$ '+valor.toFixed(2).replace('.',',')+'\n\nAgradecemos pela parceria e pela confiança em nossos produtos.\n\nAtenciosamente,\nXavier Filho\nFinanceiro\nTel: (61) 99828-2205';
+  document.getElementById('cob-para').value=cobFx.para||cli.email||'';
+  document.getElementById('cob-assunto').value='BOLETO E NOTA FISCAL SUCO NATURAL DE LARANJA - Só Laranja';
+  document.getElementById('cob-texto').value=corpo;
+  document.getElementById('cob-enviar').checked=true;
+  document.getElementById('cob-resumo').innerHTML=`<strong>${cobEsc(cli.apelido||cli.nome)}</strong> · CNPJ ${cobEsc(cli.cnpj||'—')}<br>${peds.length} pedido(s): ${peds.map(p=>cobFmtData(p.data)+(p.numeroPedido?' (nº '+p.numeroPedido+')':'')).join(', ')}<br>Total: <strong>${moeda(valor)}</strong> · Vencimento do boleto: <strong>${cobFx.vencStr}</strong> · 1 NF-e com todos os pedidos`;
+  document.getElementById('cob-erro').style.display='none';
+  document.getElementById('cob-final').style.display='none';
+  document.getElementById('cob-form').style.display='block';
+  const btn=document.getElementById('cob-btn');btn.disabled=false;btn.textContent=mesmo?'Continuar de onde parou':'Gerar tudo e enviar';
+  const av=document.getElementById('cob-aviso');av.style.display='none';
+  if(mesmo){av.style.display='block';av.innerHTML='↩ Já existe uma cobrança iniciada para estes pedidos'+(cobFx.nfe?' (NF-e nº '+cobFx.nfe.numero+' já emitida)':'')+'. Ela vai continuar de onde parou, <strong>sem emitir nota ou boleto de novo</strong>.';}
+  if(!cobFx.passos.length)COB_PASSOS.forEach((_,i)=>cobFx.passos[i]={e:'pend',d:''});
+  cobRenderPassos();
+  document.getElementById('modal-cob-auto').style.display='flex';
+  // aviso de pedidos já cobrados antes
+  try{
+    const env=await sbGet('cobranca_envios','?order=created_at.desc&limit=300&select=id,pedidos_ids,status,nfe_numero,enviado_em');
+    cobEnviosCache=env||[];
+    const set=new Set(pedIds.map(String));
+    const jaCobrados=cobEnviosCache.filter(e=>e.id!==cobFx.id&&e.nfe_numero&&(e.pedidos_ids||[]).some(i=>set.has(String(i))));
+    if(jaCobrados.length&&!mesmo){av.style.display='block';av.innerHTML='⚠ Atenção: alguns destes pedidos já entraram em cobrança anterior (NF-e nº '+jaCobrados.map(e=>e.nfe_numero).join(', ')+'). Confira antes de gerar outra nota.';}
+  }catch(e){}
+}
+function fecharCobrancaAuto(){
+  if(cobRodando&&!confirm('A cobrança está em andamento. Fechar agora não cancela o que já foi feito. Fechar mesmo assim?'))return;
+  document.getElementById('modal-cob-auto').style.display='none';
+}
+async function cobChamarFn(nome,corpo){
+  const r=await fetch(SUPABASE_FUNCTIONS_URL+'/'+nome,{method:'POST',headers:cobHdr(),body:JSON.stringify(corpo)});
+  const d=await r.json().catch(()=>({}));
+  return d;
+}
+async function cobBoleto(cli,peds,total,vencStr){
+  let nossoNum=parseInt(localStorage.getItem('slj_bb_nosso_num')||'100')+1;
+  localStorage.setItem('slj_bb_nosso_num',String(nossoNum));
+  for(let i=0;i<10;i++){
+    const payload={valor:parseFloat(total.toFixed(2)),vencimento:vencStr,nossoNumero:nossoNum,numeroTitulo:String(nossoNum),nomePagador:cli.nome,
+      cnpjPagador:(cli.cnpj||'').replace(/\D/g,''),tipoPagador:(cli.cnpj||'').replace(/\D/g,'').length===14?2:1,
+      enderecoPagador:cli.endereco||cli.enderecoCompleto||'',cepPagador:(cli.cep||'').replace(/\D/g,''),cidadePagador:cli.cidade||'Brasilia',
+      bairroPagador:cli.bairro||'',ufPagador:cli.uf||'DF',observacaoDatas:peds.map(p=>cobFmtData(p.data)).join(', ')};
+    const resp=await fetch('https://solaranja-bb.solaranjadf.workers.dev/boleto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await resp.json();
+    if(data.numero||data.linhaDigitavel||data.codigoBarraNumerico){
+      localStorage.setItem('slj_bb_nosso_num',String(nossoNum));
+      return {nossoNum,linha:data.linhaDigitavel||data.codigoBarraNumerico||'',link:data.urlImagemBoleto||null,pix:(data.qrCode&&data.qrCode.url)||null};
+    }
+    const erroMsg=data.erros?data.erros.map(e=>e.mensagem||JSON.stringify(e)).join(' '):JSON.stringify(data);
+    if(!(/nosso/i.test(erroMsg)&&/(inclu|duplica|anterior|registr|cadastr)/i.test(erroMsg))){
+      localStorage.setItem('slj_bb_nosso_num',String(nossoNum-1));
+      throw new Error('Boleto recusado: '+erroMsg.slice(0,200));
+    }
+    nossoNum++;
+  }
+  throw new Error('Não foi possível gerar o boleto (número já usado). Tente novamente.');
+}
+async function executarCobranca(){
+  if(cobRodando||!cobFx)return;
+  const fx=cobFx;
+  const cli=clientes.find(c=>String(c.id)===String(fx.cliId));
+  if(!cli){toast('Cliente não encontrado.');return;}
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()];
+  const peds=fx.pedIds.map(id=>todos.find(p=>String(p.id)===String(id))).filter(Boolean);
+  if(peds.length!==fx.pedIds.length){toast('Alguns pedidos não foram encontrados. Feche e abra de novo.');return;}
+  const enviar=document.getElementById('cob-enviar').checked;
+  const para=(document.getElementById('cob-para').value||'').trim().toLowerCase();
+  const assunto=(document.getElementById('cob-assunto').value||'').trim();
+  const texto=document.getElementById('cob-texto').value||'';
+  const errEl=document.getElementById('cob-erro'),btn=document.getElementById('cob-btn');
+  errEl.style.display='none';
+  if(enviar&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(para)){errEl.style.display='block';errEl.textContent='Informe um e-mail válido do cliente (ou desmarque o envio automático).';return;}
+  if(enviar&&para!==String(cli.email||'').toLowerCase()){
+    // grava o e-mail no cadastro do cliente para o envio ser aceito (segurança do servidor)
+    cli.email=para;lsave('slj_cli_bk',clientes);
+    try{await sbPatch('clientes',`?id=eq.${cli.id}`,{email:para});}catch(e){errEl.style.display='block';errEl.textContent='Não foi possível salvar o e-mail no cadastro do cliente.';return;}
+  }
+  fx.para=para;
+  cobRodando=true;btn.disabled=true;btn.textContent='Gerando... não feche esta tela';
+  document.getElementById('cob-form').style.display='none';
+  const passoAtual={i:0};
+  try{
+    // 0) pré-checagem do envio de e-mail (antes de emitir qualquer nota)
+    if(enviar&&!fx.nfe){
+      const t=await cobChamarFn('enviar-cobranca',{teste:true});
+      if(!t.success||!t.configurado) throw new Error('O envio automático de e-mail ainda não está configurado no Supabase (RESEND_API_KEY e EMAIL_FROM). Nada foi emitido. Desmarque "Enviar o e-mail automaticamente" para gerar só os documentos.');
+    }
+    // 1) NF-e única
+    passoAtual.i=0;fx.etapa='nfe';
+    if(!fx.nfe){
+      cobPasso(0,'run','Emitindo no Bling...');
+      const itensNF=cobItensNF(peds);
+      if(itensNF.some(i=>!(i.preco>0)||!(i.qtd>0))) throw new Error('Há item sem preço ou sem quantidade nos pedidos. Corrija antes de emitir a nota.');
+      const somaNF=Math.round(itensNF.reduce((s,i)=>s+i.qtd*i.preco,0)*100)/100;
+      if(Math.abs(somaNF-fx.valor)>0.01) throw new Error('A soma dos itens ('+moeda(somaNF)+') é diferente do total dos pedidos ('+moeda(fx.valor)+'). Confira os pedidos antes de emitir a nota.');
+      const d=await cobChamarFn('bling-emitir-nfe',{pedido:{itens:itensNF,obs:'Ref. entregas: '+peds.map(p=>cobFmtData(p.data)).join(', ')},cliente:{nome:cli.nome,cnpj:cli.cnpj||'',tel:cli.tel||''}});
+      if(!d.success) throw new Error('Erro ao emitir NF-e: '+(d.erro||'desconhecido'));
+      fx.nfe={id:d.nfeId,numero:d.numero,link:d.linkDanfe||null};
+      fx.status='nfe_ok';cobSalvarLocal();cobPersistir();
+    }
+    if(!fx.nfe.link){
+      cobPasso(0,'run','NF-e nº '+(fx.nfe.numero||'')+' emitida. Aguardando o PDF ficar disponível...');
+      for(let t=0;t<8&&!fx.nfe.link;t++){
+        await new Promise(r=>setTimeout(r,4000));
+        const l=await cobChamarFn('bling-nfe-link',{nfeId:fx.nfe.id});
+        if(l.success){if(l.numero)fx.nfe.numero=l.numero;if(l.linkDanfe)fx.nfe.link=l.linkDanfe;}
+      }
+      cobSalvarLocal();cobPersistir();
+      if(!fx.nfe.link) throw new Error('A NF-e nº '+(fx.nfe.numero||'')+' foi emitida, mas o Bling ainda não liberou o PDF. Clique em "Continuar de onde parou" em alguns instantes (a nota não será emitida de novo).');
+    }
+    cobPasso(0,'ok','NF-e nº '+(fx.nfe.numero||'')+' emitida');
+    // 2) Boleto
+    passoAtual.i=1;fx.etapa='boleto';
+    if(!fx.boleto){
+      cobPasso(1,'run','Gerando boleto...');
+      fx.boleto=await cobBoleto(cli,peds,fx.valor,fx.vencStr);
+      fx.status='boleto_ok';cobSalvarLocal();cobPersistir();
+    }
+    cobPasso(1,'ok','Nosso nº '+fx.boleto.nossoNum+' · vence '+fx.vencStr);
+    // 3) Extrato
+    passoAtual.i=2;fx.etapa='extrato';
+    cobPasso(2,'run','Montando PDF...');
+    const ex=gerarPDFCliente({ids:peds.map(p=>p.id),retornar:true});
+    if(!ex||!ex.base64) throw new Error('Não foi possível montar o extrato em PDF.');
+    fx.extrato={filename:ex.filename};
+    window._cobExtratoB64=ex.base64;
+    cobPasso(2,'ok',ex.filename);
+    // 4) E-mail
+    passoAtual.i=3;fx.etapa='email';
+    if(enviar){
+      cobPasso(3,'run','Enviando para '+para+'...');
+      const bloco='\n\n— Dados do pagamento —\nVencimento: '+fx.vencStr+'\nValor: '+moeda(fx.valor)+(fx.boleto.linha?'\nLinha digitável: '+fx.boleto.linha:'')+(fx.boleto.pix?'\nPIX: '+fx.boleto.pix:'')+'\nNF-e nº '+(fx.nfe.numero||'');
+      const anexos=[{filename:'NF-e '+(fx.nfe.numero||''),url:fx.nfe.link}];
+      if(fx.boleto.link)anexos.push({filename:'Boleto',url:fx.boleto.link});
+      anexos.push({filename:ex.filename,base64:ex.base64});
+      const r=await cobChamarFn('enviar-cobranca',{para,assunto,texto:texto+bloco,anexos});
+      if(!r.success) throw new Error('E-mail não enviado: '+(r.erro||'erro desconhecido'));
+      cobPasso(3,'ok','Enviado para '+para+' ('+(r.anexos||[]).length+' anexos)');
+      fx.status='ok';fx.erro=null;cobPersistir({enviado_em:new Date().toISOString()});
+    }else{
+      cobPasso(3,'skip','Envio automático desligado — use os botões abaixo');
+      fx.status='ok';fx.erro=null;cobPersistir();
+    }
+    try{localStorage.removeItem(COB_LS);}catch(e){}
+    cobMostrarFinal(enviar);
+    btn.style.display='none';
+    toast(enviar?'✅ Cobrança enviada para '+para:'✅ Documentos gerados');
+  }catch(e){
+    const msg=String((e&&e.message)||e);
+    cobPasso(passoAtual.i,'err',msg.slice(0,160));
+    fx.erro=msg;fx.status=fx.status==='iniciado'?'erro':fx.status;cobSalvarLocal();cobPersistir();
+    errEl.style.display='block';errEl.textContent=msg;
+    document.getElementById('cob-form').style.display='block';
+    btn.disabled=false;btn.textContent='Tentar de novo (continua de onde parou)';
+  }finally{cobRodando=false;}
+}
+function cobMostrarFinal(enviou){
+  const fx=cobFx;const el=document.getElementById('cob-final');
+  const b='display:inline-block;padding:7px 12px;border:1px solid var(--border2);border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;color:var(--text);margin:0 6px 6px 0;cursor:pointer;background:var(--white)';
+  el.style.display='block';
+  el.innerHTML=`<div style="background:#ECFDF5;border:1px solid #86EFAC;color:#166534;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:8px">${enviou?'✅ Tudo pronto e enviado ao cliente.':'✅ Documentos gerados.'}</div>`
+   +(fx.nfe&&fx.nfe.link?`<a style="${b}" href="${cobEsc(fx.nfe.link)}" target="_blank">🧾 Abrir NF-e ${cobEsc(fx.nfe.numero||'')}</a>`:'')
+   +(fx.boleto&&fx.boleto.link?`<a style="${b}" href="${cobEsc(fx.boleto.link)}" target="_blank">🏦 Abrir boleto</a>`:'')
+   +`<a style="${b}" onclick="cobBaixarExtrato()">📄 Baixar extrato</a>`;
+}
+function cobBaixarExtrato(){
+  if(!window._cobExtratoB64||!cobFx||!cobFx.extrato)return;
+  const a=document.createElement('a');a.href='data:application/pdf;base64,'+window._cobExtratoB64;a.download=cobFx.extrato.filename;document.body.appendChild(a);a.click();a.remove();
 }
 
 function enviarEmailCliente(){
