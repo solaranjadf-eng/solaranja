@@ -2034,7 +2034,7 @@ a{color:var(--orange);text-decoration:none}
     <div id="cob-resumo" style="background:var(--bg2);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.6;margin-bottom:10px"></div>
     <div id="cob-aviso" style="display:none;background:#FFF7ED;border:1px solid #FDBA74;color:#9A3412;border-radius:8px;padding:9px 12px;font-size:12px;margin-bottom:10px"></div>
     <div id="cob-form">
-      <div class="form-group"><label>E-mail do cliente</label><input type="email" id="cob-para" placeholder="cliente@empresa.com.br"><a onclick="cobEnviarTeste()" style="display:inline-block;margin-top:6px;font-size:12px;color:var(--blue);cursor:pointer;text-decoration:underline">✉️ Enviar e-mail de TESTE para este endereço (sem NF-e e sem boleto)</a></div>
+      <div class="form-group"><label>E-mail do cliente</label><input type="text" id="cob-para" placeholder="cliente@empresa.com.br (vários: separe por espaço, vírgula ou ponto e vírgula)"><a onclick="cobEnviarTeste()" style="display:inline-block;margin-top:6px;font-size:12px;color:var(--blue);cursor:pointer;text-decoration:underline">✉️ Enviar e-mail de TESTE para este endereço (sem NF-e e sem boleto)</a></div>
       <div class="form-group"><label>Assunto</label><input type="text" id="cob-assunto"></div>
       <div class="form-group"><label>Mensagem <span style="font-size:10px;color:var(--text3)">(vencimento, valor e linha digitável do boleto são inseridos automaticamente antes do agradecimento)</span></label><textarea id="cob-texto" rows="9" style="width:100%;font-size:12px"></textarea></div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer"><input type="checkbox" id="cob-enviar" checked style="width:16px;height:16px;accent-color:var(--orange)"> Enviar o e-mail automaticamente ao cliente (com NF-e, boleto e extrato em anexo)</label>
@@ -10232,7 +10232,7 @@ async function abrirCobrancaAuto(){
   if(false){}
   else cobFx={id:'cob_'+Date.now(),cliId:cli.id,cliNome:cli.nome,pedIds,valor,vencStr,nfe:null,boleto:null,extrato:null,passos:[],status:'iniciado',etapa:'',para:cli.email||''};
   const corpo=COB_TEXTO_PADRAO;
-  document.getElementById('cob-para').value=cobFx.para||cli.email||'';
+  document.getElementById('cob-para').value=cobFx.para||loteEmailsDe(cli).join(' ')||cli.email||'';
   document.getElementById('cob-assunto').value='BOLETO E NOTA FISCAL SUCO NATURAL DE LARANJA - Só Laranja';
   document.getElementById('cob-texto').value=corpo;
   document.getElementById('cob-enviar').checked=true;
@@ -10281,8 +10281,8 @@ function cobMontarPayloadNF(cli,peds){
   return {payload,soma,temItemZerado:itens.some(i=>!(i.valor>0)||!(i.quantidade>0))};
 }
 async function cobEnviarTeste(){
-  const para=(document.getElementById('cob-para').value||'').trim().toLowerCase();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(para)){toast('Digite um e-mail válido no campo acima.');return;}
+  const para=emailsLista(document.getElementById('cob-para').value).join(' ');
+  if(!emailsValidos(para)){toast('Digite um e-mail válido (ou vários separados por espaço).');return;}
   try{
     const t=await cobChamarFn('enviar-cobranca',{teste:true});
     if(!t.success||!t.configurado){alert('O envio de e-mail ainda não está configurado no Supabase (RESEND_API_KEY e EMAIL_FROM).');return;}
@@ -10547,12 +10547,12 @@ async function executarCobranca(){
   const peds=fx.pedIds.map(id=>todos.find(p=>String(p.id)===String(id))).filter(Boolean);
   if(peds.length!==fx.pedIds.length){toast('Alguns pedidos não foram encontrados. Feche e abra de novo.');return;}
   const enviar=document.getElementById('cob-enviar').checked;
-  const para=(document.getElementById('cob-para').value||'').trim().toLowerCase();
+  const para=emailsLista(document.getElementById('cob-para').value).join(' ');
   const assunto=(document.getElementById('cob-assunto').value||'').trim();
   const texto=document.getElementById('cob-texto').value||'';
   const errEl=document.getElementById('cob-erro'),btn=document.getElementById('cob-btn');
   errEl.style.display='none';
-  if(enviar&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(para)){errEl.style.display='block';errEl.textContent='Informe um e-mail válido do cliente (ou desmarque o envio automático).';return;}
+  if(enviar&&!emailsValidos(para)){errEl.style.display='block';errEl.textContent='Informe um e-mail válido do cliente. Para vários, separe por espaço, vírgula ou ponto e vírgula (máx. 6). Ou desmarque o envio automático.';return;}
   if(enviar&&para!==String(cli.email||'').toLowerCase()){
     // grava o e-mail no cadastro do cliente para o envio ser aceito (segurança do servidor)
     cli.email=para;lsave('slj_cli_bk',clientes);
@@ -10674,6 +10674,8 @@ function cobBaixarExtrato(){
 // ── COBRANÇA EM LOTE ──────────────────────────────────────────────────────────
 const LOTE_LS='slj_cob_lote';
 let loteItens=[], loteRodando=false, loteParou=false;
+function emailsLista(txt){return [...new Set(String(txt||'').split(/[\s,;]+/).map(e=>e.trim().toLowerCase()).filter(Boolean))];}
+function emailsValidos(txt){const l=emailsLista(txt);return l.length>0&&l.length<=6&&l.every(e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));}
 function loteEmailsDe(cli){
   const reg=cobrancas.find(c=>(c.clienteId&&String(c.clienteId)===String(cli.id))||(c.nome||'').toLowerCase().trim()===(cli.nome||'').toLowerCase().trim()||(c.nome||'').toLowerCase().trim()===(cli.apelido||'').toLowerCase().trim());
   const bruto=(cli.email||'')+' '+((reg&&reg.email)||'');
