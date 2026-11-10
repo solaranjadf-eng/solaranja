@@ -10291,6 +10291,24 @@ async function cobBuscarLinkNF(token,nfeId){
   }catch(e){return null;}
 }
 
+// Se o Bling diz que a nota já existe (ex.: a resposta anterior se perdeu), acha a nota existente em vez de criar outra
+async function cobAcharNFExistente(token,cli,valor){
+  try{
+    const ini=new Date();ini.setDate(ini.getDate()-5);
+    const pad=n=>String(n).padStart(2,'0');
+    const di=ini.getFullYear()+'-'+pad(ini.getMonth()+1)+'-'+pad(ini.getDate())+' 00:00:00';
+    const r=await fetch(BLING_WORKER+'/bling/nfe?access_token='+encodeURIComponent(token)+'&tipo=1&limite=100&dataEmissaoInicial='+encodeURIComponent(di));
+    const d=await r.json();const lista=(d&&d.data)||[];
+    const doc=String(cli.cnpj||'').replace(/\D/g,'');
+    const ok=lista.filter(n=>{
+      const sit=n.situacao&&typeof n.situacao==='object'?n.situacao.valor:n.situacao;
+      if([2,4,9].includes(sit))return false;
+      const dn=String((n.contato&&n.contato.numeroDocumento)||'').replace(/\D/g,'');
+      return dn===doc&&Math.abs(Number(n.valorNota||n.valor||0)-Number(valor))<0.01;
+    }).sort((a,b)=>Number(b.id)-Number(a.id));
+    return ok.length?{id:ok[0].id,numero:ok[0].numero||null}:null;
+  }catch(e){return null;}
+}
 function nomeArquivoSeguro(t){return String(t||'').replace(/[\\/:*?"<>|]/g,'-').replace(/\s+/g,' ').trim().slice(0,80);}
 // ── BOLETO EM PDF (gerado aqui; o link do BB é uma página da web, não um arquivo) ──
 function boletoBarras44(linha){
@@ -10545,8 +10563,14 @@ async function executarCobranca(){
       if(Math.abs(soma-fx.valor)>0.01) throw new Error('A soma dos itens ('+moeda(soma)+') é diferente do total dos pedidos ('+moeda(fx.valor)+'). Confira os pedidos antes de emitir a nota.');
       const r=await fetch(BLING_WORKER+'/bling/nfe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload})});
       const d=await r.json();
-      if(!d.data||!d.data.id) throw new Error('Erro Bling: '+blingErroTexto(d));
-      fx.nfe={id:d.data.id,numero:d.data.numero||null,link:null};
+      let nid=d.data&&d.data.id?{id:d.data.id,numero:d.data.numero||null}:null;
+      if(!nid&&/j[aá] existe uma nota/i.test(blingErroTexto(d))){
+        cobPasso(0,'run','O Bling já tem essa nota. Procurando...');
+        nid=await cobAcharNFExistente(token,cli,fx.valor);
+        if(!nid) throw new Error('O Bling já tem uma nota com este mesmo conteúdo, mas não consegui localizá-la. Se ela está cancelada, o Bling não permite repetir os mesmos dados: exclua a nota cancelada no Bling ou altere algo no pedido. ('+blingErroTexto(d).slice(0,120)+')');
+      }
+      if(!nid) throw new Error('Erro Bling: '+blingErroTexto(d));
+      fx.nfe={id:nid.id,numero:nid.numero,link:null};
       fx.status='nfe_ok';cobSalvarLocal();cobPersistir();
     }
     if(anexarNF&&!fx.nfe.link){
@@ -10744,8 +10768,14 @@ async function loteRodarCliente(it,opts){
       if(Math.abs(soma-fx.valor)>0.01) throw new Error('Soma dos itens ('+moeda(soma)+') diferente do total ('+moeda(fx.valor)+').');
       const r=await fetch(BLING_WORKER+'/bling/nfe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload})});
       const d=await r.json();
-      if(!d.data||!d.data.id) throw new Error('Erro Bling: '+blingErroTexto(d));
-      fx.nfe={id:d.data.id,numero:d.data.numero||null,link:null};
+      let nid=d.data&&d.data.id?{id:d.data.id,numero:d.data.numero||null}:null;
+      if(!nid&&/j[aá] existe uma nota/i.test(blingErroTexto(d))){
+        loteSet(it,'run','O Bling já tem essa nota. Procurando...');
+        nid=await cobAcharNFExistente(token,cli,fx.valor);
+        if(!nid) throw new Error('O Bling já tem uma nota igual, mas não consegui localizá-la (pode estar cancelada). ('+blingErroTexto(d).slice(0,120)+')');
+      }
+      if(!nid) throw new Error('Erro Bling: '+blingErroTexto(d));
+      fx.nfe={id:nid.id,numero:nid.numero,link:null};
       fx.status='nfe_ok';loteSalvarFx(fx);lotePersistir(fx);
     }
     if(opts.anexar&&!fx.nfe.link){
