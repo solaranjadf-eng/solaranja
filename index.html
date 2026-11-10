@@ -10535,6 +10535,7 @@ async function executarCobranca(){
     // 1) NF-e única (mesmo caminho do botão "Emitir NF-e" do Financeiro: Bling via navegador)
     passoAtual.i=0;fx.etapa='nfe';
     const anexarNF=document.getElementById('cob-anexar-nf').checked;
+    let nfPend=false;
     if(!fx.nfe){
       cobPasso(0,'run','Enviando a nota ao Bling...');
       const token=await blingGetToken();
@@ -10562,9 +10563,9 @@ async function executarCobranca(){
         if(!fx.nfe.link)await new Promise(r=>setTimeout(r,4000));
       }
       cobSalvarLocal();cobPersistir();
-      if(!fx.nfe.link){const ew=new Error('✅ A NF-e nº '+(fx.nfe.numero||'')+' foi enviada ao Bling corretamente. Falta só emitir a nota no Bling. Depois de emitir, volte aqui e clique em "Continuar de onde parou" (a nota não será criada de novo). Se o Bling já envia a nota ao cliente, desmarque "Anexar o PDF da NF-e" e continue.');ew.aguardando=true;throw ew;}
+      if(!fx.nfe.link)nfPend=true;
     }
-    cobPasso(0,'ok','NF-e nº '+(fx.nfe.numero||'')+(fx.nfe.link?' emitida':' criada no Bling'));
+    if(nfPend)cobPasso(0,'wait','NF-e nº '+(fx.nfe.numero||'')+' criada no Bling — falta emitir lá');else cobPasso(0,'ok','NF-e nº '+(fx.nfe.numero||'')+(fx.nfe.link?' emitida':' criada no Bling'));
     // 2) Boleto
     passoAtual.i=1;fx.etapa='boleto';
     if(!fx.boleto){
@@ -10583,6 +10584,7 @@ async function executarCobranca(){
     cobPasso(2,'ok',ex.filename);
     // 4) E-mail
     passoAtual.i=3;fx.etapa='email';
+    if(enviar&&nfPend){const ew=new Error('✅ Boleto e extrato prontos. A NF-e nº '+(fx.nfe.numero||'')+' foi enviada ao Bling corretamente e falta só emiti-la lá. Depois de emitir, clique em "Continuar de onde parou" para enviar o e-mail (a nota e o boleto não serão criados de novo). Se o Bling já envia a nota ao cliente, desmarque "Anexar o PDF da NF-e" e continue.');ew.aguardando=true;throw ew;}
     if(enviar){
       cobPasso(3,'run','Enviando para '+para+'...');
       const bloco='\n\nDados do pagamento:\nVencimento: '+fx.vencStr+'\nValor: '+moeda(fx.valor)+(fx.boleto.linha?'\nLinha digitável: '+fx.boleto.linha:'')+(fx.boleto.pix?'\nPIX: '+fx.boleto.pix:'')+(fx.nfe.numero?'\nNF-e nº '+fx.nfe.numero:'');
@@ -10731,6 +10733,7 @@ async function loteRodarCliente(it,opts){
   fx.para=loteEmailsDe(cli).join(' ');
   try{
     // 1) NF-e
+    let nfPend=false;
     fx.etapa='nfe';
     if(!fx.nfe){
       loteSet(it,'run','Criando NF-e no Bling...');
@@ -10756,7 +10759,7 @@ async function loteRodarCliente(it,opts){
       const l=token?await cobBuscarLinkNF(token,fx.nfe.id):null;
       if(l){if(l.numero)fx.nfe.numero=l.numero;if(l.link)fx.nfe.link=l.link;}
       loteSalvarFx(fx);lotePersistir(fx);
-      if(!fx.nfe.link){loteSet(it,'wait','NF-e nº '+(fx.nfe.numero||'')+' criada no Bling — falta emitir. Depois use "Continuar pendentes".');return;}
+      if(!fx.nfe.link)nfPend=true;
     }
     // 2) boleto
     fx.etapa='boleto';
@@ -10772,6 +10775,7 @@ async function loteRodarCliente(it,opts){
     if(!ex||!ex.base64) throw new Error('Não foi possível montar o extrato.');
     // 4) e-mail
     fx.etapa='email';
+    if(enviar&&nfPend){loteSet(it,'wait','Boleto e extrato prontos. NF-e nº '+(fx.nfe.numero||'')+' criada — falta emitir no Bling. Depois use "Continuar pendentes".');return;}
     if(enviar){
       loteSet(it,'run','Enviando e-mail para '+fx.para+'...');
       const bloco='\n\nDados do pagamento:\nVencimento: '+fx.vencStr+'\nValor: '+moeda(fx.valor)+(fx.boleto.linha?'\nLinha digitável: '+fx.boleto.linha:'')+(fx.boleto.pix?'\nPIX: '+fx.boleto.pix:'')+(fx.nfe.numero?'\nNF-e nº '+fx.nfe.numero:'');
