@@ -1289,7 +1289,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-k)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-l)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -10188,8 +10188,8 @@ function cobPersistir(extra){
 }
 function cobRenderPassos(){
   const el=document.getElementById('cob-passos');if(!el||!cobFx)return;
-  const ic={pend:'○',run:'⏳',ok:'✅',err:'❌',skip:'➖'};
-  const cor={pend:'var(--text3)',run:'var(--orange)',ok:'#16a34a',err:'#dc2626',skip:'var(--text3)'};
+  const ic={pend:'○',run:'⏳',ok:'✅',err:'❌',skip:'➖',wait:'⏸'};
+  const cor={pend:'var(--text3)',run:'var(--orange)',ok:'#16a34a',err:'#dc2626',skip:'var(--text3)',wait:'#c2410c'};
   el.innerHTML=COB_PASSOS.map((n,i)=>{const st=(cobFx.passos&&cobFx.passos[i])||{e:'pend',d:''};
     return `<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border)"><span style="width:20px">${ic[st.e]}</span><div style="flex:1"><div style="font-size:13px;font-weight:600;color:${cor[st.e]}">${i+1}. ${n}</div>${st.d?`<div style="font-size:11px;color:var(--text3)">${cobEsc(st.d)}</div>`:''}</div></div>`;}).join('');
 }
@@ -10358,7 +10358,7 @@ async function executarCobranca(){
         if(!fx.nfe.link)await new Promise(r=>setTimeout(r,4000));
       }
       cobSalvarLocal();cobPersistir();
-      if(!fx.nfe.link) throw new Error('A NF-e nº '+(fx.nfe.numero||'')+' foi criada no Bling, mas ainda não foi emitida (ou o PDF não está disponível). Emita a nota no Bling e clique em "Continuar de onde parou". A nota não será criada de novo. (Se preferir, desmarque "Anexar o PDF da NF-e".)');
+      if(!fx.nfe.link){const ew=new Error('✅ A NF-e nº '+(fx.nfe.numero||'')+' foi enviada ao Bling corretamente. Falta só emitir a nota no Bling. Depois de emitir, volte aqui e clique em "Continuar de onde parou" (a nota não será criada de novo). Se o Bling já envia a nota ao cliente, desmarque "Anexar o PDF da NF-e" e continue.');ew.aguardando=true;throw ew;}
     }
     cobPasso(0,'ok','NF-e nº '+(fx.nfe.numero||'')+(fx.nfe.link?' emitida':' criada no Bling'));
     // 2) Boleto
@@ -10400,10 +10400,11 @@ async function executarCobranca(){
     toast(enviar?'✅ Cobrança enviada para '+para:'✅ Documentos gerados');
   }catch(e){
     const msg=String((e&&e.message)||e);
-    cobPasso(passoAtual.i,'err',msg.slice(0,160));
+    if(e&&e.aguardando)cobPasso(passoAtual.i,'wait','NF-e nº '+(fx.nfe&&fx.nfe.numero||'')+' criada no Bling — aguardando emissão');else cobPasso(passoAtual.i,'err',msg.slice(0,160));
     fx.erro=msg;fx.status=fx.status==='iniciado'?'erro':fx.status;
     if(fx.nfe||fx.boleto){cobSalvarLocal();cobPersistir();}else{try{localStorage.removeItem(COB_LS);}catch(e2){}}
     errEl.style.display='block';errEl.textContent=msg;
+    if(e&&e.aguardando){errEl.style.background='#FFF7ED';errEl.style.borderColor='#FDBA74';errEl.style.color='#9A3412';}else{errEl.style.background='#fff0f0';errEl.style.borderColor='#ffcccc';errEl.style.color='#b91c1c';}
     document.getElementById('cob-form').style.display='block';
     btn.disabled=false;btn.textContent=(fx.nfe||fx.boleto)?'Tentar de novo (continua de onde parou)':'Tentar de novo';
   }finally{cobRodando=false;}
