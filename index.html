@@ -1285,7 +1285,12 @@ a{color:var(--orange);text-decoration:none}
       <input type="hidden" id="edit-cob-id">
       <div class="form-group"><label>Nome</label><input type="text" id="edit-cob-nome" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px"></div>
       <div class="form-group"><label>E-mail</label><input type="text" id="edit-cob-email" placeholder="email@..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px"></div>
-      <div class="form-group"><label>Dias NF/Boleto (ex: 15, 30)</label><input type="text" id="edit-cob-dias" placeholder="ex: 15, 30" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px"></div>
+      <div class="form-group"><label>Dias NF/Boleto (ex: 15, 30)</label><input type="text" id="edit-cob-dias" oninput="renderEditCobVenc()" placeholder="ex: 15, 30" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px"></div>
+      <div class="form-group" style="background:var(--bg);border:1px solid var(--border2);border-radius:10px;padding:10px 12px">
+        <label>📅 Vencimento do boleto por ciclo <span style="font-size:10px;color:var(--text3)">(opcional — se vazio, vence em 7 dias)</span></label>
+        <div id="edit-cob-venc" style="font-size:12px;color:var(--text3)">Preencha os dias acima.</div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;text-transform:none;letter-spacing:0;font-weight:500;cursor:pointer"><input type="checkbox" id="edit-cob-periodo" style="width:16px;height:16px;accent-color:var(--orange)"> Cobrar só os pedidos do período de cada ciclo (ex.: dia 15 = pedidos do dia 1 ao 15; dia 30 = do dia 16 ao fim do mês)</label>
+      </div>
       <div class="form-group"><label>Observação</label><input type="text" id="edit-cob-obs" placeholder="Observação..." style="width:100%;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px"></div>
       <button class="btn btn-primary btn-full" onclick="salvarEdicaoCobranca()">Salvar</button>
     </div>
@@ -1293,7 +1298,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-p)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-q)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2962,6 +2967,7 @@ async function sincronizar(){
                 c.diasVencimento=ex.diasVencimento||[];
                 c.diaVencimento=ex.diaVencimento||null;
                 c.obs=ex.obs||'';
+                c.vencRegras=ex.vencRegras||null;c.periodoCiclo=!!ex.periodoCiclo;
                 cobOrdenadas.push(c);
               }
             });
@@ -10349,7 +10355,8 @@ function cobPedidosSel(){
   const cbs=[...document.querySelectorAll('.fin-sel-ped:checked')];
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const ids=new Set(cbs.map(c=>String(c.dataset.id)));
-  const base=cbs.length?todos.filter(p=>ids.has(String(p.id))):todos.filter(p=>p.entregue&&!p.pago);
+  let base=cbs.length?todos.filter(p=>ids.has(String(p.id))):todos.filter(p=>p.entregue&&!p.pago);
+  if(!cbs.length){const cc=cobCicloAtual(cli);if(cc&&cc.periodo)base=base.filter(p=>p.data>=cc.ini&&p.data<=cc.fim);}
   return base.filter(p=>String(p.clienteId)===String(cli.id)&&!p.troca&&!p.parceria).sort((a,b)=>a.data.localeCompare(b.data));
 }
 function cobItensNF(peds){
@@ -10391,8 +10398,7 @@ async function abrirCobrancaAuto(){
   // retomar fluxo salvo (mesmo cliente e mesmos pedidos) se ainda não terminou
   let salvo=null;try{salvo=JSON.parse(localStorage.getItem(COB_LS)||'null');}catch(e){}
   const mesmo=salvo&&(salvo.nfe||salvo.boleto)&&String(salvo.cliId)===String(cli.id)&&salvo.status!=='ok'&&JSON.stringify([...salvo.pedIds].map(String).sort())===JSON.stringify([...pedIds].map(String).sort());
-  const hoje=new Date();const venc=new Date(hoje);venc.setDate(venc.getDate()+7);
-  const vencStr=venc.toLocaleDateString('pt-BR');
+  const vencStr=cobVencimentoStr(cli);
   if(mesmo){cobFx=salvo;cobFx.erro=null;cobFx.passos=[];COB_PASSOS.forEach((_,i)=>cobFx.passos[i]={e:'pend',d:''});if(cobFx.nfe)cobFx.passos[0]={e:'ok',d:'NF-e nº '+(cobFx.nfe.numero||'')+' já criada no Bling'};if(cobFx.boleto)cobFx.passos[1]={e:'ok',d:'Boleto nosso nº '+cobFx.boleto.nossoNum+' já gerado'};}
   else{try{localStorage.removeItem(COB_LS);}catch(e){}}
   if(false){}
@@ -10402,7 +10408,7 @@ async function abrirCobrancaAuto(){
   document.getElementById('cob-assunto').value='BOLETO E NOTA FISCAL SUCO NATURAL DE LARANJA - Só Laranja';
   document.getElementById('cob-texto').value=corpo;
   document.getElementById('cob-enviar').checked=true;
-  document.getElementById('cob-resumo').innerHTML=`<strong>${cobEsc(cli.apelido||cli.nome)}</strong> · CNPJ ${cobEsc(cli.cnpj||'—')}<br>${peds.length} pedido(s): ${peds.map(p=>cobFmtData(p.data)+(p.numeroPedido?' (nº '+p.numeroPedido+')':'')).join(', ')}<br>Total: <strong>${moeda(valor)}</strong> · Vencimento do boleto: <strong>${cobFx.vencStr}</strong> · 1 NF-e com todos os pedidos`;
+  document.getElementById('cob-resumo').innerHTML=`<strong>${cobEsc(cli.apelido||cli.nome)}</strong> · CNPJ ${cobEsc(cli.cnpj||'—')}<br>${peds.length} pedido(s): ${peds.map(p=>cobFmtData(p.data)+(p.numeroPedido?' (nº '+p.numeroPedido+')':'')).join(', ')}<br>Total: <strong>${moeda(valor)}</strong> · Vencimento do boleto: <strong>${cobFx.vencStr}</strong> · 1 NF-e com todos os pedidos${(()=>{const cc=cobCicloAtual(cli);return cc&&(cc.periodo||cc.temRegra)?'<br>📅 Ciclo dia '+cc.dia+(cc.periodo?' · pedidos de '+cobDataBR(cc.ini)+' a '+cobDataBR(cc.fim):'')+(cc.temRegra?' · vencimento pela regra do cliente':''):'';})()}`;
   document.getElementById('cob-erro').style.display='none';
   document.getElementById('cob-final').style.display='none';
   document.getElementById('cob-form').style.display='block';
@@ -10887,13 +10893,18 @@ async function abrirCobrancaLote(){
   loteItens=Object.entries(porCli).map(([cid,peds])=>{
     const cli=clientes.find(c=>String(c.id)===cid);if(!cli)return null;
     if(!_estab.has((cli.nome||'').toLowerCase().trim())&&!_estab.has((cli.apelido||'').toLowerCase().trim()))return null;
+    const cc=cobCicloAtual(cli);
+    let pedsUsar=peds;
+    if(cc&&cc.periodo)pedsUsar=peds.filter(p=>p.data>=cc.ini&&p.data<=cc.fim);
+    if(!pedsUsar.length)return null;
+    const pedsOrig=peds;peds=pedsUsar;
     peds.sort((a,b)=>a.data.localeCompare(b.data));
     const valor=Math.round(peds.reduce((s,p)=>s+(p.total||0),0)*100)/100;
     const set=new Set(peds.map(p=>String(p.id)));
     const ja=envios.filter(e=>e.nfe_numero&&(e.pedidos_ids||[]).some(i=>set.has(String(i))));
     const salvo=mapa[cid];
     const retoma=salvo&&(salvo.nfe||salvo.boleto)&&salvo.status!=='ok'&&JSON.stringify(salvo.pedIds.map(String).sort())===JSON.stringify(peds.map(p=>String(p.id)).sort());
-    return {cid,cli,peds,valor,ja,retoma:retoma?salvo:null,sel:false,estado:'pend',det:''};
+    return {cid,cli,peds,valor,ja,ciclo:cc,retoma:retoma?salvo:null,sel:false,estado:'pend',det:''};
   }).filter(Boolean).sort((a,b)=>a.peds[0].data.localeCompare(b.peds[0].data));
   loteRender();
   btn.disabled=false;
@@ -10910,6 +10921,7 @@ function loteRender(){
     const avisos=[];
     if(!loteEmailsDe(it.cli).length)avisos.push('⚠ sem e-mail cadastrado');
     if(it.ja.length)avisos.push('⚠ já cobrado antes (NF-e nº '+it.ja.map(e=>e.nfe_numero).join(', ')+')');
+    if(it.ciclo&&(it.ciclo.periodo||it.ciclo.temRegra))avisos.push('📅 Ciclo dia '+it.ciclo.dia+(it.ciclo.periodo?' ('+cobDataBR(it.ciclo.ini)+' a '+cobDataBR(it.ciclo.fim)+')':'')+(it.ciclo.temRegra?' · vence '+it.ciclo.venc.toLocaleDateString('pt-BR'):''));
     if(it.retoma)avisos.push('↩ continua: NF-e nº '+(it.retoma.nfe?it.retoma.nfe.numero:'—')+' já criada'+(it.retoma.boleto?', boleto já gerado':''));
     return `<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-bottom:1px solid var(--border)">
       <input type="checkbox" ${it.sel?'checked':''} ${loteRodando?'disabled':''} onchange="loteItens[${i}].sel=this.checked;loteResumo()" style="width:16px;height:16px;margin-top:2px;accent-color:var(--orange);flex-shrink:0">
@@ -10936,7 +10948,7 @@ function loteSet(it,estado,det){it.estado=estado;it.det=det||'';loteRender();}
 async function loteRodarCliente(it,opts){
   const cli=it.cli,peds=it.peds;
   let fx=it.retoma||{id:'cob_'+Date.now()+'_'+it.cid,cliId:cli.id,cliNome:cli.nome,pedIds:peds.map(p=>p.id),valor:it.valor,
-    vencStr:(()=>{const v=new Date();v.setDate(v.getDate()+7);return v.toLocaleDateString('pt-BR');})(),nfe:null,boleto:null,status:'iniciado',etapa:'',para:loteEmailsDe(cli).join(' ')};
+    vencStr:cobVencimentoStr(cli),nfe:null,boleto:null,status:'iniciado',etapa:'',para:loteEmailsDe(cli).join(' ')};
   it.retoma=fx;
   const enviar=opts.enviar;
   if(enviar&&!loteEmailsDe(cli).length){loteSet(it,'skip','Sem e-mail cadastrado — pulado (cadastre o e-mail ou desligue o envio)');return;}
@@ -11238,6 +11250,63 @@ async function colarLancar(){
   toast('✓ '+ok+' pedido(s) lançado(s)'+(erro?' · '+erro+' com erro':''));
 }
 
+// ── CICLOS DE COBRANÇA (vencimento fixo + período de pedidos) ─────────────────
+function renderEditCobVenc(){
+  const el=document.getElementById('edit-cob-venc');if(!el)return;
+  const id=document.getElementById('edit-cob-id').value;const c=cobrancas.find(x=>x.id===id)||{};
+  const reg=c.vencRegras||{};
+  const dias=[...new Set((document.getElementById('edit-cob-dias').value||'').split(',').map(d=>parseInt(d.trim())).filter(d=>d>=1&&d<=31))].sort((a,b)=>a-b);
+  if(!dias.length){el.innerHTML='Preencha os dias acima.';return;}
+  el.innerHTML=dias.map(d=>{const r=reg[String(d)]||{};return `<div style="display:flex;align-items:center;gap:6px;margin:6px 0;color:var(--text);flex-wrap:wrap">
+    <span>Cobrança dia <b>${d}</b> → vence dia</span>
+    <input type="number" min="1" max="31" id="edit-cob-vd-${d}" value="${r.dia||''}" placeholder="—" style="width:56px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+    <span>do</span>
+    <select id="edit-cob-vm-${d}" style="padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px"><option value="0" ${(r.mes||0)==0?'selected':''}>mês da cobrança</option><option value="1" ${r.mes==1?'selected':''}>mês seguinte</option></select></div>`;}).join('');
+}
+function cobColetarRegras(dias){
+  const reg={};
+  dias.forEach(d=>{const v=parseInt(document.getElementById('edit-cob-vd-'+d)?.value,10);if(v>=1&&v<=31)reg[String(d)]={dia:v,mes:parseInt(document.getElementById('edit-cob-vm-'+d)?.value||'0',10)||0};});
+  return Object.keys(reg).length?reg:null;
+}
+function cobEntradaDe(cli){
+  const n=String(cli.nome||'').toLowerCase().trim(),a=String(cli.apelido||'').toLowerCase().trim();
+  return cobrancas.find(c=>c.ativo!==false&&((c.clienteId&&String(c.clienteId)===String(cli.id))||String(c.nome||'').toLowerCase().trim()===n||(a&&String(c.nome||'').toLowerCase().trim()===a)))||null;
+}
+function cobUltimoDia(y,m){return new Date(y,m+1,0).getDate();}
+function cobIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+// Descobre o ciclo a cobrar agora: o próximo corte em até 3 dias, ou o último corte dos últimos 10 dias
+function cobCicloAtual(cli){
+  const c=cobEntradaDe(cli);if(!c)return null;
+  const dias=[...new Set((c.diasVencimento||[]).filter(Boolean))].sort((a,b)=>a-b);
+  if(!dias.length||!(c.vencRegras||c.periodoCiclo))return null;
+  const h=new Date();const hoje0=new Date(h.getFullYear(),h.getMonth(),h.getDate());
+  const cand=[];
+  for(let off=-1;off<=1;off++){
+    const y0=new Date(hoje0.getFullYear(),hoje0.getMonth()+off,1);const y=y0.getFullYear(),mo=y0.getMonth(),ult=cobUltimoDia(y,mo);
+    dias.forEach((dia,i)=>cand.push({dia,i,y,mo,ult,data:new Date(y,mo,Math.min(dia,ult))}));
+  }
+  const dd=x=>Math.round((x.data-hoje0)/86400000);
+  let esc=cand.filter(x=>dd(x)>=0&&dd(x)<=3).sort((a,b)=>a.data-b.data)[0];
+  if(!esc)esc=cand.filter(x=>dd(x)<0&&dd(x)>=-10).sort((a,b)=>b.data-a.data)[0];
+  if(!esc)return null;
+  const fimMes=esc.dia>=30;
+  const fim=new Date(esc.y,esc.mo,fimMes?esc.ult:Math.min(esc.dia,esc.ult));
+  let ini;
+  if(esc.i>0){ini=new Date(esc.y,esc.mo,Math.min(dias[esc.i-1],esc.ult)+1);}
+  else{const ultDia=dias[dias.length-1];ini=ultDia>=30?new Date(esc.y,esc.mo,1):new Date(esc.y,esc.mo-1,Math.min(ultDia,cobUltimoDia(esc.y,esc.mo-1))+1);}
+  const r=(c.vencRegras||{})[String(esc.dia)];
+  let venc;
+  if(r&&r.dia){const t=new Date(esc.y,esc.mo+(r.mes||0),1);venc=new Date(t.getFullYear(),t.getMonth(),Math.min(r.dia,cobUltimoDia(t.getFullYear(),t.getMonth())));}
+  else{venc=new Date(h);venc.setDate(venc.getDate()+7);}
+  return {dia:esc.dia,ini:cobIso(ini),fim:cobIso(fim),venc,periodo:!!c.periodoCiclo,temRegra:!!(r&&r.dia)};
+}
+function cobDataBR(iso){const [a,m,d]=iso.split('-');return d+'/'+m;}
+// vencimento padrão (7 dias) ou o da regra do ciclo do cliente
+function cobVencimentoStr(cli){
+  const cc=cobCicloAtual(cli);
+  if(cc&&cc.temRegra)return cc.venc.toLocaleDateString('pt-BR');
+  const v=new Date();v.setDate(v.getDate()+7);return v.toLocaleDateString('pt-BR');
+}
 function enviarEmailCliente(){
   if(!finCliSelecionado){toast('Selecione um cliente primeiro.');return;}
   const cli=finCliSelecionado;
@@ -11280,11 +11349,8 @@ async function gerarBoletoBB(){
   const totalAberto=pedsSel.reduce((s,p)=>s+(p.total||0),0);
   if(totalAberto<=0){toast('Total zerado, verifique os pedidos.');return;}
 
-  // Vencimento = hoje + 7 dias
-  const hoje=new Date();
-  const venc=new Date(hoje);
-  venc.setDate(venc.getDate()+7);
-  const vencStr=venc.toLocaleDateString('pt-BR'); // DD/MM/YYYY
+  // Vencimento = 7 dias (ou a regra do ciclo do cliente, ex.: dia 24 / dia 9 do mês seguinte)
+  const vencStr=cobVencimentoStr(cli); // DD/MM/YYYY
 
   // Nosso número sequencial (salvo em localStorage)
   let nossoNum=parseInt(localStorage.getItem('slj_bb_nosso_num')||'100');
@@ -11675,6 +11741,8 @@ function editarClienteCobranca(id){
   document.getElementById('edit-cob-email').value=c.email||'';
   document.getElementById('edit-cob-dias').value=(c.diasVencimento||[c.diaVencimento]).filter(Boolean).join(', ');
   document.getElementById('edit-cob-obs').value=c.obs||'';
+  document.getElementById('edit-cob-periodo').checked=!!c.periodoCiclo;
+  renderEditCobVenc();
   document.getElementById('modal-editar-cob').style.display='flex';
 }
 
@@ -11689,6 +11757,8 @@ function salvarEdicaoCobranca(){
   const dias=diasStr?diasStr.split(',').map(d=>parseInt(d.trim())).filter(d=>d>=1&&d<=31):[];
   c.diasVencimento=dias;
   c.diaVencimento=dias[0]||null;
+  c.vencRegras=cobColetarRegras([...new Set(dias)]);
+  c.periodoCiclo=!!document.getElementById('edit-cob-periodo').checked;
   salvarCobrancasExtra();
   sbUps('cobrancas',[{id:c.id,nome:c.nome,email:c.email,ativo:true}]).catch(()=>{});
   document.getElementById('modal-editar-cob').style.display='none';
@@ -11707,7 +11777,7 @@ function salvarObsCobranca(id,val){
 function salvarCobrancasExtra(){
   lsave('slj_cobrancas',cobrancas);
   // Salvar dados extras (ordem, dias, obs) no banco via bling_tokens
-  const dados=cobrancas.map(c=>({id:c.id,diasVencimento:c.diasVencimento||[],diaVencimento:c.diaVencimento||null,obs:c.obs||''}));
+  const dados=cobrancas.map(c=>({id:c.id,diasVencimento:c.diasVencimento||[],diaVencimento:c.diaVencimento||null,obs:c.obs||'',vencRegras:c.vencRegras||null,periodoCiclo:!!c.periodoCiclo}));
   sbUps('bling_tokens',[{
     id:5,
     access_token:JSON.stringify(dados),
