@@ -3013,6 +3013,7 @@ async function sincronizar(){
       const dbCC=await sbGet('compras_cartao','?order=created_at');
       if(dbCC&&dbCC.length){
         comprasCartao=dbCC.map(c=>({id:c.id,nome:c.nome,total:c.total,nParcelas:c.n_parcelas,valorParcela:c.valor_parcela,mesInicio:c.mes_inicio,diaVenc:c.dia_venc,cartao:c.cartao||'',parcelas:c.parcelas||[]}));
+        corrigirMesesCC();
         localStorage.setItem('slj_compras_cartao',JSON.stringify(comprasCartao));
       }
       await carregarSemanaisDoBanco();
@@ -9903,6 +9904,22 @@ function renderNotas(){
 let comprasCartao=JSON.parse(localStorage.getItem('slj_compras_cartao')||'[]');
 let boletos=JSON.parse(localStorage.getItem('slj_boletos')||'[]');
 
+// meses das parcelas por aritmética (sem Date: evita pular/repetir mês por fuso horário ou dia 31)
+function ccMeses(mesInicio,n){
+  const [y,m]=String(mesInicio).split('-').map(Number);const out=[];
+  for(let i=0;i<n;i++){const t=(m-1)+i;out.push((y+Math.floor(t/12))+'-'+String((t%12)+1).padStart(2,'0'));}
+  return out;
+}
+function corrigirMesesCC(){
+  let mudou=false;
+  comprasCartao.forEach(c=>{
+    if(!c.mesInicio||!/^\d{4}-\d{2}$/.test(c.mesInicio)||!Array.isArray(c.parcelas))return;
+    const esp=ccMeses(c.mesInicio,c.parcelas.length);
+    c.parcelas.forEach((p,i)=>{if(p.mes!==esp[i]){p.mes=esp[i];mudou=true;}});
+  });
+  if(mudou)salvarComprasCartao();
+  return mudou;
+}
 function salvarComprasCartao(){
   localStorage.setItem('slj_compras_cartao',JSON.stringify(comprasCartao));
   comprasCartao.forEach(c=>{
@@ -10058,13 +10075,7 @@ function salvarEdicaoCC(){
     c.nParcelas=novoNParcelas;
     c.valorParcela=novoTotal/novoNParcelas;
     c.parcelas=[];
-    for(let i=0;i<novoNParcelas;i++){
-      const d=new Date(novoMesInicio+'-01');
-      d.setMonth(d.getMonth()+i);
-      const y=d.getFullYear();
-      const m=String(d.getMonth()+1).padStart(2,'0');
-      c.parcelas.push({mes:y+'-'+m,valor:c.valorParcela,pago:false});
-    }
+    ccMeses(novoMesInicio,novoNParcelas).forEach(mes=>c.parcelas.push({mes,valor:c.valorParcela,pago:false}));
   }
   salvarComprasCartao();
   document.getElementById('modal-editar-cc').style.display='none';
@@ -10125,12 +10136,7 @@ function adicionarCompraCartao(){
   if(!mesInicio){toast('Informe o mês de início.');return;}
   const valorParcela=total/nParcelas;
   const parcelas=[];
-  for(let i=0;i<nParcelas;i++){
-    const d=new Date(mesInicio+'-01');
-    d.setMonth(d.getMonth()+i);
-    const mes=d.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit'}).split('/').reverse().join('-').slice(0,7);
-    parcelas.push({mes,valor:valorParcela,pago:false});
-  }
+  ccMeses(mesInicio,nParcelas).forEach(mes=>parcelas.push({mes,valor:valorParcela,pago:false}));
   const nova={id:Date.now().toString(),nome,total,nParcelas,valorParcela,mesInicio,diaVenc,cartao,parcelas,criada:new Date().toISOString()};
   comprasCartao.unshift(nova);
   salvarComprasCartao();
@@ -10160,6 +10166,7 @@ function deletarCompraCartao(id){
 }
 
 function renderComprasCartao(){
+  corrigirMesesCC();
   const el=document.getElementById('cc-lista');
   if(!el) return;
   const mesAtualCC=hojeKey.slice(0,7);
