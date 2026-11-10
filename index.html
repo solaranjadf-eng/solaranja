@@ -1847,6 +1847,7 @@ a{color:var(--orange);text-decoration:none}
   <div style="display:flex;gap:6px;margin-bottom:16px;background:var(--bg2);padding:4px;border-radius:var(--radius)">
     <button id="compras-tab-cartao" onclick="setComprasTab('cartao',this)" style="flex:1;padding:8px;border:none;border-radius:calc(var(--radius) - 2px);font-size:13px;font-weight:600;cursor:pointer;background:var(--orange);color:#fff;font-family:'DM Sans',sans-serif">💳 Cartão Parcelado</button>
     <button id="compras-tab-boleto" onclick="setComprasTab('boleto',this)" style="flex:1;padding:8px;border:none;border-radius:calc(var(--radius) - 2px);font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif">📄 Boletos</button>
+    <button id="compras-tab-semanal" onclick="setComprasTab('semanal',this)" style="flex:1;padding:8px;border:none;border-radius:calc(var(--radius) - 2px);font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif">🔁 Semanais</button>
   </div>
 
   <!-- CARTÃO PARCELADO -->
@@ -1927,6 +1928,39 @@ a{color:var(--orange);text-decoration:none}
     </details>
 
     <div id="bol-lista"></div>
+  </div>
+
+  <!-- PAGAMENTOS SEMANAIS -->
+  <div id="compras-semanal" style="display:none">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:linear-gradient(135deg,#c0392b,#e74c3c);border-radius:var(--radius);padding:14px;color:#fff;text-align:center">
+        <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Em atraso</div>
+        <div style="font-size:18px;font-weight:700" id="sem-atraso">R$ 0</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#d35400,#e67e22);border-radius:var(--radius);padding:14px;color:#fff;text-align:center">
+        <div style="font-size:10px;opacity:.8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Próximos 7 dias</div>
+        <div style="font-size:18px;font-weight:700" id="sem-prox">R$ 0</div>
+      </div>
+    </div>
+    <details class="card" style="margin-bottom:16px">
+      <summary style="font-size:13px;font-weight:700;cursor:pointer;padding:2px 0;list-style:none;display:flex;align-items:center;gap:8px">
+        <span style="background:var(--orange);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">+</span>
+        Novo pagamento semanal
+      </summary>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <div class="form-group"><label>Descrição</label><input type="text" id="sem-nome" placeholder="Ex: Fornecedor de laranja" autocomplete="off"></div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px">
+          <div class="form-group" style="margin:0"><label>Valor (R$)</label><input type="number" id="sem-valor" step="0.01" min="0" placeholder="0,00" inputmode="decimal"></div>
+          <div class="form-group" style="margin:0"><label>Dia da semana</label><select id="sem-dia"><option value="1">Segunda</option><option value="2">Terça</option><option value="3">Quarta</option><option value="4">Quinta</option><option value="5" selected>Sexta</option><option value="6">Sábado</option><option value="0">Domingo</option></select></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
+          <div class="form-group" style="margin:0"><label>Começa em</label><input type="date" id="sem-inicio"></div>
+          <div class="form-group" style="margin:0"><label>Termina em (opcional)</label><input type="date" id="sem-fim"></div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="adicionarSemanal()">+ Adicionar pagamento semanal</button>
+      </div>
+    </details>
+    <div id="sem-lista"></div>
   </div>
 
   <!-- Modal editar compra parcelada -->
@@ -2981,6 +3015,7 @@ async function sincronizar(){
         comprasCartao=dbCC.map(c=>({id:c.id,nome:c.nome,total:c.total,nParcelas:c.n_parcelas,valorParcela:c.valor_parcela,mesInicio:c.mes_inicio,diaVenc:c.dia_venc,cartao:c.cartao||'',parcelas:c.parcelas||[]}));
         localStorage.setItem('slj_compras_cartao',JSON.stringify(comprasCartao));
       }
+      await carregarSemanaisDoBanco();
       const dbBol=await sbGet('boletos','?order=created_at');
       if(dbBol&&dbBol.length){
         boletos=dbBol.map(b=>({id:b.id,desc:b.descricao,valor:b.valor,vencimento:b.vencimento,fornecedor:b.fornecedor||'',pago:b.pago||false}));
@@ -9881,15 +9916,115 @@ function salvarBoletos(){
   });
 }
 
+// ── PAGAMENTOS SEMANAIS (Compras) ─────────────────────────────────────────────
+let pagSemanais=JSON.parse(localStorage.getItem('slj_pag_semanais')||'[]');
+const SEM_DIAS=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+function semIso(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function semHoje(){return semIso(new Date());}
+function semFmt(iso){const [a,m,d]=iso.split('-');return d+'/'+m;}
+function salvarSemanais(){
+  localStorage.setItem('slj_pag_semanais',JSON.stringify(pagSemanais));
+  pagSemanais.forEach(x=>{sbUps('pagamentos_semanais',[{id:x.id,nome:x.nome,valor:x.valor,dia_semana:x.dia,inicio:x.inicio,fim:x.fim||null,ativo:x.ativo!==false,pagos:x.pagos||{}}]).catch(()=>{});});
+}
+async function carregarSemanaisDoBanco(){
+  try{
+    const db=await sbGet('pagamentos_semanais','?order=created_at');
+    if(db&&db.length){
+      pagSemanais=db.map(x=>({id:x.id,nome:x.nome,valor:Number(x.valor)||0,dia:x.dia_semana,inicio:x.inicio,fim:x.fim||'',ativo:x.ativo!==false,pagos:x.pagos||{}}));
+      localStorage.setItem('slj_pag_semanais',JSON.stringify(pagSemanais));
+    }
+  }catch(e){}
+}
+// datas de vencimento já geradas (até a próxima, 7 dias à frente)
+function semDatas(x){
+  const out=[];const [a,m,d]=x.inicio.split('-').map(Number);
+  let dt=new Date(a,m-1,d);
+  while(dt.getDay()!==Number(x.dia))dt.setDate(dt.getDate()+1);
+  const lim=new Date();lim.setDate(lim.getDate()+7);const limIso=semIso(lim);
+  for(let i=0;i<600;i++){const iso=semIso(dt);if(iso>limIso)break;if(x.fim&&iso>x.fim)break;out.push(iso);dt.setDate(dt.getDate()+7);}
+  return out;
+}
+function adicionarSemanal(){
+  const nome=(document.getElementById('sem-nome').value||'').trim();
+  const valor=parseFloat(document.getElementById('sem-valor').value)||0;
+  const dia=parseInt(document.getElementById('sem-dia').value,10);
+  const inicio=document.getElementById('sem-inicio').value||semHoje();
+  const fim=document.getElementById('sem-fim').value||'';
+  if(!nome){toast('Informe a descrição.');return;}
+  if(valor<=0){toast('Informe o valor.');return;}
+  if(fim&&fim<inicio){toast('A data final é antes da inicial.');return;}
+  pagSemanais.push({id:'sem_'+Date.now(),nome,valor,dia,inicio,fim,ativo:true,pagos:{}});
+  salvarSemanais();
+  ['sem-nome','sem-valor','sem-inicio','sem-fim'].forEach(i=>document.getElementById(i).value='');
+  renderSemanais();toast('Pagamento semanal adicionado.');
+}
+function semPagar(id,iso){
+  const x=pagSemanais.find(v=>v.id===id);if(!x)return;
+  x.pagos=x.pagos||{};if(x.pagos[iso])delete x.pagos[iso];else x.pagos[iso]=true;
+  salvarSemanais();renderSemanais();
+}
+function semEditarValor(id){
+  const x=pagSemanais.find(v=>v.id===id);if(!x)return;
+  const v=prompt('Novo valor semanal (vale para as semanas ainda não pagas):',String(x.valor).replace('.',','));
+  if(v===null)return;const n=parseFloat(String(v).replace(',','.'));
+  if(!(n>0)){toast('Valor inválido.');return;}
+  x.valor=n;salvarSemanais();renderSemanais();
+}
+function semAlternar(id){const x=pagSemanais.find(v=>v.id===id);if(!x)return;x.ativo=x.ativo===false;salvarSemanais();renderSemanais();}
+function semExcluir(id){
+  const x=pagSemanais.find(v=>v.id===id);if(!x)return;
+  if(!confirm('Excluir "'+x.nome+'" e todo o histórico de pagamentos dele?'))return;
+  pagSemanais=pagSemanais.filter(v=>v.id!==id);
+  localStorage.setItem('slj_pag_semanais',JSON.stringify(pagSemanais));
+  sbDel('pagamentos_semanais','?id=eq.'+encodeURIComponent(id)).catch(()=>{});
+  renderSemanais();
+}
+function semHist(id){const el=document.getElementById('sem-h-'+id);if(el)el.style.display=el.style.display==='none'?'block':'none';}
+function renderSemanais(){
+  const el=document.getElementById('sem-lista');if(!el)return;
+  const hoje=semHoje();let atraso=0,prox=0;
+  const cards=pagSemanais.map(x=>{
+    const datas=x.ativo===false?[]:semDatas(x);
+    const pagos=x.pagos||{};
+    const abertas=datas.filter(d=>!pagos[d]);
+    abertas.forEach(d=>{if(d<hoje)atraso+=x.valor;else prox+=x.valor;});
+    const linhas=abertas.map(d=>{
+      const venc=d<hoje;
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)">
+        <div style="flex:1;font-size:12px;font-weight:600;color:${venc?'#dc2626':'var(--text)'}">${SEM_DIAS[Number(x.dia)]} ${semFmt(d)}${venc?' · em atraso':(d===hoje?' · hoje':'')}</div>
+        <div style="font-size:13px;font-weight:700">${moeda(x.valor)}</div>
+        <button class="btn btn-primary" style="padding:5px 10px;font-size:12px" onclick="semPagar('${x.id}','${d}')">✓ Pago</button></div>`;}).join('');
+    const hist=datas.filter(d=>pagos[d]).slice(-12).reverse().map(d=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;color:var(--text3)"><div style="flex:1">✅ ${semFmt(d)}</div><button class="btn btn-outline" style="padding:3px 8px;font-size:11px" onclick="semPagar('${x.id}','${d}')">desfazer</button></div>`).join('');
+    const nPagos=Object.keys(pagos).length;
+    return `<div class="card" style="margin-bottom:10px;${x.ativo===false?'opacity:.6':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div><div style="font-size:14px;font-weight:700">${cobEsc(x.nome)}${x.ativo===false?' <span style="font-size:11px;color:var(--text3)">(pausado)</span>':''}</div>
+          <div style="font-size:12px;color:var(--text3)">${moeda(x.valor)} toda ${SEM_DIAS[Number(x.dia)].toLowerCase()} · desde ${semFmt(x.inicio)}${x.fim?' até '+semFmt(x.fim):''} · ${nPagos} pago(s)</div></div>
+      </div>
+      ${linhas||'<div style="font-size:12px;color:#16a34a;padding:8px 0">✅ Tudo em dia.</div>'}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="semEditarValor('${x.id}')">✏️ Valor</button>
+        <button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="semAlternar('${x.id}')">${x.ativo===false?'▶ Retomar':'⏸ Pausar'}</button>
+        ${hist?`<button class="btn btn-outline" style="font-size:11px;padding:4px 8px" onclick="semHist('${x.id}')">🕘 Histórico</button>`:''}
+        <button class="btn btn-outline" style="font-size:11px;padding:4px 8px;color:var(--red);border-color:var(--red)" onclick="semExcluir('${x.id}')">🗑 Excluir</button></div>
+      ${hist?`<div id="sem-h-${x.id}" style="display:none;margin-top:6px;border-top:1px solid var(--border)">${hist}</div>`:''}
+    </div>`;}).join('');
+  el.innerHTML=cards||'<div style="text-align:center;color:var(--text3);font-size:13px;padding:24px">Nenhum pagamento semanal cadastrado.</div>';
+  document.getElementById('sem-atraso').textContent=moeda(atraso);
+  document.getElementById('sem-prox').textContent=moeda(prox);
+}
 function setComprasTab(tab,btn){
   document.getElementById('compras-cartao').style.display=tab==='cartao'?'':'none';
   document.getElementById('compras-boleto').style.display=tab==='boleto'?'':'none';
+  const _ps=document.getElementById('compras-semanal');if(_ps)_ps.style.display=tab==='semanal'?'':'none';
+  const _bs=document.getElementById('compras-tab-semanal');if(_bs){_bs.style.background=tab==='semanal'?'var(--orange)':'transparent';_bs.style.color=tab==='semanal'?'#fff':'var(--text2)';}
   // Estilo aba ativa
   const btnCartao=document.getElementById('compras-tab-cartao');
   const btnBoleto=document.getElementById('compras-tab-boleto');
   if(btnCartao){btnCartao.style.background=tab==='cartao'?'var(--orange)':'transparent';btnCartao.style.color=tab==='cartao'?'#fff':'var(--text2)';}
   if(btnBoleto){btnBoleto.style.background=tab==='boleto'?'var(--orange)':'transparent';btnBoleto.style.color=tab==='boleto'?'#fff':'var(--text2)';}
   if(tab==='cartao') renderComprasCartao();
+  else if(tab==='semanal') renderSemanais();
   else renderBoletos();
 }
 
