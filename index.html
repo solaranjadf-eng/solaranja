@@ -10320,31 +10320,78 @@ function gerarBoletoPDF(cli,b,valor,vencStr,obsDatas){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({unit:'mm',format:'a4'});
   const cod=boletoBarras44(b.linha);
-  const L=15,W=180;
-  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.text('Boleto de cobrança — Banco do Brasil',L,18);
-  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(90);
-  doc.text('Linha digitável e código de barras para pagamento em qualquer banco ou aplicativo.',L,24);doc.setTextColor(0);
-  const campo=(rot,val,x,y,w,h)=>{doc.setDrawColor(150);doc.rect(x,y,w,h);doc.setFontSize(7);doc.setTextColor(110);doc.text(rot,x+1.5,y+3.5);doc.setTextColor(0);doc.setFontSize(10);doc.setFont('helvetica','bold');doc.text(String(val||'—'),x+1.5,y+9,{maxWidth:w-3});doc.setFont('helvetica','normal');};
-  let y=30;
-  campo('BENEFICIÁRIO','Só Laranja — CNPJ 55.061.846/0001-23',L,y,110,13);
-  campo('VENCIMENTO',vencStr,L+110,y,35,13);
-  campo('VALOR DO DOCUMENTO',moeda(valor),L+145,y,35,13);
-  y+=13;
-  const end=[cli.endereco||cli.enderecoCompleto||'',cli.bairro||'',cli.cidade||'Brasília',cli.uf||'DF',cli.cep||''].filter(Boolean).join(' - ');
-  campo('PAGADOR',(cli.nome||'')+((cli.cnpj)?'  —  CNPJ/CPF '+cli.cnpj:''),L,y,180,13);
-  y+=13;
-  campo('ENDEREÇO DO PAGADOR',end,L,y,180,13);
-  y+=13;
-  campo('NOSSO NÚMERO',b.nossoNum,L,y,45,13);
-  campo('REFERENTE AOS PEDIDOS DE',obsDatas||'—',L+45,y,135,13);
-  y+=20;
-  doc.setFontSize(8);doc.setTextColor(110);doc.text('LINHA DIGITÁVEL',L,y);doc.setTextColor(0);
-  doc.setFont('courier','bold');doc.setFontSize(14);doc.text(boletoLinhaFmt(b.linha),L,y+8);
-  y+=18;
-  if(cod){boletoDesenharITF(doc,cod,L,y,103,16);y+=22;}
-  doc.setFont('helvetica','normal');doc.setFontSize(8);
-  if(b.pix){doc.setTextColor(110);doc.text('PIX (copia e cola / link):',L,y);doc.setTextColor(0);doc.text(String(b.pix),L,y+5,{maxWidth:180});y+=14;}
-  if(b.link){doc.setTextColor(110);doc.text('2ª via oficial no site do Banco do Brasil:',L,y);doc.setTextColor(0);doc.text(String(b.link),L,y+5,{maxWidth:180});}
+  const linhaF=boletoLinhaFmt(b.linha);
+  const conv=cod?cod.slice(25,32):'',seq=cod?cod.slice(32,42):'',cart=cod?cod.slice(42,44):'17';
+  const nossoF=cod?(conv+seq):String(b.nossoNum||'');
+  const hoje=new Date().toLocaleDateString('pt-BR');
+  const end=[cli.endereco||cli.enderecoCompleto||'',cli.bairro||'',(cli.cidade||'Brasília')+'/'+(cli.uf||'DF'),cli.cep||''].filter(Boolean).join(' - ');
+  const doc_=(cli.cnpj||'').trim();
+  const L=10,W=190;
+  const box=(rot,val,x,y,w,h,opt)=>{
+    opt=opt||{};
+    doc.setDrawColor(0);doc.setLineWidth(0.2);doc.rect(x,y,w,h);
+    doc.setFont('helvetica','normal');doc.setFontSize(6);doc.setTextColor(60);doc.text(rot,x+1,y+2.6);
+    doc.setTextColor(0);doc.setFont('helvetica',opt.bold?'bold':'normal');doc.setFontSize(opt.size||9);
+    const tx=opt.right?x+w-1.2:x+1;
+    const ls=doc.splitTextToSize(String(val==null||val===''?'':val),w-2.4);
+    doc.text(ls.slice(0,opt.linhas||1),tx,y+(opt.top||h-1.8),{align:opt.right?'right':'left'});
+  };
+  const cabecalho=(y)=>{
+    doc.setDrawColor(0);doc.setLineWidth(0.2);doc.rect(L,y,W,9);
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text('BANCO DO BRASIL',L+2,y+6);
+    doc.line(L+45,y,L+45,y+9);doc.line(L+60,y,L+60,y+9);
+    doc.setFontSize(13);doc.text('001-9',L+46.5,y+6.3);
+    doc.setFont('courier','bold');doc.setFontSize(10.5);doc.text(linhaF,L+W-1.5,y+6,{align:'right'});
+  };
+  // ───── RECIBO DO PAGADOR ─────
+  let y=12;
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('RECIBO DO PAGADOR',L,y-1.5);
+  cabecalho(y);y+=9;
+  box('Beneficiário','Só Laranja - CNPJ 55.061.846/0001-23',L,y,130,10,{bold:true});
+  box('Vencimento',vencStr,L+130,y,60,10,{bold:true,right:true});y+=10;
+  box('Pagador',(cli.nome||'')+(doc_?'  -  CNPJ/CPF: '+doc_:''),L,y,130,10,{bold:true});
+  box('Nosso Número',nossoF,L+130,y,60,10,{right:true});y+=10;
+  box('Endereço do Pagador',end,L,y,130,10);
+  box('Valor do Documento',moeda(valor).replace('R$ ',''),L+130,y,60,10,{bold:true,right:true});y+=10;
+  box('Referente aos pedidos de',obsDatas||'',L,y,190,9,{linhas:1});y+=9;
+  doc.setFont('helvetica','normal');doc.setFontSize(6);doc.text('Autenticação mecânica',L+W-1,y+3,{align:'right'});
+  // linha de corte
+  y+=8;doc.setLineDashPattern([1.5,1.5],0);doc.line(L,y,L+W,y);doc.setLineDashPattern([],0);
+  doc.setFontSize(6);doc.text('Corte na linha pontilhada',L+W,y-1,{align:'right'});
+  y+=7;
+  // ───── FICHA DE COMPENSAÇÃO ─────
+  cabecalho(y);y+=9;
+  box('Local de Pagamento','PAGÁVEL EM QUALQUER BANCO ATÉ O VENCIMENTO',L,y,140,9,{bold:true});
+  box('Vencimento',vencStr,L+140,y,50,9,{bold:true,right:true});y+=9;
+  box('Beneficiário','Só Laranja - CNPJ 55.061.846/0001-23',L,y,140,9,{bold:true});
+  box('Agência / Código do Beneficiário','Convênio '+conv,L+140,y,50,9,{right:true});y+=9;
+  box('Data do Documento',hoje,L,y,30,9);
+  box('Nº do Documento',String(b.nossoNum||''),L+30,y,35,9);
+  box('Espécie Doc.','DM',L+65,y,20,9);
+  box('Aceite','N',L+85,y,15,9);
+  box('Data do Processamento',hoje,L+100,y,40,9);
+  box('Nosso Número',nossoF,L+140,y,50,9,{right:true});y+=9;
+  box('Uso do Banco','',L,y,30,9);
+  box('Carteira',cart,L+30,y,25,9);
+  box('Espécie','R$',L+55,y,25,9);
+  box('Quantidade','',L+80,y,30,9);
+  box('Valor','',L+110,y,30,9);
+  box('(=) Valor do Documento',moeda(valor).replace('R$ ',''),L+140,y,50,9,{bold:true,right:true});y+=9;
+  // instruções
+  doc.rect(L,y,140,34);doc.setFont('helvetica','normal');doc.setFontSize(6);doc.setTextColor(60);doc.text('Instruções (texto de responsabilidade do beneficiário)',L+1,y+2.6);doc.setTextColor(0);
+  doc.setFontSize(8);doc.text(['Referente ao fornecimento de suco natural de laranja.','Pedidos de: '+(obsDatas||'—'),'Após o vencimento, entrar em contato com a Só Laranja.'],L+1.5,y+8,{maxWidth:137});
+  const caixas=[['(-) Desconto / Abatimento'],['(-) Outras Deduções'],['(+) Mora / Multa'],['(+) Outros Acréscimos'],['(=) Valor Cobrado']];
+  caixas.forEach((c,k)=>box(c[0],'',L+140,y+k*6.8,50,6.8));
+  y+=34;
+  box('Pagador',(cli.nome||'')+(doc_?'  -  CNPJ/CPF: '+doc_:'')+'\n'+end,L,y,190,13,{linhas:2,top:7,bold:false});y+=13;
+  box('Sacador / Avalista','',L,y,190,7);
+  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text('Autenticação mecânica - Ficha de Compensação',L+W-1,y+4.5,{align:'right'});
+  y+=7;
+  if(cod){boletoDesenharITF(doc,cod,L,y+5,103,13);}
+  y+=26;
+  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(70);
+  if(b.pix)doc.text('PIX: '+String(b.pix),L,y,{maxWidth:190});
+  if(b.link)doc.text('2ª via oficial: '+String(b.link),L,y+(b.pix?8:0),{maxWidth:190});
   const base64=doc.output('datauristring').split(',')[1];
   return {filename:nomeArquivoSeguro('Boleto - '+(cli.apelido||cli.nome||'cliente'))+'.pdf',base64};
 }
