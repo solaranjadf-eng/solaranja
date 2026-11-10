@@ -1289,7 +1289,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-l)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-m)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -1993,7 +1993,7 @@ a{color:var(--orange);text-decoration:none}
         </div>
       </div>
       <div style="display:flex;gap:8px">
-        <a id="boleto-bb-link" href="#" target="_blank" class="btn btn-primary" style="flex:1;text-align:center;text-decoration:none">🔗 Abrir Boleto</a>
+        <a id="boleto-bb-link" href="#" target="_blank" class="btn btn-primary" style="flex:1;text-align:center;text-decoration:none">📥 Baixar boleto</a>
         <a id="boleto-bb-pix" href="#" target="_blank" class="btn btn-outline" style="flex:1;text-align:center;text-decoration:none;display:none">📱 PIX</a>
       </div>
     </div>
@@ -10270,6 +10270,22 @@ async function cobBuscarLinkNF(token,nfeId){
     return {numero:n.numero||null,link:autorizada?link:null};
   }catch(e){return null;}
 }
+
+function nomeArquivoSeguro(t){return String(t||'').replace(/[\\/:*?"<>|]/g,'-').replace(/\s+/g,' ').trim().slice(0,80);}
+async function baixarArquivoNomeado(url,nomeBase){
+  try{
+    const r=await fetch(SUPABASE_FUNCTIONS_URL+'/baixar-arquivo',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:JSON.stringify({url})});
+    const d=await r.json();
+    if(!d.success) throw new Error(d.erro||'falha');
+    const ct=(d.contentType||'').toLowerCase();
+    const ext=ct.includes('pdf')?'pdf':ct.includes('png')?'png':(ct.includes('jpeg')||ct.includes('jpg'))?'jpg':ct.includes('html')?'html':'pdf';
+    const bin=atob(d.base64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+    const blob=new Blob([arr],{type:ct||'application/pdf'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nomeArquivoSeguro(nomeBase)+'.'+ext;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  }catch(e){window.open(url,'_blank');toast('Não foi possível dar o nome ao arquivo; abrindo o boleto.');}
+}
+function cobBaixarBoleto(){if(cobFx&&cobFx.boleto&&cobFx.boleto.link){const c=clientes.find(x=>String(x.id)===String(cobFx.cliId))||{};baixarArquivoNomeado(cobFx.boleto.link,'Boleto - '+(c.apelido||c.nome||cobFx.cliNome));}}
 async function cobChamarFn(nome,corpo){
   const r=await fetch(SUPABASE_FUNCTIONS_URL+'/'+nome,{method:'POST',headers:cobHdr(),body:JSON.stringify(corpo)});
   const d=await r.json().catch(()=>({}));
@@ -10384,7 +10400,7 @@ async function executarCobranca(){
       const bloco='\n\nDados do pagamento:\nVencimento: '+fx.vencStr+'\nValor: '+moeda(fx.valor)+(fx.boleto.linha?'\nLinha digitável: '+fx.boleto.linha:'')+(fx.boleto.pix?'\nPIX: '+fx.boleto.pix:'')+(fx.nfe.numero?'\nNF-e nº '+fx.nfe.numero:'');
       const anexos=[];
       if(fx.nfe.link)anexos.push({filename:'NF-e '+(fx.nfe.numero||''),url:fx.nfe.link});
-      if(fx.boleto.link)anexos.push({filename:'Boleto',url:fx.boleto.link});
+      if(fx.boleto.link)anexos.push({filename:nomeArquivoSeguro('Boleto - '+(cli.apelido||cli.nome)),url:fx.boleto.link});
       anexos.push({filename:ex.filename,base64:ex.base64});
       const r=await cobChamarFn('enviar-cobranca',{para,assunto,texto:cobInserirPagamento(texto,bloco),anexos});
       if(!r.success) throw new Error('E-mail não enviado: '+(r.erro||'erro desconhecido'));
@@ -10415,7 +10431,7 @@ function cobMostrarFinal(enviou){
   el.style.display='block';
   el.innerHTML=`<div style="background:#ECFDF5;border:1px solid #86EFAC;color:#166534;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:8px">${enviou?'✅ Tudo pronto e enviado ao cliente.':'✅ Documentos gerados.'}</div>`
    +(fx.nfe&&fx.nfe.link?`<a style="${b}" href="${cobEsc(fx.nfe.link)}" target="_blank">🧾 Abrir NF-e ${cobEsc(fx.nfe.numero||'')}</a>`:'')
-   +(fx.boleto&&fx.boleto.link?`<a style="${b}" href="${cobEsc(fx.boleto.link)}" target="_blank">🏦 Abrir boleto</a>`:'')
+   +(fx.boleto&&fx.boleto.link?`<a style="${b}" onclick="cobBaixarBoleto()">🏦 Baixar boleto</a>`:'')
    +`<a style="${b}" onclick="cobBaixarExtrato()">📄 Baixar extrato</a>`;
 }
 function cobBaixarExtrato(){
@@ -10532,7 +10548,7 @@ async function gerarBoletoBB(){
         document.getElementById('boleto-bb-linha').textContent=data.linhaDigitavel||data.codigoBarraNumerico||'—';
         window._boletoLinhaDigitavel=data.linhaDigitavel||data.codigoBarraNumerico||'';
         const linkEl=document.getElementById('boleto-bb-link');
-        if(data.urlImagemBoleto){linkEl.href=data.urlImagemBoleto;linkEl.style.display='flex';}else{linkEl.style.display='none';}
+        if(data.urlImagemBoleto){linkEl.href=data.urlImagemBoleto;linkEl.onclick=(ev)=>{ev.preventDefault();baixarArquivoNomeado(data.urlImagemBoleto,'Boleto - '+(cli.apelido||cli.nome));};linkEl.style.display='flex';}else{linkEl.style.display='none';}
         const pixEl=document.getElementById('boleto-bb-pix');
         if(data.qrCode&&data.qrCode.url){pixEl.href=data.qrCode.url;pixEl.style.display='flex';}else{pixEl.style.display='none';}
         toast('✅ Boleto gerado! Nosso nº '+nossoNum);
