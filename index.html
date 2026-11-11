@@ -658,17 +658,6 @@ a{color:var(--orange);text-decoration:none}
     </div>
   </div>
 
-  <!-- GRÁFICO: Garrafas por embalagem hoje -->
-  <div class="card" style="margin-bottom:12px">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📦 Mix de embalagens</div>
-    <div style="display:flex;gap:14px;align-items:center;min-width:0">
-      <div style="position:relative;height:110px;width:110px;flex-shrink:0">
-        <canvas id="chart-embalagens"></canvas>
-      </div>
-      <div id="dash-emb-legenda" style="flex:1;min-width:0"></div>
-    </div>
-  </div>
-
   <div class="dash-2col">
   <!-- Dinheiro a receber (boletos no BB) — só admin -->
   <div class="card" id="dash-card-receber" style="display:none">
@@ -727,6 +716,17 @@ a{color:var(--orange);text-decoration:none}
   </div>
 
   </div><!-- /dash-2col -->
+
+  <!-- GRÁFICO: Garrafas por embalagem hoje -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📦 Mix de embalagens</div>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;min-width:0">
+      <div style="position:relative;height:120px;width:120px;flex-shrink:0;margin:0 auto">
+        <canvas id="chart-embalagens"></canvas>
+      </div>
+      <div id="dash-emb-legenda" style="flex:1 1 240px;min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px"></div>
+    </div>
+  </div>
 
   <!-- Alertas globais -->
   <div id="alerta-estoque-global" style="display:none;padding:8px 16px 0"></div>
@@ -1359,7 +1359,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-d)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-e)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -3581,14 +3581,12 @@ function renderDash(){
   if(el('dash-emb-legenda')){
     const _coresTamL={'200ml':'#E07A2F','300ml':'#2563EB','500ml':'#16A34A','1L':'#7C3AED','5L':'#DC2626'};
     const _ativos=TAMS.filter(t=>mixEmb[t]>0);
+    const _totUn=_ativos.reduce((a,t)=>a+mixEmb[t],0)||1;
     el('dash-emb-legenda').innerHTML=_ativos.map((t,i)=>
-      `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
-        <div style="width:10px;height:10px;border-radius:50%;background:${_coresTamL[t]};flex-shrink:0"></div>
-        <div style="flex:1;font-size:12px;font-weight:600;color:var(--text)">${TL[t]}</div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:13px;font-weight:700;color:var(--text)">${mixEmb[t]} un</div>
-          <div style="font-size:10px;color:var(--text3)">${((LITROS[t]||0)*mixEmb[t]).toFixed(1)} L</div>
-        </div>
+      `<div style="border:1px solid var(--border);border-left:4px solid ${_coresTamL[t]};border-radius:8px;padding:8px 10px;background:var(--white)">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${TL[t]}</div>
+        <div style="font-size:20px;font-weight:700;color:var(--text);line-height:1.2">${mixEmb[t].toLocaleString('pt-BR')} <span style="font-size:11px;font-weight:600;color:var(--text3)">un</span></div>
+        <div style="font-size:11px;color:var(--text3)">${((LITROS[t]||0)*mixEmb[t]).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} L · ${Math.round(mixEmb[t]/_totUn*100)}%</div>
       </div>`
     ).join('')||'<div style="font-size:13px;color:var(--text3)">Sem vendas no período</div>';
   }
