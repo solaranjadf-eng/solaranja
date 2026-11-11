@@ -1317,7 +1317,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-a)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-b)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11351,14 +11351,31 @@ async function lembEnviarExemplo(){
   catch(e){toast('⚠ '+String(e.message||e).slice(0,100));}
 }
 async function baixaConsultarBB(){
-  toast('Consultando o BB...');
+  toast('Consultando o BB... pode levar alguns segundos');
+  let aviso='';
   try{
-    const d=await cobChamarFn('baixa-boletos',{});
+    const b=await cobChamarFn('baixa-boletos',{});
+    if(b.success&&b.pagos&&b.pagos.length){aviso='✓ Baixa automática em '+b.pagos.length+' boleto(s): '+b.pagos.map(x=>x.cliente).join(', ');}
+  }catch(e){}
+  try{
+    const d=await cobChamarFn('boletos-abertos',{});
     if(!d.success){toast('⚠ '+String(d.erro||'falha na consulta').slice(0,140));return;}
-    if(d.erros&&d.erros.length){toast('⚠ BB recusou a consulta: '+String(d.erros[0]).slice(0,120));return;}
-    if(d.pagos&&d.pagos.length){toast('✓ Baixa em '+d.pagos.length+' boleto(s): '+d.pagos.map(x=>x.cliente).join(', '));try{if(typeof carregarTudo==='function')carregarTudo();}catch(e){}}
-    else toast('Consultei '+d.consultados+' boleto(s): nenhum pago ainda.');
+    bbAbrirLista(d,aviso);
   }catch(e){toast('⚠ '+String(e.message||e).slice(0,100));}
+}
+function bbAbrirLista(d,aviso){
+  let m=document.getElementById('modal-bb');
+  if(!m){m=document.createElement('div');m.id='modal-bb';document.body.appendChild(m);}
+  m.style.cssText='display:flex;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:12px';
+  const soma=a=>a.reduce((t,x)=>t+Number(x.valor||0),0);
+  const linha=(x,venc)=>{
+    const dias=x.dias==null?'':(venc?x.dias+' dia'+(x.dias===1?'':'s')+' de atraso':(x.dias===0?'vence hoje':'vence em '+(-x.dias)+' dia'+(x.dias===-1?'':'s')));
+    const cart=x.codEstado&&x.codEstado!==1?' <span style="background:#fde8e8;color:#b42318;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">'+escLoc(x.estado||'verificar no BB')+'</span>':'';
+    return '<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding:7px 0;font-size:12px"><div style="min-width:0"><strong>'+escLoc(x.cliente)+'</strong>'+cart+'<br><span style="color:var(--text3)">Boleto '+escLoc(x.nosso)+' · venc. '+escLoc(x.vencimento)+' · '+dias+'</span></div><div style="font-weight:700;white-space:nowrap;color:'+(venc?'#b42318':'inherit')+'">'+moeda(Number(x.valor||0))+'</div></div>';
+  };
+  const venc=d.vencidos||[],av=d.avencer||[];
+  const sec=(tit,cor,arr,v)=>'<div style="margin-top:12px"><div style="font-size:13px;font-weight:700;color:'+cor+'">'+tit+' · '+arr.length+' boleto(s) · '+moeda(soma(arr))+'</div>'+(arr.length?arr.map(x=>linha(x,v)).join(''):'<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhum.</div>')+'</div>';
+  m.innerHTML='<div style="background:var(--white,#fff);border-radius:14px;padding:16px;max-width:640px;width:100%;max-height:90vh;overflow:auto"><div style="font-size:15px;font-weight:700">🔄 Boletos em aberto no BB</div>'+(aviso?'<div style="font-size:12px;color:#067647;margin-top:4px">'+escLoc(aviso)+'</div>':'')+'<div style="font-size:12px;color:var(--text3);margin-top:2px">Total em aberto: <strong>'+moeda(soma(venc)+soma(av))+'</strong></div>'+sec('🔴 Vencidos','#b42318',venc,true)+sec('🟢 A vencer','#067647',av,false)+'<div style="text-align:right;margin-top:12px"><button class="btn btn-outline" onclick="document.getElementById(\'modal-bb\').style.display=\'none\'">Fechar</button></div></div>';
 }
 function concParseExtrato(txt){
   const out=[];
