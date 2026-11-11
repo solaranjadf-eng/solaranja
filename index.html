@@ -628,22 +628,22 @@ a{color:var(--orange);text-decoration:none}
   <!-- KPIs principais -->
   <div class="stats-row kpi-grid" style="margin-bottom:12px">
     <div class="stat-card orange" onclick="setTab('resumo')" style="cursor:pointer">
-      <div class="stat-label">Faturamento hoje</div>
+      <div class="stat-label" id="dash-lbl-fat">Faturamento hoje</div>
       <div class="stat-val" id="dash-fat">R$ 0</div>
       <div class="stat-sub" id="dash-fat-meta"></div>
     </div>
     <div class="stat-card dark" onclick="setTab('dia')" style="cursor:pointer">
-      <div class="stat-label">Pedidos hoje</div>
+      <div class="stat-label" id="dash-lbl-ped">Pedidos hoje</div>
       <div class="stat-val" id="dash-ped">0</div>
       <div class="stat-sub" id="dash-ped-sub"></div>
     </div>
     <div class="stat-card sand" onclick="setTab('resumo')" style="cursor:pointer">
-      <div class="stat-label">Litros hoje</div>
+      <div class="stat-label" id="dash-lbl-lit">Litros hoje</div>
       <div class="stat-val" id="dash-lit">0 L</div>
       <div class="stat-sub" id="dash-lit-sub"></div>
     </div>
     <div class="stat-card sand" onclick="setTab('financeiro')" style="cursor:pointer">
-      <div class="stat-label">A receber hoje</div>
+      <div class="stat-label" id="dash-lbl-arec">A receber hoje</div>
       <div class="stat-val" id="dash-arec" style="color:var(--red)">R$ 0</div>
       <div class="stat-sub" id="dash-arec-sub"></div>
     </div>
@@ -1359,7 +1359,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-e)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-f)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -3331,8 +3331,23 @@ function dashReceberInit(){
   let ts=0;try{ts=(JSON.parse(localStorage.getItem('slj_bb_resumo')||'null')||{}).ts||0;}catch(e){}
   if(Date.now()-ts>60*60*1000)dashReceberAtualizar(true);
 }
+function dashAtualizarRotulos(){
+  let suf='hoje';
+  try{
+    if(dashPeriodo==='ano')suf='em '+hojeKey.slice(0,4);
+    else if(dashPeriodo==='custom'){const v=document.getElementById('dash-data-custom')?.value;suf=v&&v!==hojeKey?'em '+v.split('-').reverse().join('/'):'hoje';}
+    else if(dashPeriodo==='mes'||dashPeriodo==='mesant'){
+      const k=getMesDashKey();const [a,m]=k.split('-').map(Number);
+      const nome=new Date(a,m-1,1).toLocaleDateString('pt-BR',{month:'long'});
+      suf='em '+nome+'/'+a;
+    }
+  }catch(e){}
+  const set=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
+  set('dash-lbl-fat','Faturamento '+suf);set('dash-lbl-ped','Pedidos '+suf);set('dash-lbl-lit','Litros '+suf);set('dash-lbl-arec','A receber '+suf);
+}
 function renderDash(){
   try{dashReceberInit();}catch(e){}
+  try{dashAtualizarRotulos();}catch(e){}
   const h=hoje.getHours();
   const sd=document.getElementById('dash-saudacao');if(sd)sd.textContent=(h<12?'Bom dia':h<18?'Boa tarde':'Boa noite')+'!';
   const dd=document.getElementById('dash-data-ext');if(dd)dd.textContent=hoje.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
