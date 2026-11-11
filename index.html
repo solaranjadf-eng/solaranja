@@ -180,6 +180,20 @@ label{font-size:11px;font-weight:600;color:var(--text3);display:block;margin-bot
 .preço-info-card{background:var(--ol);border-left:3px solid var(--orange);border-radius:0 var(--radius) var(--radius) 0;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--text2);line-height:1.5}
 .garrafas-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:10px}
 @media(max-width:500px){.garrafas-grid{grid-template-columns:repeat(3,1fr)}}
+/* ── Início: layout responsivo ── */
+.kpi-grid{grid-template-columns:repeat(4,1fr)!important}
+.kpi-grid .stat-val{font-size:26px;line-height:1.15}
+.kpi-grid .stat-card{display:flex;flex-direction:column;justify-content:space-between;min-height:92px;border-left:4px solid var(--border2)}
+.kpi-grid .stat-card.orange{border-left-color:var(--orange)}
+.kpi-grid .stat-card.dark{border-left-color:var(--header)}
+.kpi-grid .stat-card.sand{border-left-color:#D6B98F}
+.dash-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.dash-2col>*{min-width:0}
+.dash-2col>.card{margin:0!important}
+.rec-box{border-radius:var(--radius);padding:10px 12px}
+@media(max-width:900px){.dash-2col{grid-template-columns:1fr}}
+@media(max-width:768px){.kpi-grid{grid-template-columns:repeat(2,1fr)!important}.kpi-grid .stat-val{font-size:22px}}
+
 .g-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 4px;text-align:center;transition:border-color .12s}
 .g-card.has-price{border-top:2px solid var(--orange)}
 .g-card.disabled{opacity:.35}
@@ -612,7 +626,7 @@ a{color:var(--orange);text-decoration:none}
   <div id="dash-alertas"></div>
 
   <!-- KPIs principais -->
-  <div class="stats-row" style="margin-bottom:8px">
+  <div class="stats-row kpi-grid" style="margin-bottom:12px">
     <div class="stat-card orange" onclick="setTab('resumo')" style="cursor:pointer">
       <div class="stat-label">Faturamento hoje</div>
       <div class="stat-val" id="dash-fat">R$ 0</div>
@@ -623,8 +637,6 @@ a{color:var(--orange);text-decoration:none}
       <div class="stat-val" id="dash-ped">0</div>
       <div class="stat-sub" id="dash-ped-sub"></div>
     </div>
-  </div>
-  <div class="stats-row" style="margin-bottom:8px">
     <div class="stat-card sand" onclick="setTab('resumo')" style="cursor:pointer">
       <div class="stat-label">Litros hoje</div>
       <div class="stat-val" id="dash-lit">0 L</div>
@@ -644,6 +656,31 @@ a{color:var(--orange);text-decoration:none}
       <div class="stat-val" id="dash-parceria-qtd" style="color:#1D4ED8">0 un</div>
       <div class="stat-sub" id="dash-parceria-sub" style="color:#1D4ED8"></div>
     </div>
+  </div>
+
+  <div class="dash-2col">
+  <!-- Dinheiro a receber (boletos no BB) — só admin -->
+  <div class="card" id="dash-card-receber" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">💵 Dinheiro a receber (boletos)</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline" style="height:28px;font-size:11px;padding:0 10px" onclick="dashReceberLista()">Ver lista</button>
+        <button class="btn btn-outline" style="height:28px;font-size:11px;padding:0 10px" onclick="dashReceberAtualizar(false)">🔄 Atualizar</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="rec-box" style="background:var(--red-bg);border:1px solid var(--red-b)">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">🔴 Vencidos</div>
+        <div style="font-size:20px;font-weight:700;color:var(--red);margin-top:2px" id="rec-venc-total">—</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px" id="rec-venc-sub"></div>
+      </div>
+      <div class="rec-box" style="background:var(--green-bg);border:1px solid var(--green-b)">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">🟢 A vencer</div>
+        <div style="font-size:20px;font-weight:700;color:var(--green);margin-top:2px" id="rec-av-total">—</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px" id="rec-av-sub"></div>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:8px" id="rec-atualizado">Ainda não consultado.</div>
   </div>
 
   <!-- Meta do mês -->
@@ -678,8 +715,11 @@ a{color:var(--orange);text-decoration:none}
     </div>
   </div>
 
+  </div><!-- /dash-2col -->
+
   <!-- Alertas globais -->
   <div id="alerta-estoque-global" style="display:none;padding:8px 16px 0"></div>
+  <div class="dash-2col">
   <div class="card" style="margin-bottom:12px">
     <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">📈 Faturamento — dias do mês</div>
     <div style="position:relative;height:180px">
@@ -697,6 +737,8 @@ a{color:var(--orange);text-decoration:none}
       <canvas id="chart-fat-mensal"></canvas>
     </div>
   </div>
+
+  </div><!-- /dash-2col gráficos -->
 
   <!-- GRÁFICO COMPARATIVO -->
   <div class="card" style="margin-bottom:12px">
@@ -1317,7 +1359,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-b)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-c)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -3248,7 +3290,49 @@ function recalcularImpostoLucro(){
   if(elSub) elSub.textContent=lucroReal>=0?'✓ Lucro':'⚠ Prejuízo';
 }
 
+
+// ── Início: dinheiro a receber (boletos do BB) ──
+let dashRecBusy=false;
+function dashRecVisivel(){return typeof perfilAtual==='undefined'||perfilAtual==='admin'||!perfilAtual;}
+function dashReceberRender(){
+  const c=document.getElementById('dash-card-receber');if(!c)return;
+  if(!dashRecVisivel()){c.style.display='none';return;}
+  c.style.display='';
+  let d=null;try{d=JSON.parse(localStorage.getItem('slj_bb_resumo')||'null');}catch(e){}
+  if(!d||!d.dados)return;
+  const v=d.dados.vencidos||[],a=d.dados.avencer||[];
+  const soma=x=>x.reduce((t,i)=>t+Number(i.valor||0),0);
+  const set=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
+  set('rec-venc-total',moeda(soma(v)));
+  set('rec-venc-sub',v.length?v.length+' boleto(s) · mais antigo: '+Math.max(...v.map(i=>i.dias||0))+' dias':'Nenhum vencido 🎉');
+  set('rec-av-total',moeda(soma(a)));
+  const prox=a.length?a.reduce((m,i)=>(i.dias>m.dias?i:m),a[0]):null;
+  set('rec-av-sub',a.length?a.length+' boleto(s) · próximo: '+prox.vencimento.slice(0,5):'Nenhum a vencer');
+  set('rec-atualizado','Atualizado às '+new Date(d.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' (consulta ao BB)');
+}
+async function dashReceberAtualizar(silencioso){
+  if(dashRecBusy||!dashRecVisivel())return;
+  dashRecBusy=true;
+  const st=document.getElementById('rec-atualizado');if(st&&!silencioso)st.textContent='Consultando o BB...';
+  try{
+    const d=await cobChamarFn('boletos-abertos',{});
+    if(d.success){localStorage.setItem('slj_bb_resumo',JSON.stringify({ts:Date.now(),dados:{vencidos:d.vencidos,avencer:d.avencer}}));dashReceberRender();}
+    else if(st&&!silencioso)st.textContent='⚠ '+String(d.erro||'falha na consulta').slice(0,100);
+  }catch(e){if(st&&!silencioso)st.textContent='⚠ Sem conexão com o BB.';}
+  dashRecBusy=false;
+}
+function dashReceberLista(){
+  let d=null;try{d=JSON.parse(localStorage.getItem('slj_bb_resumo')||'null');}catch(e){}
+  if(d&&d.dados)bbAbrirLista(d.dados,'');else baixaConsultarBB();
+}
+function dashReceberInit(){
+  dashReceberRender();
+  if(!dashRecVisivel())return;
+  let ts=0;try{ts=(JSON.parse(localStorage.getItem('slj_bb_resumo')||'null')||{}).ts||0;}catch(e){}
+  if(Date.now()-ts>60*60*1000)dashReceberAtualizar(true);
+}
 function renderDash(){
+  try{dashReceberInit();}catch(e){}
   const h=hoje.getHours();
   const sd=document.getElementById('dash-saudacao');if(sd)sd.textContent=(h<12?'Bom dia':h<18?'Boa tarde':'Boa noite')+'!';
   const dd=document.getElementById('dash-data-ext');if(dd)dd.textContent=hoje.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
