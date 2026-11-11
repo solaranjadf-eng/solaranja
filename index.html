@@ -658,6 +658,17 @@ a{color:var(--orange);text-decoration:none}
     </div>
   </div>
 
+  <!-- GRÁFICO: Garrafas por embalagem hoje -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📦 Mix de embalagens</div>
+    <div style="display:flex;gap:14px;align-items:center;min-width:0">
+      <div style="position:relative;height:110px;width:110px;flex-shrink:0">
+        <canvas id="chart-embalagens"></canvas>
+      </div>
+      <div id="dash-emb-legenda" style="flex:1;min-width:0"></div>
+    </div>
+  </div>
+
   <div class="dash-2col">
   <!-- Dinheiro a receber (boletos no BB) — só admin -->
   <div class="card" id="dash-card-receber" style="display:none">
@@ -866,17 +877,6 @@ a{color:var(--orange);text-decoration:none}
   <div class="card" style="margin-bottom:12px">
     <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">📐 Margem de lucro por embalagem — <span id="dash-margem-periodo"></span></div>
     <div id="dash-margem-lista"></div>
-  </div>
-
-  <!-- GRÁFICO: Garrafas por embalagem hoje -->
-  <div class="card" style="margin-bottom:12px">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📦 Mix de embalagens</div>
-    <div style="display:flex;gap:14px;align-items:center;min-width:0">
-      <div style="position:relative;height:110px;width:110px;flex-shrink:0">
-        <canvas id="chart-embalagens"></canvas>
-      </div>
-      <div id="dash-emb-legenda" style="flex:1;min-width:0"></div>
-    </div>
   </div>
 
   <!-- GRÁFICO: Sabores faturados + Trocas -->
@@ -1359,7 +1359,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-c)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-d)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
