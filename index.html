@@ -1359,7 +1359,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-h)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-i)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -5999,7 +5999,7 @@ function extParse(txt){
       const g=t=>{const m=b.match(new RegExp('<'+t+'>([^<\\r\\n]*)','i'));return m?m[1].trim():'';};
       const v=parseFloat(g('TRNAMT').replace(',','.'));const d=g('DTPOSTED').slice(0,8);
       if(!isFinite(v)||d.length<8)return;
-      out.push({data:d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8),valor:Math.abs(v),deb:v<0,memo:(g('MEMO')||g('NAME'))});
+      out.push({data:d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8),valor:Math.abs(v),deb:v<0,memo:(g('MEMO')||g('NAME')),fitid:g('FITID')});
     });
     return out;
   }
@@ -6023,19 +6023,47 @@ function gasAbrir(){
   m.style.cssText='display:flex;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:12px';
   m.innerHTML='<div style="background:var(--white,#fff);border-radius:14px;padding:16px;max-width:720px;width:100%;max-height:90vh;overflow:auto"><div style="font-size:15px;font-weight:700;margin-bottom:6px">⛽ Importar gasolina do extrato</div><div style="font-size:12px;color:var(--text3);margin-bottom:10px">Envie o extrato do BB em <strong>OFX</strong> (ou CSV). O sistema separa as saídas que parecem combustível e esconde as que você já lançou.</div><input type="file" id="gas-arq" accept=".ofx,.csv,.txt" onchange="gasLer(this)" style="margin-bottom:10px"><div id="gas-res"></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn btn-outline" onclick="document.getElementById(\'modal-gas\').style.display=\'none\'">Fechar</button><button class="btn btn-primary" id="gas-ok" style="display:none" onclick="gasConfirmar()">Lançar marcados</button></div></div>';
 }
-function gasJaLancado(e){return custosOp.some(c=>String(c.cat||'').startsWith('gasolina')&&c.data===e.data&&Math.abs(Number(c.valor)-e.valor)<0.01);}
+function gasHash(t){let h=5381;for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0;return (h>>>0).toString(36);}
+// Dá a cada linha do extrato uma identidade estável: o mesmo arquivo (ou outro com os mesmos dados) gera a mesma chave
+function gasChaves(lista){
+  const cont={};
+  lista.forEach(e=>{
+    const base=e.fitid?'f'+e.fitid:e.data+'|'+e.valor.toFixed(2)+'|'+gasHash(e.memo.replace(/\s+/g,' ').trim().toLowerCase());
+    cont[base]=(cont[base]||0)+1;
+    e.key='bb_'+gasHash(base)+'_'+cont[base];
+  });
+}
+function gasMarcarDuplicados(lista){
+  const ehGas=c=>String(c.cat||'').startsWith('gasolina');
+  const usados=new Set();
+  const diasEntre=(a,b)=>Math.abs((new Date(a+'T12:00:00')-new Date(b+'T12:00:00'))/86400000);
+  // 1) já importados antes por esta tela (mesma chave)
+  lista.forEach(e=>{e.dup=false;if(custosOp.some(c=>String(c.id)===e.key)){e.dup='sim';usados.add(String(e.key));}});
+  // 2) lançados à mão: mesma data e valor, cada lançamento só "cobre" uma linha do extrato
+  lista.forEach(e=>{
+    if(e.dup)return;
+    const c=custosOp.find(c=>ehGas(c)&&!usados.has(String(c.id))&&!String(c.id).startsWith('bb_')&&c.data===e.data&&Math.abs(Number(c.valor)-e.valor)<0.01);
+    if(c){usados.add(String(c.id));e.dup='sim';}
+  });
+  // 3) quase certo: mesmo valor com 1 dia de diferença
+  lista.forEach(e=>{
+    if(e.dup)return;
+    const c=custosOp.find(c=>ehGas(c)&&!usados.has(String(c.id))&&!String(c.id).startsWith('bb_')&&c.data&&diasEntre(c.data,e.data)<=1&&Math.abs(Number(c.valor)-e.valor)<0.01);
+    if(c){usados.add(String(c.id));e.dup='prov';}
+  });
+}
 function gasLer(inp){
   const f=inp.files&&inp.files[0];if(!f)return;
   const rd=new FileReader();
   rd.onload=()=>{
     const todos=extParse(String(rd.result||'')).filter(e=>e.deb);
     gasLinhas=todos.map(e=>({...e,gas:GAS_RE.test(e.memo),dup:false}));
-    gasLinhas.forEach(e=>{e.dup=gasJaLancado(e);});
+    gasChaves(gasLinhas);gasMarcarDuplicados(gasLinhas);
     const el=document.getElementById('gas-res');
     if(!todos.length){el.innerHTML='<div style="font-size:12px;color:var(--text3)">Não encontrei saídas nesse arquivo. Confira se é o extrato em OFX ou CSV.</div>';document.getElementById('gas-ok').style.display='none';return;}
-    const linha=(e,i)=>'<div style="display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:12px;flex-wrap:wrap"><input type="checkbox" id="gas-ck-'+i+'" '+(e.gas&&!e.dup?'checked':'')+(e.dup?' disabled':'')+'><div style="flex:1;min-width:170px"><strong>'+moeda(e.valor)+'</strong> · '+e.data.split('-').reverse().join('/')+(e.dup?' <span style="background:#e7f6ec;color:#067647;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">já lançado</span>':'')+'<br><span style="color:var(--text3)">'+escLoc(e.memo.slice(0,70))+'</span></div><select id="gas-cat-'+i+'" style="height:30px;font-size:12px;border:1px solid var(--border2);border-radius:6px"><option value="gasolina-visita" selected>Gasolina — Visitas</option><option value="gasolina-entrega">Gasolina — Entregas</option><option value="gasolina">Gasolina</option></select></div>';
+    const linha=(e,i)=>'<div style="display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:12px;flex-wrap:wrap"><input type="checkbox" id="gas-ck-'+i+'" '+(e.gas&&!e.dup?'checked':'')+(e.dup==='sim'?' disabled':'')+'><div style="flex:1;min-width:170px"><strong>'+moeda(e.valor)+'</strong> · '+e.data.split('-').reverse().join('/')+(e.dup==='sim'?' <span style="background:#e7f6ec;color:#067647;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">já lançado</span>':e.dup==='prov'?' <span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">parece já lançado (data difere 1 dia)</span>':'')+'<br><span style="color:var(--text3)">'+escLoc(e.memo.slice(0,70))+'</span></div><select id="gas-cat-'+i+'" style="height:30px;font-size:12px;border:1px solid var(--border2);border-radius:6px"><option value="gasolina-visita" selected>Gasolina — Visitas</option><option value="gasolina-entrega">Gasolina — Entregas</option><option value="gasolina">Gasolina</option></select></div>';
     const g=gasLinhas.map((e,i)=>[e,i]).filter(x=>x[0].gas),o=gasLinhas.map((e,i)=>[e,i]).filter(x=>!x[0].gas);
-    el.innerHTML='<div style="font-size:12px;margin-bottom:4px">Li '+todos.length+' saída(s). <strong>'+g.length+'</strong> parecem combustível:</div>'+(g.length?g.map(x=>linha(x[0],x[1])).join(''):'<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma com nome de posto/combustível.</div>')+
+    const nJa=gasLinhas.filter(e=>e.dup==='sim').length;el.innerHTML='<div style="font-size:12px;margin-bottom:4px">Li '+todos.length+' saída(s). <strong>'+g.length+'</strong> parecem combustível'+(nJa?' · <strong>'+nJa+'</strong> já lançada(s), não serão repetidas':'')+':</div>'+(g.length?g.map(x=>linha(x[0],x[1])).join(''):'<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhuma com nome de posto/combustível.</div>')+
       (o.length?'<details style="margin-top:10px"><summary style="font-size:12px;cursor:pointer;font-weight:600">Outras '+o.length+' saídas (marque se alguma for gasolina)</summary>'+o.map(x=>linha(x[0],x[1])).join('')+'</details>':'');
     document.getElementById('gas-ok').style.display='inline-flex';
   };
@@ -6047,7 +6075,7 @@ function gasConfirmar(){
   gasLinhas.forEach((e,i)=>{
     const ck=document.getElementById('gas-ck-'+i);if(!ck||!ck.checked||ck.disabled)return;
     const cat=document.getElementById('gas-cat-'+i).value;
-    novos.push({id:Date.now()+'-'+i,cat,label:LAB[cat],valor:e.valor,data:e.data,desc:'Extrato BB: '+e.memo.slice(0,60)});
+    novos.push({id:e.key,cat,label:LAB[cat],valor:e.valor,data:e.data,desc:'Extrato BB: '+e.memo.slice(0,60)});
   });
   if(!novos.length){toast('Nada marcado.');return;}
   novos.forEach(c=>custosOp.unshift(c));
