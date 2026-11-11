@@ -1229,7 +1229,7 @@ a{color:var(--orange);text-decoration:none}
   <!-- AUTOMAÇÃO DE COBRANÇA: lembretes + baixa -->
   <div class="card" id="card-automacao-cob" style="margin-bottom:12px">
     <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🔔 Lembretes e baixa automática</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Todo dia às 8h o sistema avisa o cliente 2 dias antes do vencimento e depois de 1, 5 e 15 dias de atraso. Boletos já pagos são ignorados.</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Todo dia às 7h30 o sistema consulta o BB e dá baixa nos boletos pagos. Às 8h avisa o cliente 2 dias antes do vencimento e depois de 1, 5 e 15 dias de atraso. Boletos já pagos são ignorados.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <label style="font-size:12px;font-weight:600">Lembretes:</label>
       <select id="lemb-modo" onchange="lembMudarModo(this.value)" style="height:34px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:13px">
@@ -1238,7 +1238,8 @@ a{color:var(--orange);text-decoration:none}
         <option value="ligado">Ligado (envia aos clientes)</option>
       </select>
       <button class="btn btn-outline" onclick="lembEnviarExemplo()" style="height:34px;font-size:12px">✉ Enviar exemplo para mim</button>
-      <button class="btn btn-primary" onclick="concAbrir()" style="height:34px;font-size:12px">💰 Conferir pagamentos (extrato)</button>
+      <button class="btn btn-primary" onclick="baixaConsultarBB()" style="height:34px;font-size:12px">🔄 Consultar BB agora</button>
+      <button class="btn btn-outline" onclick="concAbrir()" style="height:34px;font-size:12px">💰 Por extrato (reserva)</button>
     </div>
     <div id="lemb-status" style="font-size:11px;color:var(--text3);margin-top:8px"></div>
   </div>
@@ -1316,7 +1317,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v10/11-r)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-a)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11348,6 +11349,16 @@ async function lembEnviarExemplo(){
   toast('Enviando exemplo...');
   try{const d=await cobChamarFn('lembretes-cobranca',{acao:'teste'});toast(d.success?'✓ 2 e-mails de exemplo enviados para '+d.para:'⚠ '+(d.erro||'falha ao enviar').slice(0,120));}
   catch(e){toast('⚠ '+String(e.message||e).slice(0,100));}
+}
+async function baixaConsultarBB(){
+  toast('Consultando o BB...');
+  try{
+    const d=await cobChamarFn('baixa-boletos',{});
+    if(!d.success){toast('⚠ '+String(d.erro||'falha na consulta').slice(0,140));return;}
+    if(d.erros&&d.erros.length){toast('⚠ BB recusou a consulta: '+String(d.erros[0]).slice(0,120));return;}
+    if(d.pagos&&d.pagos.length){toast('✓ Baixa em '+d.pagos.length+' boleto(s): '+d.pagos.map(x=>x.cliente).join(', '));try{if(typeof carregarTudo==='function')carregarTudo();}catch(e){}}
+    else toast('Consultei '+d.consultados+' boleto(s): nenhum pago ainda.');
+  }catch(e){toast('⚠ '+String(e.message||e).slice(0,100));}
 }
 function concParseExtrato(txt){
   const out=[];
