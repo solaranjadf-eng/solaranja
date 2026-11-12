@@ -651,8 +651,8 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- Parcerias -->
   <div id="dash-parceria-row" style="display:none;margin-bottom:8px">
-    <div class="stat-card" style="background:#EFF6FF;border:1px solid #93C5FD">
-      <div class="stat-label" style="color:#1D4ED8">🤝 Parcerias (entregas gratuitas)</div>
+    <div class="stat-card" onclick="dashAbrirParcerias()" title="Clique para ver os pedidos de parceria no Financeiro (nova aba)" style="background:#EFF6FF;border:1px solid #93C5FD;cursor:pointer">
+      <div class="stat-label" style="color:#1D4ED8">🤝 Parcerias (entregas gratuitas) ↗</div>
       <div class="stat-val" id="dash-parceria-qtd" style="color:#1D4ED8">0 un</div>
       <div class="stat-sub" id="dash-parceria-sub" style="color:#1D4ED8"></div>
     </div>
@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-b)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-c)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -3375,6 +3375,21 @@ function dashAtualizarRotulos(){
   const set=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
   set('dash-lbl-fat','Faturamento '+suf);set('dash-lbl-ped','Pedidos '+suf);set('dash-lbl-lit','Litros '+suf);set('dash-lbl-arec','A receber '+suf);
 }
+function dashAbrirParcerias(){
+  const ids=(window._dashParcIds||[]);
+  if(!ids.length)return;
+  window.open(location.pathname+'?parcerias='+encodeURIComponent(ids.join(',')),'_blank','noopener');
+}
+function finParcMostrar(){
+  const el=document.getElementById('fin-list');if(!el||!finParcIds)return;
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>String(x.id)===String(p.id))===i);
+  const ps=todos.filter(p=>finParcIds.includes(String(p.id))).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const un=ps.reduce((s,p)=>p.itens.reduce((ss,it)=>ss+it.qtd,s),0);
+  el.innerHTML=`<div style="background:#EFF6FF;border:1px solid #93C5FD;border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+    <div style="font-size:13px;font-weight:700;color:#1D4ED8">🤝 Parcerias (entregas gratuitas) · ${ps.length} pedido(s) · ${un} un</div>
+    <button onclick="finParcIds=null;renderFinanceiro()" style="font-size:11px;background:var(--white);border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer">✕ Voltar ao financeiro</button>
+  </div>`+(ps.length?ps.map(p=>renderFinItem(p,p.data)).join(''):'<div class="empty"><p>Carregando pedidos...</p></div>');
+}
 function renderDash(){
   try{dashReceberInit();}catch(e){}
   try{dashAtualizarRotulos();}catch(e){}
@@ -3392,6 +3407,7 @@ function renderDash(){
   const garrafas=listaVendas.reduce((s,p)=>p.itens.reduce((ss,it)=>ss+it.qtd,s),0);
   // Parcerias do período
   const listaParceria=lista.filter(p=>p.parceria);
+  window._dashParcIds=listaParceria.map(p=>p.id);
   const qtdParceria=listaParceria.reduce((s,p)=>p.itens.reduce((ss,it)=>ss+it.qtd,s),0);
 
   const el=id=>document.getElementById(id);
@@ -7416,6 +7432,7 @@ async function marcarPagoHistorico(pedidoId,dataKey){
   atualizarBadges();renderFinanceiro();toast('Pagamento confirmado.');
 }
 
+let finParcIds=null;
 function renderFinanceiro(){
   const lista=getPedidosPeriodo();
   const periodoLabel=getPeriodoLabel();
@@ -7431,6 +7448,7 @@ function renderFinanceiro(){
   const secLabel=document.getElementById('fin-sec-label');
   if(secLabel) secLabel.textContent=periodoLabel;
 
+  if(finParcIds){finParcMostrar();return;}
   if(filtroFin==='debito-total'){
     const el=document.getElementById('fin-list');
     el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">🔄 Consultando banco...</div>';
@@ -7521,7 +7539,7 @@ function renderFinanceiro(){
 
 function renderFinItem(p,dataKey){
   const statusPag=p.pago?'pago':(p.entregue?'debito':'pendente');
-  const statusTxt=p.brinde?'🎁 Brinde':p.pago?'Pago':p.entregue?'A Receber':'Pendente';
+  const statusTxt=p.brinde?'🎁 Brinde':p.parceria?'🤝 Parceria':p.pago?'Pago':p.entregue?'A Receber':'Pendente';
   return`<div class="fin-item">
     <div class="fin-nome">${p.clienteNome}<span class="status-badge ${statusPag}" style="margin-left:6px">${statusTxt}</span></div>
     <div class="fin-meta">${p.hora||'—'} · CNPJ ${p.cnpj||'—'} · ${p.data||''}</div>
@@ -7529,9 +7547,10 @@ function renderFinItem(p,dataKey){
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
       <div class="fin-valor ${p.pago?'ok':''}">${moeda(p.total)}</div>
       <div style="display:flex;gap:5px">
-        ${p.entregue&&!p.pago?`<button class="psm psm-pago" onclick="marcarPagoHistorico(${p.id},'${dataKey}')">Marcar Pago</button>`:''}
+        ${p.entregue&&!p.pago&&!p.parceria&&!p.brinde?`<button class="psm psm-pago" onclick="marcarPagoHistorico(${p.id},'${dataKey}')">Marcar Pago</button>`:''}
         ${p.pago?`<span class="status-badge pago">✓ Pago</span>`:''}
         ${!p.entregue?`<span style="font-size:11px;color:var(--text3)">Não entregue</span>`:''}
+        ${p.entregue&&p.parceria?`<span style="font-size:11px;color:#1D4ED8;font-style:italic">entregue · grátis</span>`:''}
       </div>
     </div>
   </div>`;
@@ -9030,18 +9049,22 @@ function iniciarSistema(){
   // Carregar histórico do cache local — dados ficam disponíveis imediatamente
   const histCache=load('slj_hist_bk',{});
   if(Object.keys(histCache).length>0) historico=histCache;
+  const _parcUrl=new URLSearchParams(location.search).get('parcerias');
+  if(_parcUrl){window.history.replaceState({},'',location.pathname);finParcIds=_parcUrl.split(',').map(x=>x.trim()).filter(Boolean);}
   const _cidUrl=new URLSearchParams(location.search).get('cliente');
   const _abrirCli=()=>{try{const _c=clientes.find(c=>String(c.id)===String(_cidUrl));if(_c){setTab('financeiro');setFinAba('cliente',document.getElementById('fin-aba-cliente'));selecionarClienteFin(_c.id);return true;}}catch(e){}return false;};
   // Vindo de Cobranças: abre direto o financeiro do cliente (com dados do cache), sem passar pelo Início
   let _jaAbriu=false;
   if(_cidUrl){window.history.replaceState({},'',location.pathname);_jaAbriu=_abrirCli();}
-  const abaAtiva=_jaAbriu?'financeiro':(localStorage.getItem('slj_aba_ativa')||'dash');
+  if(finParcIds){setTab('financeiro');}
+  const abaAtiva=_jaAbriu||finParcIds?'financeiro':(localStorage.getItem('slj_aba_ativa')||'dash');
   sincronizar().finally(()=>{
     document.getElementById('loading').classList.add('hidden');
     renderClienteList();
     atualizarBadges();
     // Ir direto para a aba que estava ativa
     if(_jaAbriu){ _abrirCli(); } else setTab(abaAtiva);
+    if(finParcIds) renderFinanceiro();
     // Re-renderizar rota/dia após sync completa (pode ter novos pedidos de amanhã)
     if(document.getElementById('page-rota')?.classList.contains('active')) renderRota();
     if(document.getElementById('page-dia')?.classList.contains('active')) renderDia();
