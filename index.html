@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-a)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-b)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -7675,7 +7675,6 @@ function renderExtratocliente(){
             ? `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:3px 8px;cursor:pointer">Desmarcar Pago</button>`
             : p.entregue
             ? `<div style="display:flex;flex-direction:column;gap:3px;align-items:center">
-                <button onclick="marcarBrindeFin(${p.id})" style="font-size:11px;color:#C2410C;background:#FFEDD5;border:1px solid #FDBA74;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">🎁 Brinde</button>
                 <button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--green);background:var(--green-bg);border:1px solid #B8DFC8;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">✓ Pago</button>
                 <button onclick="desmarcarEntregueFinItem(${p.id})" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:2px 6px;cursor:pointer">↩ Desmarcar</button>
                </div>`
@@ -7752,19 +7751,6 @@ function desmarcarEntregueFinItem(pedidoId){
   sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:false,hora_entrega:null,pago:false}).catch(()=>{});
   renderExtratocliente();renderFinanceiro();atualizarBadges();
   toast('Entrega desmarcada.');
-}
-
-function marcarBrindeFin(pedidoId){
-  let p = pedidos.find(x=>x.id===pedidoId);
-  if(!p) Object.values(historico).forEach(d=>d.forEach(x=>{if(x.id===pedidoId)p=x;}));
-  if(!p) return;
-  if(!confirm('Marcar o pedido #'+(p.numeroPedido||'')+' como BRINDE?\nO valor ficará R$ 0,00 e sai da cobrança.')) return;
-  p.itens=(p.itens||[]).map(it=>({...it,preço:0,preco:0}));
-  p.total=0; p.pago=true; p.brinde=true;
-  lsave('slj_ped_bk',pedidos);
-  sbPatch('pedidos',`?id=eq.${pedidoId}`,{brinde:true,pago:true,total:0,itens:p.itens}).catch(()=>toast('⚠ Salvo local, erro no banco.'));
-  renderExtratocliente();renderFinanceiro();atualizarBadges();
-  toast('🎁 Pedido marcado como brinde.');
 }
 
 function togglePagoFin(pedidoId){
