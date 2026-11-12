@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-d)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-e)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -7541,7 +7541,7 @@ function renderFinItem(p,dataKey){
   const statusPag=p.pago?'pago':(p.entregue?'debito':'pendente');
   const statusTxt=p.brinde?'🎁 Brinde':p.parceria?'🤝 Parceria':p.pago?'Pago':p.entregue?'A Receber':'Pendente';
   return`<div class="fin-item">
-    <div class="fin-nome">${p.clienteNome}<span class="status-badge ${statusPag}" style="margin-left:6px">${statusTxt}</span></div>
+    <div class="fin-nome">${p.clienteId?`<a href="${location.pathname}?cliente=${encodeURIComponent(p.clienteId)}" target="_blank" rel="noopener" title="Ver todos os pedidos deste cliente (nova aba)" style="color:inherit;text-decoration:underline dotted;text-underline-offset:3px">${p.clienteNome} ↗</a>`:p.clienteNome}<span class="status-badge ${statusPag}" style="margin-left:6px">${statusTxt}</span></div>
     <div class="fin-meta"><strong style="color:var(--text);font-size:12px">📅 ${p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}):'—'}</strong> · ${p.hora||'—'} · CNPJ ${p.cnpj||'—'}${p.numeroPedido?' · Pedido #'+p.numeroPedido:''}</div>
     <div class="tags-wrap" style="margin-top:6px">${(p.itens||[]).map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
