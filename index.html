@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-i)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-j)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11442,10 +11442,11 @@ function analisarColar(){
       const brindeSeg=/\bbrinde\b/i.test(seg);
       let resto=seg;const ini=itens.length;
       const re=/\(?\s*(\d+)\s*\)\s*(\d+\s*(?:ml|l)?|ab)(?![a-z0-9])/gi;
+      const abSeg=/(^|\s)ab(?=\s|$)/i.test(seg.replace(/\(?\s*\d+\s*\)\s*(\d+\s*(?:ml|l)?|ab)(?![a-z0-9])/gi,' '));
       let m;
       while((m=re.exec(seg))){
         algumItem=true;
-        const q=parseInt(m[1],10);let sabor='laranja',tam='';
+        const q=parseInt(m[1],10);let sabor=abSeg?'abacaxi':'laranja',tam='';
         if(/^ab$/i.test(m[2])){sabor='abacaxi';tam=ultTam;if(!tam)erro='Abacaxi (AB) sem tamanho anterior';}
         else{tam=colarTam(m[2]);if(!tam)erro='Tamanho "'+m[2]+'" não reconhecido';}
         if(tam)ultTam=tam;
