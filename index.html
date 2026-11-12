@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-g)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-h)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11440,7 +11440,7 @@ function analisarColar(){
     const itens=[];let erro='',pago=/\bpago\b/i.test(l),sobras=[],ultTam='',algumItem=false;
     segs.forEach(seg=>{
       const brindeSeg=/\bbrinde\b/i.test(seg);
-      let resto=seg;
+      let resto=seg;const ini=itens.length;
       const re=/\(?\s*(\d+)\s*\)\s*(\d+\s*(?:ml|l)?|ab)(?![a-z0-9])/gi;
       let m;
       while((m=re.exec(seg))){
@@ -11451,6 +11451,10 @@ function analisarColar(){
         if(tam)ultTam=tam;
         if(tam&&q>0){const ex=itens.find(i=>i.tam===tam&&i.sabor===sabor&&!!i.brinde===brindeSeg);if(ex)ex.qtd+=q;else itens.push({tam,sabor,qtd:q,brinde:brindeSeg});}
         resto=resto.replace(m[0],' ');
+      }
+      if(/(^|\s)ab(\s|$)/i.test(resto)){ // "AB" solto = sabor abacaxi para os itens deste trecho
+        resto=resto.replace(/(^|\s)ab(?=\s|$)/gi,' ');
+        itens.slice(ini).forEach(x=>{if(x.sabor==='laranja')x.sabor='abacaxi';});
       }
       resto=resto.replace(/\b(pago|brinde)\b/gi,' ').replace(/\s+/g,' ').replace(/^[\s.\-:]+|[\s.\-:]+$/g,'').trim();
       if(resto)sobras.push(resto);
