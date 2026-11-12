@@ -1359,7 +1359,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-l)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-m)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -6705,8 +6705,10 @@ function renderAcompanhamento(){
       </td>`;
     }).join('');
     const bg=i%2===0?bg1:bg2;
+    const _cli=clientes.find(c=>String(c.id)===String(a.clienteId)||(c.apelido||c.nome)===a.nome||c.nome===a.nome);
+    const _nomeHtml=_cli?`<a href="${location.pathname}?cliente=${encodeURIComponent(_cli.id)}" target="_blank" rel="noopener" title="Abrir financeiro deste cliente em outra aba" style="color:inherit;text-decoration:underline dotted;text-underline-offset:3px">${a.nome} ↗</a>`:a.nome;
     return`<tr style="background:${bg};border-bottom:1px solid var(--border)">
-      <td style="padding:9px 12px;font-weight:600;color:${cor};position:sticky;left:0;background:${bg}">${a.nome}</td>
+      <td style="padding:9px 12px;font-weight:600;color:${cor};position:sticky;left:0;background:${bg}">${_nomeHtml}</td>
       ${celulasSemanas}
       <td style="padding:9px;text-align:center">
         <button onclick="delAcompanhamento('${a.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">✕</button>
@@ -9008,6 +9010,15 @@ function iniciarSistema(){
     atualizarBadges();
     // Ir direto para a aba que estava ativa
     setTab(abaAtiva);
+    // Link vindo de Cobranças (?cliente=ID): abre o financeiro do cliente
+    try{
+      const _cid=new URLSearchParams(location.search).get('cliente');
+      if(_cid){
+        window.history.replaceState({},'',location.pathname);
+        const _c=clientes.find(c=>String(c.id)===String(_cid));
+        if(_c){setTab('financeiro');setFinAba('cliente',document.getElementById('fin-aba-cliente'));selecionarClienteFin(_c.id);}
+      }
+    }catch(e){}
     // Re-renderizar rota/dia após sync completa (pode ter novos pedidos de amanhã)
     if(document.getElementById('page-rota')?.classList.contains('active')) renderRota();
     if(document.getElementById('page-dia')?.classList.contains('active')) renderDia();
