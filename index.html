@@ -1359,7 +1359,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-j)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-k)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -1702,6 +1702,14 @@ a{color:var(--orange);text-decoration:none}
       <label>Observação (opcional)</label>
       <input type="text" id="lar-obs" placeholder="Ex: Laranja pera, qualidade boa">
     </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px">📦 Conferência no galpão</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:120px;margin:0"><label>Qtd. na nota (sacos)</label><input type="number" id="lar-qtd-nota" min="0" placeholder="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text)"></div>
+        <div class="form-group" style="flex:1;min-width:120px;margin:0"><label>Qtd. contada no galpão</label><input type="number" id="lar-qtd-galpao" min="0" placeholder="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text)"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="lar-conferido" style="width:22px;height:22px;flex:none"> ✅ Compra conferida no galpão</label>
+    </div>
     <div class="form-group">
       <label>Situação do pagamento</label>
       <div style="display:flex;gap:8px">
@@ -1776,6 +1784,11 @@ a{color:var(--orange);text-decoration:none}
         <div class="form-group" style="margin:0"><label>Total</label><input type="number" id="edit-lar-total" step="0.01" readonly style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text);background:var(--bg2)"></div>
       </div>
       <div class="form-group" style="margin-top:10px"><label>Data</label><input type="date" id="edit-lar-data" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text)"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+        <div class="form-group" style="margin:0"><label>Qtd. na nota</label><input type="number" id="edit-lar-qtd-nota" min="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text)"></div>
+        <div class="form-group" style="margin:0"><label>Qtd. contada no galpão</label><input type="number" id="edit-lar-qtd-galpao" min="0" inputmode="numeric" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text)"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:14px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" id="edit-lar-conferido" style="width:22px;height:22px;flex:none"> ✅ Compra conferida no galpão</label>
       <div class="form-group"><label>Observação</label><input type="text" id="edit-lar-obs" placeholder="Opcional" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text)"></div>
       <button class="btn btn-primary btn-full" onclick="salvarEditarCompraLaranja()">Salvar alterações</button>
     </div>
@@ -3082,12 +3095,12 @@ async function sincronizar(){
           if(!qtdTotal) qtdTotal=c.qtd+bonif;
           // Remove prefixo [B:...] do obs visível
           obsReal=obsReal.replace(/^\[B:\d+:\d+\]\s*/,'');
-          return {id:c.id,fornId:c.forn_id,qtd:lsC?.qtd||c.qtd,bonif,qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:obsReal,pago:c.pago||false,valorPago:c.valor_pago||0};
+          return {id:c.id,fornId:c.forn_id,qtd:lsC?.qtd||c.qtd,bonif,qtdTotal,preco:c.preco,total:c.total,data:c.data,obs:obsReal,pago:c.pago||false,valorPago:c.valor_pago||0,conferido:c.conferido??lsC?.conferido??false,qtdNota:c.qtd_nota??lsC?.qtdNota??null,qtdGalpao:c.qtd_galpao??lsC?.qtdGalpao??null};
         });
         lsave('slj_compras_lar',comprasLaranja);
       } else if(comprasLaranja.length>0){
         // Migrar do localStorage para o banco
-        await sbUps('compras_laranja',comprasLaranja.map(c=>({id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:(c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||c.qtd+c.bonif}] `:'')+( c.obs||''),pago:c.pago||false,valor_pago:c.valorPago||0})));
+        await sbUps('compras_laranja',comprasLaranja.map(c=>({id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:(c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||c.qtd+c.bonif}] `:'')+( c.obs||''),pago:c.pago||false,valor_pago:c.valorPago||0,...larExtra(c)})));
       }
     }catch(e){}
     setSyncStatus('ok','✓ Conectado — dados sincronizados');
@@ -3871,7 +3884,7 @@ function _corrigirBonifSilencioso(){
     // Persiste no banco com obs codificado
     comprasLaranja.filter(c=>c.bonif>0).forEach(c=>{
       const obsEnc=`[B:${c.bonif}:${c.qtdTotal}] ${c.obs||''}`.trim();
-      sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:obsEnc,pago:c.pago,valor_pago:c.valorPago||0}]).catch(()=>{});
+      sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:obsEnc,pago:c.pago,valor_pago:c.valorPago||0,...larExtra(c)}]).catch(()=>{});
     });
   }
 }
@@ -3892,7 +3905,7 @@ async function corrigirBonifHistorico(){
     c.qtdTotal=f.qtd+f.bonif;
     c.total=f.qtd*c.preco;
     const obsEnc=`[B:${f.bonif}:${c.qtdTotal}] ${c.obs||''}`.trim();
-    await sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:obsEnc,pago:c.pago,valor_pago:c.valorPago||0}]);
+    await sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:obsEnc,pago:c.pago,valor_pago:c.valorPago||0,...larExtra(c)}]);
     corrigidos++;
   }
   lsave('slj_compras_lar',comprasLaranja);
@@ -3966,18 +3979,27 @@ function renderLaranjas(){
         const btnParcial=!c.pago
           ?`<button onclick="abrirPagamentoParcialLaranja('${c.id}')" style="font-size:11px;color:#1D4ED8;background:#DBEAFE;border:1px solid #93C5FD;border-radius:3px;padding:2px 8px;cursor:pointer;font-weight:700">💳 Parcial</button>`
           :'';
+        const _div=(c.qtdNota!=null&&c.qtdGalpao!=null&&c.qtdNota!==c.qtdGalpao);
+        const confBadge=c.conferido
+          ?`<span style="background:var(--green-bg);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase">✅ Conferida</span>`
+          :`<span style="background:#FEE2E2;color:#B91C1C;font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;text-transform:uppercase">🔎 Aguardando conferência</span>`;
+        const confInfo=(c.qtdNota!=null||c.qtdGalpao!=null)
+          ?`<div style="font-size:11px;margin-top:3px;${_div?'color:#B91C1C;font-weight:700':'color:var(--text3)'}">Nota: ${c.qtdNota??'—'} · Galpão: ${c.qtdGalpao??'—'}${_div?' ⚠ diferença de '+Math.abs(c.qtdNota-c.qtdGalpao)+' saco(s)':''}</div>`:'';
+        const btnConf=`<button onclick="toggleConferidoLaranja('${c.id}')" style="font-size:11px;color:${c.conferido?'var(--text3)':'#065F46'};background:${c.conferido?'none':'#D1FAE5'};border:1px solid var(--border);border-radius:3px;padding:2px 8px;cursor:pointer;font-weight:700">${c.conferido?'Desmarcar conf.':'✅ Conferir'}</button>`;
         return`<div class="card" style="margin-bottom:7px">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px 10px;flex-wrap:wrap">
             <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap">${forn?forn.nome:'—'} ${pagoBadge}</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap">${forn?forn.nome:'—'} ${pagoBadge} ${confBadge}</div>
               <div style="font-size:11px;color:var(--text3);margin-top:2px">${c.qtd} saco(s) pago${c.bonif?' + <span style="color:var(--green);font-weight:600">'+c.bonif+' bonificação</span> = '+(c.qtdTotal||c.qtd)+' recebidos':''} · ${moeda(c.preco)}/saco · ${c.data?new Date(c.data+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</div>
+              ${confInfo}
               ${c.obs?`<div style="font-size:11px;color:var(--text3);font-style:italic">${c.obs}</div>`:''}
               ${parcial?`<div style="font-size:11px;color:#1D4ED8;margin-top:3px">Pago: ${moeda(valorPago)} · Falta: <strong style="color:var(--red)">${moeda(falta)}</strong></div>`:''}
               ${c.pago&&valorPago>0?`<div style="font-size:11px;color:var(--green);margin-top:3px">Pago: ${moeda(valorPago)}</div>`:''}
             </div>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
-              <div style="font-size:14px;font-weight:700">${moeda(c.total)}</div>
-              <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
+            <div style="display:contents">
+              <div style="font-size:14px;font-weight:700;flex-shrink:0">${moeda(c.total)}</div>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-start;flex:1 1 100%;order:2">
+                ${btnConf}
                 ${btnParcial}
                 ${btnPago}
                 <button onclick="abrirEditarCompraLaranja('${c.id}')" style="font-size:11px;color:var(--text2);background:var(--bg2);border:1px solid var(--border2);border-radius:3px;padding:2px 8px;cursor:pointer">✏️</button>
@@ -4044,6 +4066,8 @@ function atualizarTotalLar(){
   }else{prev.style.display='none';}
 }
 
+function larExtra(c){return{conferido:!!c.conferido,qtd_nota:(c.qtdNota===''||c.qtdNota==null)?null:c.qtdNota,qtd_galpao:(c.qtdGalpao===''||c.qtdGalpao==null)?null:c.qtdGalpao};}
+function larNum(id){const v=document.getElementById(id)?.value;return v===''||v==null?null:parseFloat(v);}
 function registrarCompraLaranja(){
   const fornId=document.getElementById('lar-forn')?.value;
   const qtd=parseFloat(document.getElementById('lar-qtd')?.value)||0;
@@ -4056,22 +4080,33 @@ function registrarCompraLaranja(){
   if(qtd<=0){toast('Informe a quantidade de sacos.');return;}
   if(preco<=0){toast('Informe o preço por saco.');return;}
   const qtdTotal=qtd+bonif;
-  const compra={id:Date.now().toString(),fornId,qtd,bonif,qtdTotal,preco,total:qtd*preco,data,obs,pago:larPagamentoSel==='pago',valorPago:larPagamentoSel==='pago'?qtd*preco:0};
+  const compra={id:Date.now().toString(),fornId,qtd,bonif,qtdTotal,preco,total:qtd*preco,data,obs,pago:larPagamentoSel==='pago',valorPago:larPagamentoSel==='pago'?qtd*preco:0,conferido:!!document.getElementById('lar-conferido')?.checked,qtdNota:larNum('lar-qtd-nota'),qtdGalpao:larNum('lar-qtd-galpao')};
   comprasLaranja.unshift(compra);
   lsave('slj_compras_lar',comprasLaranja);
   const _obsEnc=compra.bonif>0?`[B:${compra.bonif}:${compra.qtdTotal}] ${obs}`:obs;
-  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd:compra.qtd,preco,total:compra.total,data,obs:_obsEnc,pago:compra.pago,valor_pago:compra.valorPago}])
+  sbUps('compras_laranja',[{id:compra.id,forn_id:fornId,qtd:compra.qtd,preco,total:compra.total,data,obs:_obsEnc,pago:compra.pago,valor_pago:compra.valorPago,...larExtra(compra)}])
     .then(()=>setSyncStatus('ok','✓ Conectado'))
     .catch(e=>{setSyncStatus('err','Erro ao sincronizar');console.error('Erro sbUps compras_laranja:',e);toast('⚠ Salvo local, erro no banco: '+(e.message||'').substring(0,80));});
   document.getElementById('lar-qtd').value='';
   document.getElementById('lar-bonificacao').value='';
   document.getElementById('lar-preço').value='';
   document.getElementById('lar-obs').value='';
+  ['lar-qtd-nota','lar-qtd-galpao'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});const _cf=document.getElementById('lar-conferido');if(_cf)_cf.checked=false;
   larPagamentoSel='pago';
   document.getElementById('lar-btn-pago').classList.add('active');
   document.getElementById('lar-btn-npago').classList.remove('active');
   const prev=document.getElementById('lar-total-preview');if(prev)prev.style.display='none';
   toast('✓ Compra registrada!');
+  renderLaranjas();
+}
+
+function toggleConferidoLaranja(id){
+  const c=comprasLaranja.find(x=>x.id===id);if(!c)return;
+  c.conferido=!c.conferido;
+  lsave('slj_compras_lar',comprasLaranja);
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:(c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||(c.qtd+c.bonif)}] ${c.obs||''}`:c.obs||''),pago:c.pago,valor_pago:c.valorPago||0,...larExtra(c)}])
+    .then(()=>toast(c.conferido?'✅ Marcada como conferida':'Conferência desmarcada.'))
+    .catch(()=>toast('⚠ Salvo local, erro no banco.'));
   renderLaranjas();
 }
 
@@ -4083,7 +4118,7 @@ function togglePagoLaranja(id){
   else c.valorPago=0;
   lsave('slj_compras_lar',comprasLaranja);
   const _obsTp=c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||(c.qtd+c.bonif)}] ${c.obs||''}`:c.obs||'';
-  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:_obsTp,pago:c.pago,valor_pago:c.valorPago}])
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:_obsTp,pago:c.pago,valor_pago:c.valorPago,...larExtra(c)}])
     .then(()=>toast(c.pago?'✓ Marcado como pago':'Desmarcado.'))
     .catch(e=>{toast('⚠ Salvo local, erro no banco: '+(e.message||'').substring(0,80));console.error('Erro sbUps pago laranja:',e);});
   renderLaranjas();
@@ -4112,7 +4147,7 @@ function abrirPagamentoParcialLaranja(id){
   }
   lsave('slj_compras_lar',comprasLaranja);
   const _obsPar=c.bonif>0?`[B:${c.bonif}:${c.qtdTotal||(c.qtd+c.bonif)}] ${c.obs||''}`:c.obs||'';
-  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:_obsPar,pago:c.pago,valor_pago:c.valorPago}])
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:_obsPar,pago:c.pago,valor_pago:c.valorPago,...larExtra(c)}])
     .then(()=>toast('✓ Pagamento de '+moeda(valorNovo)+' registrado.'))
     .catch(()=>toast('Erro ao salvar.'));
   renderLaranjas();
@@ -4137,6 +4172,9 @@ function abrirEditarCompraLaranja(id){
   document.getElementById('edit-lar-total').value=c.total||'';
   document.getElementById('edit-lar-data').value=c.data||'';
   document.getElementById('edit-lar-obs').value=c.obs||'';
+  document.getElementById('edit-lar-qtd-nota').value=c.qtdNota??'';
+  document.getElementById('edit-lar-qtd-galpao').value=c.qtdGalpao??'';
+  document.getElementById('edit-lar-conferido').checked=!!c.conferido;
   // Popular select de fornecedores
   const sel=document.getElementById('edit-lar-forn');
   sel.innerHTML=fornecedores.map(f=>`<option value="${f.id}" ${f.id===c.fornId?'selected':''}>${f.nome}</option>`).join('');
@@ -4170,9 +4208,10 @@ function salvarEditarCompraLaranja(){
   c.data=data;
   c.obs=obs;
   c.fornId=fornId;
+  c.qtdNota=larNum('edit-lar-qtd-nota');c.qtdGalpao=larNum('edit-lar-qtd-galpao');c.conferido=!!document.getElementById('edit-lar-conferido').checked;
   lsave('slj_compras_lar',comprasLaranja);
   const _obsEdit=c.bonif>0?`[B:${c.bonif}:${c.qtdTotal}] ${c.obs||''}`:c.obs||'';
-  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:_obsEdit,pago:c.pago,valor_pago:c.valorPago||0}])
+  sbUps('compras_laranja',[{id:c.id,forn_id:c.fornId,qtd:c.qtd,preco:c.preco,total:c.total,data:c.data,obs:_obsEdit,pago:c.pago,valor_pago:c.valorPago||0,...larExtra(c)}])
     .then(()=>toast('✓ Compra atualizada!'))
     .catch(()=>toast('Erro ao salvar.'));
   document.getElementById('modal-edit-lar').style.display='none';
