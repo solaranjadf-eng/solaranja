@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-f)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-g)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2147,7 +2147,7 @@ a{color:var(--orange);text-decoration:none}
     </div>
     <div id="colar-passo1" style="display:flex;flex-direction:column;gap:8px;overflow-y:auto">
       <div style="font-size:12px;color:var(--text3)">Cole aqui a lista como recebeu da produção. Exemplo: <b>📍Moca cafe(10)1L</b> ou <b>📍Pad.Milênio (8)1L(8)300</b>. A palavra PAGO na linha vai para a observação do pedido.</div>
-      <textarea id="colar-texto" rows="20" placeholder="QUARTA&#10;📍Moca cafe(10)1L&#10;📍Space café (10)300" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;min-height:48vh;resize:vertical"></textarea>
+      <textarea id="colar-texto" rows="20" placeholder="QUARTA&#10;(10)1L Moca cafe&#10;(8)1L + (10)300 Toscanelle&#10;(15)300 Arabian B. Shop" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;min-height:48vh;resize:vertical"></textarea>
       <button class="btn btn-primary btn-full" onclick="analisarColar()">Analisar lista</button>
     </div>
     <div id="colar-passo2" style="display:none;flex-direction:column;min-height:0;flex:1">
@@ -11380,7 +11380,7 @@ const COLAR_ALIAS='slj_colar_alias';
 function colarNorm(t){
   let x=String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   x=x.replace(/[^a-z0-9 ]+/g,' ');
-  const mapa={pad:'padaria',rest:'restaurante',conj:'conjunto',nac:'nacional',shop:'shopping',b:'brasilia',e:'escola',hotel:'hotel',hoteis:'hotel',nobiles:'nobile',cafe:'cafe'};
+  const mapa={pad:'padaria',h:'hotel',rest:'restaurante',conj:'conjunto',nac:'nacional',shop:'shopping',b:'brasilia',e:'escola',hotel:'hotel',hoteis:'hotel',nobiles:'nobile',cafe:'cafe'};
   return x.split(/\s+/).filter(Boolean).map(w=>mapa[w]||w);
 }
 function colarScore(qTok,cli){
@@ -11435,30 +11435,59 @@ function analisarColar(){
   txt.split(/\r?\n/).forEach((raw,idx)=>{
     let l=raw.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}️]/gu,'').replace(/^[\s\-•*·]+/,'').trim();
     if(!l)return;
-    const itensRaw=[...l.matchAll(/\(\s*(\d+)\s*\)\s*(\d+\s*(?:ml|l)?)/gi)];
-    if(!itensRaw.length)return; // cabeçalho (ex.: QUARTA) ou linha sem itens
-    const pago=/\bpago\b/i.test(l);
-    const nome=l.slice(0,l.search(/\(/)).replace(/\bpago\b/gi,'').replace(/[\s.\-:]+$/,'').trim();
-    const itens=[];let erro='';
-    itensRaw.forEach(m=>{const tam=colarTam(m[2]);const q=parseInt(m[1],10);if(!tam)erro='Tamanho "'+m[2]+'" não reconhecido';else if(q>0){const ex=itens.find(i=>i.tam===tam);if(ex)ex.qtd+=q;else itens.push({tam,qtd:q});}});
-    const key=colarNorm(nome).join(' ');
+    // Aceita os dois formatos: "Nome (10)1L" e "(10)1L Nome"; vários itens com "+"; BRINDE e PAGO; "AB" = abacaxi
+    const segs=l.split(/\s\+\s/);
+    const itens=[];let erro='',pago=/\bpago\b/i.test(l),sobras=[],ultTam='',algumItem=false;
+    segs.forEach(seg=>{
+      const brindeSeg=/\bbrinde\b/i.test(seg);
+      let resto=seg;
+      const re=/\(?\s*(\d+)\s*\)\s*(\d+\s*(?:ml|l)?|ab)(?![a-z0-9])/gi;
+      let m;
+      while((m=re.exec(seg))){
+        algumItem=true;
+        const q=parseInt(m[1],10);let sabor='laranja',tam='';
+        if(/^ab$/i.test(m[2])){sabor='abacaxi';tam=ultTam;if(!tam)erro='Abacaxi (AB) sem tamanho anterior';}
+        else{tam=colarTam(m[2]);if(!tam)erro='Tamanho "'+m[2]+'" não reconhecido';}
+        if(tam)ultTam=tam;
+        if(tam&&q>0){const ex=itens.find(i=>i.tam===tam&&i.sabor===sabor&&!!i.brinde===brindeSeg);if(ex)ex.qtd+=q;else itens.push({tam,sabor,qtd:q,brinde:brindeSeg});}
+        resto=resto.replace(m[0],' ');
+      }
+      resto=resto.replace(/\b(pago|brinde)\b/gi,' ').replace(/\s+/g,' ').replace(/^[\s.\-:]+|[\s.\-:]+$/g,'').trim();
+      if(resto)sobras.push(resto);
+    });
+    if(!algumItem)return; // cabeçalho (ex.: QUARTA) ou linha sem itens
+    const nome=sobras.length?sobras[sobras.length-1]:'';
+    const nomeBusca=nome.split('/')[0].trim(),localTxt=nome.includes('/')?nome.split('/').slice(1).join('/').trim():'';
+    const key=colarNorm(nomeBusca).join(' ');
     let cli=null,auto='';
-    if(alias[key]){cli=clientes.find(c=>String(c.id)===String(alias[key]))||null;if(cli)auto='memória';}
-    let ranking=clientes.map(c=>({c,sc:colarScore(colarNorm(nome),c)})).sort((a,b)=>b.sc-a.sc);
+    if(key&&alias[key]){cli=clientes.find(c=>String(c.id)===String(alias[key]))||null;if(cli)auto='memória';}
+    let ranking=clientes.map(c=>({c,sc:colarScore(colarNorm(nomeBusca),c)})).sort((a,b)=>b.sc-a.sc);
     if(!cli&&ranking[0]&&ranking[0].sc>=0.75&&(!ranking[1]||ranking[0].sc-ranking[1].sc>=0.12)){cli=ranking[0].c;auto='automático';}
-    colarLinhas.push({raw:l,nome,key,itens,pago,erro,cli,auto,local:'',sel:true,estado:'',det:''});
+    const novaL={raw:l,nome,key,itens,pago,erro,cli,auto,local:'',localTxt,sel:true,estado:'',det:''};
+    colarAutoLocal(novaL);
+    colarLinhas.push(novaL);
   });
-  if(!colarLinhas.length){toast('Não encontrei nenhuma linha com pedido. Formato: Nome (quantidade)tamanho');return;}
+  if(!colarLinhas.length){toast('Não encontrei nenhuma linha com pedido. Formatos aceitos: (quantidade)tamanho Nome  ou  Nome (quantidade)tamanho');return;}
   document.getElementById('colar-data').value='';
   document.getElementById('colar-passo1').style.display='none';
   document.getElementById('colar-passo2').style.display='flex';
   colarRender();
 }
+function colarAutoLocal(l){
+  if(!l.cli||!l.localTxt)return;
+  const locs=(Array.isArray(l.cli.locais)?l.cli.locais:[]).filter(x=>x&&x.nome);
+  const q=colarNorm(l.localTxt);if(!q.length||!locs.length)return;
+  const sc=x=>{const t=colarNorm(x.nome);return q.filter(w=>t.some(c=>c===w||(w.length>=4&&(c.startsWith(w)||w.startsWith(c))))).length/q.length;};
+  const r=locs.map(x=>({x,s:sc(x)})).sort((a,b)=>b.s-a.s);
+  if(r[0]&&r[0].s>=0.99&&(!r[1]||r[1].s<0.99))l.local=r[0].x.nome;
+}
 function colarExistente(cli,dataKey,local){
   const todos=[...pedidos,...pedidosAmanha,...Object.values(historico).flat()];
   return todos.find(p=>String(p.clienteId)===String(cli.id)&&p.data===dataKey&&String(p.localEntrega||'')===String(local||''));
 }
-function colarPreco(cli,tam){const p=cli.precos||{};return Number(p[tam+'_laranja']||p[tam]||0);}
+function colarPreco(cli,tam,sabor){const p=cli.precos||{};if(sabor&&sabor!=='laranja')return Number(p[precoKey(tam,sabor)]||0);return Number(p[tam+'_laranja']||p[tam]||0);}
+function colarPrecoItem(cli,x){return x.brinde?0:colarPreco(cli,x.tam,x.sabor);}
+function colarItemTxt(x){return x.qtd+'× '+(TL[x.tam]||x.tam)+((x.sabor&&x.sabor!=='laranja')?' '+(SL[x.sabor]||x.sabor):'')+(x.brinde?' 🎁 brinde':'');}
 function colarStatus(l,dataKey){
   if(l.estado==='ok'||l.estado==='run')return {tipo:l.estado};
   if(l.estado==='err')return {tipo:'err'};
@@ -11467,8 +11496,8 @@ function colarStatus(l,dataKey){
   if(l.cli.bloqueado)return {tipo:'erro',txt:'🔒 Cliente bloqueado'};
   const locs=(Array.isArray(l.cli.locais)?l.cli.locais:[]).filter(x=>x&&x.nome);
   if(locs.length&&!l.local)return {tipo:'sem',txt:'📍 Escolha o local de entrega'};
-  const semPreco=l.itens.filter(i=>!colarPreco(l.cli,i.tam));
-  if(semPreco.length)return {tipo:'erro',txt:'⚠ Sem preço cadastrado para '+semPreco.map(i=>TL[i.tam]||i.tam).join(', ')};
+  const semPreco=l.itens.filter(i=>!i.brinde&&!colarPreco(l.cli,i.tam,i.sabor));
+  if(semPreco.length)return {tipo:'erro',txt:'⚠ Sem preço cadastrado para '+semPreco.map(i=>(TL[i.tam]||i.tam)+((i.sabor&&i.sabor!=='laranja')?' '+(SL[i.sabor]||i.sabor):'')).join(', ')};
   const loc=l.local==='__principal__'?'':l.local;
   const ex=colarExistente(l.cli,dataKey,loc);
   if(ex)return {tipo:'dup',txt:'⚠ Já existe pedido deste cliente nesta data ('+ex.itens.map(i=>itemLabel(i)+'×'+i.qtd).join(', ')+')'};
@@ -11484,12 +11513,12 @@ function colarRender(){
     const st=colarStatus(l,dataKey);
     const bloqueia=['sem','erro'].includes(st.tipo);
     if(bloqueia&&l.sel&&!l.estado)l.sel=false;
-    const rank=clientes.map(c=>({c,sc:colarScore(colarNorm(l.nome),c)})).sort((a,b)=>b.sc-a.sc||String(a.c.nome).localeCompare(b.c.nome));
+    const rank=clientes.map(c=>({c,sc:colarScore(colarNorm(l.nome.split('/')[0]),c)})).sort((a,b)=>b.sc-a.sc||String(a.c.nome).localeCompare(b.c.nome));
     const opts='<option value="">— escolher cliente —</option>'+rank.map(r=>`<option value="${cobEsc(r.c.id)}" ${l.cli&&String(l.cli.id)===String(r.c.id)?'selected':''}>${cobEsc(r.c.apelido?r.c.apelido+' ('+r.c.nome+')':r.c.nome)}</option>`).join('');
     const locs=l.cli?(Array.isArray(l.cli.locais)?l.cli.locais:[]).filter(x=>x&&x.nome):[];
     const locSel=locs.length?`<select onchange="colarLinhas[${i}].local=this.value;colarRender()" style="margin-top:4px;padding:5px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:100%"><option value="">— local de entrega —</option><option value="__principal__" ${l.local==='__principal__'?'selected':''}>Endereço principal</option>${locs.map(x=>`<option value="${cobEsc(x.nome)}" ${l.local===x.nome?'selected':''}>${cobEsc(x.nome)}</option>`).join('')}</select>`:'';
-    const itensTxt=l.itens.map(x=>x.qtd+'× '+(TL[x.tam]||x.tam)).join(' · ');
-    const total=l.cli?l.itens.reduce((s,x)=>s+colarPreco(l.cli,x.tam)*x.qtd,0):0;
+    const itensTxt=l.itens.map(colarItemTxt).join(' · ');
+    const total=l.cli?l.itens.reduce((s,x)=>s+colarPrecoItem(l.cli,x)*x.qtd,0):0;
     const estadoTxt=l.estado==='ok'?'<div style="font-size:11px;font-weight:600;color:#16a34a">✅ Lançado</div>':l.estado==='run'?'<div style="font-size:11px;font-weight:600;color:var(--orange)">⏳ Lançando...</div>':l.estado==='err'?`<div style="font-size:11px;font-weight:600;color:#dc2626">❌ ${cobEsc(l.det)}</div>`:'';
     const aviso=st.txt&&!l.estado?`<div style="font-size:11px;color:${st.tipo==='dup'?'#9A3412':'#dc2626'}">${cobEsc(st.txt)}</div>`:'';
     return `<div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:flex-start;${l.estado==='ok'?'background:#F0FDF4':''}">
@@ -11498,22 +11527,22 @@ function colarRender(){
         <div style="font-size:12px;color:var(--text3)">${cobEsc(l.raw)}${l.pago?' <b style="color:#16a34a">💰 PAGO</b>':''}</div>
         ${l.estado==='ok'?`<div style="font-size:13px;font-weight:700">${cobEsc(l.cli.apelido||l.cli.nome)}</div>`:`<select onchange="colarEscolher(${i},this.value)" ${colarLancando?'disabled':''} style="width:100%;padding:5px;border:1px solid ${l.cli?'var(--border)':'#dc2626'};border-radius:6px;font-size:13px;font-weight:600">${opts}</select>`}
         ${l.estado==='ok'?'':locSel}
-        <div style="font-size:12px;margin-top:3px"><b>${cobEsc(itensTxt)}</b>${l.cli&&total?' · '+moeda(total):''}</div>
+        <div style="font-size:12px;margin-top:3px"><b>${cobEsc(itensTxt)}</b>${l.cli?' · '+moeda(total):''}</div>
         ${aviso}${estadoTxt}
       </div></div>`;}).join('');
   colarResumo();
 }
 function colarEscolher(i,id){
-  const l=colarLinhas[i];l.cli=clientes.find(c=>String(c.id)===String(id))||null;l.local='';l.auto='';
-  if(l.cli){let a={};try{a=JSON.parse(localStorage.getItem(COLAR_ALIAS)||'{}')||{};}catch(e){}a[l.key]=l.cli.id;try{localStorage.setItem(COLAR_ALIAS,JSON.stringify(a));}catch(e){}}
+  const l=colarLinhas[i];l.cli=clientes.find(c=>String(c.id)===String(id))||null;l.local='';l.auto='';colarAutoLocal(l);
+  if(l.cli&&l.key){let a={};try{a=JSON.parse(localStorage.getItem(COLAR_ALIAS)||'{}')||{};}catch(e){}a[l.key]=l.cli.id;try{localStorage.setItem(COLAR_ALIAS,JSON.stringify(a));}catch(e){}}
   l.sel=true;colarRender();
 }
 function colarResumo(){
   const dataKey=document.getElementById('colar-data').value;
   const sel=colarLinhas.filter(l=>l.sel&&l.estado!=='ok');
-  const tot=sel.reduce((s,l)=>s+(l.cli?l.itens.reduce((a,x)=>a+colarPreco(l.cli,x.tam)*x.qtd,0):0),0);
-  const emb={};sel.forEach(l=>l.itens.forEach(x=>{emb[x.tam]=(emb[x.tam]||0)+x.qtd;}));
-  const lista=Object.keys(emb).map(t=>emb[t]+'× '+(TL[t]||t)).join(' · ');
+  const tot=sel.reduce((s,l)=>s+(l.cli?l.itens.reduce((a,x)=>a+colarPrecoItem(l.cli,x)*x.qtd,0):0),0);
+  const emb={};sel.forEach(l=>l.itens.forEach(x=>{const k=x.tam+((x.sabor&&x.sabor!=='laranja')?' '+(SL[x.sabor]||x.sabor):'');emb[k]=(emb[k]||0)+x.qtd;}));
+  const lista=Object.keys(emb).map(t=>{const [tm,...rs]=t.split(' ');return emb[t]+'× '+(TL[tm]||tm)+(rs.length?' '+rs.join(' '):'');}).join(' · ');
   document.getElementById('colar-resumo').innerHTML='Selecionados: <b>'+sel.length+'</b> de '+colarLinhas.length+' · <b>'+moeda(tot)+'</b>'+(lista?'<br><span style="color:var(--text3)">Total a produzir: '+lista+'</span>':'');
   document.getElementById('colar-btn').disabled=colarLancando||!sel.length||!dataKey;
 }
@@ -11531,13 +11560,14 @@ async function colarLancar(){
     l.estado='run';colarRender();
     try{
       const cli=l.cli;const loc=l.local==='__principal__'?'':l.local;
-      const itens=l.itens.map(x=>({tam:x.tam,sabor:'laranja',qtd:x.qtd,preço:colarPreco(cli,x.tam)}));
+      const itens=l.itens.map(x=>({tam:x.tam,sabor:x.sabor||'laranja',qtd:x.qtd,preço:colarPrecoItem(cli,x)}));
       const total=itens.reduce((s,i)=>s+i.preço*i.qtd,0);
+      const todoBrinde=l.itens.length>0&&l.itens.every(x=>x.brinde);
       const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
       const numeroPedido=await getNextNumeroPedido();
-      const payload={cliente_id:cli.id,cliente_nome:cli.nome,cnpj:cli.cnpj,tel:cli.tel||'',hora,obs:l.pago?'PAGO':'',itens,total,precos:cli.precos,entregue:false,hora_entrega:null,data:dataKey,pago:false,foto:null,numero_pedido:numeroPedido,local_entrega:loc||null,troca:false,parceria:false,itens_troca:null};
+      const payload={cliente_id:cli.id,cliente_nome:cli.nome,cnpj:cli.cnpj,tel:cli.tel||'',hora,obs:(l.pago?'PAGO':'')+(l.itens.some(x=>x.brinde)&&!todoBrinde?(l.pago?' · ':'')+'Contém brinde':''),itens,total,precos:cli.precos,entregue:false,hora_entrega:null,data:dataKey,pago:todoBrinde,brinde:todoBrinde,foto:null,numero_pedido:numeroPedido,local_entrega:loc||null,troca:false,parceria:false,itens_troca:null};
       let res;
-      try{res=await sbPost('pedidos',[payload]);}catch(e1){const {parceria:_p,...sem}=payload;try{res=await sbPost('pedidos',[sem]);}catch(e2){throw e1;}}
+      try{res=await sbPost('pedidos',[payload]);}catch(e1){const {parceria:_p,brinde:_b,...sem}=payload;try{res=await sbPost('pedidos',[sem]);}catch(e2){throw e1;}}
       const ped=Array.isArray(res)?res[0]:res;
       const obj=mapPedido({...ped,cliente_id:cli.id,cliente_nome:cli.nome,local_entrega:ped.local_entrega!==undefined?ped.local_entrega:(loc||null)});
       if(dataKey===amanhaKey){pedidosAmanha.push(obj);lsave('slj_ped_amanha_bk',pedidosAmanha);}
