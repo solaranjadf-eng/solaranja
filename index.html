@@ -947,6 +947,15 @@ a{color:var(--orange);text-decoration:none}
         <p class="sec-label" style="margin-bottom:7px;color:var(--orange-deeper)">Resumo do pedido</p>
         <div id="resumo-rows"></div>
         <div class="rp-row total"><span>Total a pagar</span><span id="resumo-total-val">R$ 0,00</span></div>
+        <div style="margin-top:10px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:10px;padding:10px 12px;cursor:pointer" onclick="document.getElementById('novo-brinde').click()">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="novo-brinde" style="width:18px;height:18px;cursor:pointer;accent-color:#EA580C" onclick="event.stopPropagation()">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#C2410C">🎁 Brinde</div>
+              <div style="font-size:11px;color:var(--text3)">Suco de brinde para o cliente — valor zerado, aparece como "Brinde" na cobrança e no PDF</div>
+            </div>
+          </div>
+        </div>
         <div id="parceria-wrap" style="margin-top:10px;background:#EFF6FF;border:1px solid #93C5FD;border-radius:10px;padding:10px 12px;cursor:pointer" onclick="document.getElementById('novo-parceria').click()">
           <div style="display:flex;align-items:center;gap:10px">
             <input type="checkbox" id="novo-parceria" style="width:18px;height:18px;cursor:pointer;accent-color:#2563EB" onclick="event.stopPropagation()">
@@ -1248,6 +1257,13 @@ a{color:var(--orange);text-decoration:none}
           <div style="font-size:11px;color:var(--text3)">Pedido não será cobrado do cliente</div>
         </div>
       </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:var(--radius);margin-bottom:12px;cursor:pointer" onclick="document.getElementById('novo-fin-brinde').click()">
+        <input type="checkbox" id="novo-fin-brinde" style="width:18px;height:18px;cursor:pointer;accent-color:#EA580C" onclick="event.stopPropagation()">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#C2410C">🎁 Brinde</div>
+          <div style="font-size:11px;color:var(--text3)">Suco de brinde — valor zerado, aparece como "Brinde"</div>
+        </div>
+      </div>
       <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#EFF6FF;border:1px solid #93C5FD;border-radius:var(--radius);margin-bottom:12px;cursor:pointer" onclick="document.getElementById('novo-fin-parceria').click()">
         <input type="checkbox" id="novo-fin-parceria" style="width:18px;height:18px;cursor:pointer;accent-color:#2563EB">
         <div>
@@ -1359,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-n)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-a)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2837,9 +2853,9 @@ async function sincronizar(){
       clientes=[...CLIENTES_PADRAO];
       lsave('slj_cli_bk',clientes);
     }
-    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega`);
-    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega`);
-    const dbPAmanha=await sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega`);
+    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`);
+    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`);
+    const dbPAmanha=await sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`);
     // Capturar estado local ANTES de sobrescrever — timestamp para saber qual é mais recente
     const localState={};
     const agora=Date.now();
@@ -2884,7 +2900,7 @@ async function sincronizar(){
     const noventaDiasAtras=d90.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
     if(primeiraVez||agora2-ultimaHistSync>600000){
       // Buscar histórico em partes para superar limite de 1000 do Supabase
-      const selectH='id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega';
+      const selectH='id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca';
       const baseQ=`?data=lt.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=500&select=${selectH}`;
       const [dbH1,dbH2,dbH3,dbH4,dbH5]=await Promise.all([
         sbGet('pedidos',baseQ+'&offset=0'),
@@ -3159,7 +3175,7 @@ async function sincronizar(){
   }
 }
 
-function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],itensTroca:p.itens_troca||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null,troca:p.troca||false,parceria:p.parceria||false,localEntrega:p.local_entrega||''};}
+function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],itensTroca:p.itens_troca||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null,troca:p.troca||false,parceria:p.parceria||false,brinde:p.brinde||false,localEntrega:p.local_entrega||''};}
 
 // ── TABS ───────────────────────────────────────────────────────────────────
 const TAB_LABELS={'dash':'Início','pedido':'Novo Pedido','dia':'Do Dia','rota':'Rota','resumo':'Resumo','producao':'Produção','financeiro':'Financeiro','estoque':'Estoque','custos':'Custos','laranjas':'Laranjas','historico':'Histórico','ranking':'Ranking','clientes':'Clientes'};
@@ -4640,7 +4656,7 @@ function atualizarResumo(){
   if(sel.minimo>0&&tval<sel.minimo){av.style.display='block';av.textContent=`Mínimo: ${moeda(sel.minimo)}. Pedido atual: ${moeda(tval)}.`;}
   else av.style.display='none';
 }
-function limpar(){qtds={};qtdsTroca={};saborAtualPedido='laranja';document.getElementById('obs').value='';montarSeletorLocal();const cp=document.getElementById('novo-parceria');if(cp)cp.checked=false;renderGarrafas();atualizarResumo();}
+function limpar(){qtds={};qtdsTroca={};saborAtualPedido='laranja';document.getElementById('obs').value='';montarSeletorLocal();const cp=document.getElementById('novo-parceria');if(cp)cp.checked=false;const cb_=document.getElementById('novo-brinde');if(cb_)cb_.checked=false;renderGarrafas();atualizarResumo();}
 let _confirmando=false; // proteção contra duplo clique
 let _ultimoPedidoHash=''; // proteção extra contra duplicatas
 
@@ -4656,9 +4672,10 @@ async function confirmar(){
     localSel=v==='__principal__'?'':((_Ls.find(l=>String(l.id)===v)||{}).nome||'');
   }
   const ehParceria=!!(document.getElementById('novo-parceria')&&document.getElementById('novo-parceria').checked);
+  const ehBrinde=!!(document.getElementById('novo-brinde')&&document.getElementById('novo-brinde').checked);
   const itens=Object.keys(qtds).filter(key=>qtds[key]>0).map(key=>{
     const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
-    const p=ehParceria?0:(sel.precos[key]||(s==='laranja'?sel.precos[t]:0));
+    const p=(ehParceria||ehBrinde)?0:(sel.precos[key]||(s==='laranja'?sel.precos[t]:0));
     return {tam:t,sabor:s,qtd:qtds[key],preço:p};
   }).filter(it=>it.qtd>0);
   const temTroca=Object.keys(qtdsTroca).some(key=>qtdsTroca[key]>0);
@@ -4702,17 +4719,17 @@ async function confirmar(){
     return {tam:t,sabor:s,qtd:qtdsTroca[key],preço:p};
   }).filter(it=>it.qtd>0);
   const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  const total=ehParceria?0:itens.reduce((s,i)=>s+i.preço*i.qtd,0);
+  const total=(ehParceria||ehBrinde)?0:itens.reduce((s,i)=>s+i.preço*i.qtd,0);
   setSyncStatus('loading','Salvando...');
   let pedidoSalvo=false;
   try{
     const numeroPedido = await getNextNumeroPedido();
-    const payload={cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:false,foto:null,numero_pedido:numeroPedido,local_entrega:localSel||null,troca:false,parceria:ehParceria,itens_troca:itensTroca.length>0?itensTroca:null};
+    const payload={cliente_id:sel.id,cliente_nome:sel.nome,cnpj:sel.cnpj,tel:sel.tel||'',hora,obs:document.getElementById('obs').value.trim(),itens,total,precos:sel.precos,entregue:false,hora_entrega:null,data:getDataEntregaKey(),pago:ehBrinde,brinde:ehBrinde,foto:null,numero_pedido:numeroPedido,local_entrega:localSel||null,troca:false,parceria:ehParceria,itens_troca:itensTroca.length>0?itensTroca:null};
     let res;
     try{ res=await sbPost('pedidos',[payload]); }
     catch(e1){
       // Coluna parceria pode não existir no banco — tenta sem ela
-      const {parceria:_p,...payloadSem}=payload;
+      const {parceria:_p,brinde:_b,...payloadSem}=payload;
       try{ res=await sbPost('pedidos',[payloadSem]); }
       catch(e2){ throw e1; }
     }
@@ -4812,7 +4829,7 @@ function renderDia(){
       if(!lista.find(x=>x.id===p.id)) lista.push(p);
     });
     // Buscar do banco sempre para garantir foto atualizada
-    sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega`).then(dbP=>{
+    sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`).then(dbP=>{
       if(dbP&&dbP.length){
         if(!historico[dataSel]) historico[dataSel]=[];
         historico[dataSel]=(dbP||[]).map(mapPedido);
@@ -5556,7 +5573,7 @@ function renderRota(){
     listaRota=[...(historico[dataSel]||[])];
     // Se não tem, buscar do banco
     if(!listaRota.length){
-      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega`).then(dbP=>{
+      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`).then(dbP=>{
         if(dbP&&dbP.length){
           if(!historico[dataSel]) historico[dataSel]=[];
           historico[dataSel]=(dbP||[]).map(mapPedido);
@@ -7504,7 +7521,7 @@ function renderFinanceiro(){
 
 function renderFinItem(p,dataKey){
   const statusPag=p.pago?'pago':(p.entregue?'debito':'pendente');
-  const statusTxt=p.pago?'Pago':p.entregue?'A Receber':'Pendente';
+  const statusTxt=p.brinde?'🎁 Brinde':p.pago?'Pago':p.entregue?'A Receber':'Pendente';
   return`<div class="fin-item">
     <div class="fin-nome">${p.clienteNome}<span class="status-badge ${statusPag}" style="margin-left:6px">${statusTxt}</span></div>
     <div class="fin-meta">${p.hora||'—'} · CNPJ ${p.cnpj||'—'} · ${p.data||''}</div>
@@ -7631,7 +7648,9 @@ function renderExtratocliente(){
         ${pedsCli.map((p,idx)=>{
           const dataFmt = p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR'):'—';
           const num = p.numeroPedido||'—';
-          const situacao = p.parceria
+          const situacao = p.brinde
+            ? `<span style="background:#FFEDD5;color:#C2410C;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">🎁 Brinde</span>`
+            : p.parceria
             ? `<span style="background:#DBEAFE;color:#1D4ED8;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">🤝 Parceria</span>`
             : p.troca
             ? `<span style="background:#EDE9FE;color:#5B21B6;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">🔄 Troca</span>`
@@ -7640,7 +7659,11 @@ function renderExtratocliente(){
             : p.entregue
             ? `<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Em aberto</span>`
             : `<span style="background:var(--bg2);color:var(--text3);font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pendente</span>`;
-          const btnAcao = p.parceria && !p.entregue
+          const btnAcao = p.brinde && !p.entregue
+            ? `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:#C2410C;background:#FFEDD5;border:1px solid #FDBA74;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">🎁 Confirmar entrega</button>`
+            : p.brinde
+            ? `<span style="font-size:11px;color:#C2410C;font-style:italic">brinde · sem cobrança</span>`
+            : p.parceria && !p.entregue
             ? `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:#1D4ED8;background:#DBEAFE;border:1px solid #93C5FD;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">🤝 Confirmar entrega</button>`
             : p.parceria && p.entregue
             ? `<span style="font-size:11px;color:#1D4ED8;font-style:italic">entregue · grátis</span>`
@@ -7652,18 +7675,19 @@ function renderExtratocliente(){
             ? `<button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:3px 8px;cursor:pointer">Desmarcar Pago</button>`
             : p.entregue
             ? `<div style="display:flex;flex-direction:column;gap:3px;align-items:center">
+                <button onclick="marcarBrindeFin(${p.id})" style="font-size:11px;color:#C2410C;background:#FFEDD5;border:1px solid #FDBA74;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">🎁 Brinde</button>
                 <button onclick="togglePagoFin(${p.id})" style="font-size:11px;color:var(--green);background:var(--green-bg);border:1px solid #B8DFC8;border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">✓ Pago</button>
                 <button onclick="desmarcarEntregueFinItem(${p.id})" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:2px 6px;cursor:pointer">↩ Desmarcar</button>
                </div>`
             : `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:var(--od);background:var(--ol);border:1px solid rgba(224,122,47,.3);border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">Marcar Entregue</button>`;
-          const rowBg = p.parceria ? 'background:#EFF6FF' : p.troca ? 'background:#F5F3FF' : idx%2===1 ? 'background:#F8F9FC' : '';
+          const rowBg = p.brinde ? 'background:#FFF7ED' : p.parceria ? 'background:#EFF6FF' : p.troca ? 'background:#F5F3FF' : idx%2===1 ? 'background:#F8F9FC' : '';
           return `<tr style="border-bottom:1px solid var(--border);${rowBg}">
             <td style="padding:8px;text-align:center"><input type="checkbox" class="fin-sel-ped" data-id="${p.id}" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)" ${(p.troca||p.parceria)?'disabled':''}></td>
             <td style="padding:8px 10px;color:var(--text3);font-weight:600">${num}</td>
             <td style="padding:8px 10px;white-space:nowrap">${dataFmt}</td>
             <td style="padding:8px 10px;color:var(--text2)">${p.localEntrega?`<div style="font-size:10px;font-weight:700;color:#C2410C;margin-bottom:2px">📍 ${escLoc(p.localEntrega)}</div>`:''}${p.itens.map(it=>itemLabelPedido(it,p.itens)+'×'+it.qtd).join(' · ')}</td>
             <td style="padding:8px 10px;color:var(--text3);font-style:italic;font-size:11px">${p.obs||'—'}</td>
-            <td style="padding:8px 10px;text-align:right;font-weight:700;${p.parceria?'color:#1D4ED8;text-decoration:line-through':p.troca?'color:#5B21B6;text-decoration:line-through':''}">${(p.troca||p.parceria)?'—':moeda(p.total)}</td>
+            <td style="padding:8px 10px;text-align:right;font-weight:700;${p.brinde?'color:#C2410C':p.parceria?'color:#1D4ED8;text-decoration:line-through':p.troca?'color:#5B21B6;text-decoration:line-through':''}">${p.brinde?moeda(0):(p.troca||p.parceria)?'—':moeda(p.total)}</td>
             <td style="padding:8px 10px;text-align:center">${situacao}</td>
             <td style="padding:8px 10px;text-align:center">${btnAcao}</td>
             <td style="padding:8px;text-align:center"><button onclick="delPedidoFin(${p.id},'${p.data||''}')" title="Excluir" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 7px;font-size:11px;cursor:pointer">✕</button></td>
@@ -7728,6 +7752,19 @@ function desmarcarEntregueFinItem(pedidoId){
   sbPatch('pedidos',`?id=eq.${pedidoId}`,{entregue:false,hora_entrega:null,pago:false}).catch(()=>{});
   renderExtratocliente();renderFinanceiro();atualizarBadges();
   toast('Entrega desmarcada.');
+}
+
+function marcarBrindeFin(pedidoId){
+  let p = pedidos.find(x=>x.id===pedidoId);
+  if(!p) Object.values(historico).forEach(d=>d.forEach(x=>{if(x.id===pedidoId)p=x;}));
+  if(!p) return;
+  if(!confirm('Marcar o pedido #'+(p.numeroPedido||'')+' como BRINDE?\nO valor ficará R$ 0,00 e sai da cobrança.')) return;
+  p.itens=(p.itens||[]).map(it=>({...it,preço:0,preco:0}));
+  p.total=0; p.pago=true; p.brinde=true;
+  lsave('slj_ped_bk',pedidos);
+  sbPatch('pedidos',`?id=eq.${pedidoId}`,{brinde:true,pago:true,total:0,itens:p.itens}).catch(()=>toast('⚠ Salvo local, erro no banco.'));
+  renderExtratocliente();renderFinanceiro();atualizarBadges();
+  toast('🎁 Pedido marcado como brinde.');
 }
 
 function togglePagoFin(pedidoId){
@@ -7888,10 +7925,10 @@ function gerarPDFCliente(opts){
       const itensDesc=(p.localEntrega?'Local: '+p.localEntrega+'\n':'')+p.itens.map(it=>{
         const s=it.sabor||'laranja';
         const label=TL[it.tam]+' '+SL[s];
-        return label+' × '+it.qtd+' = R$ '+((it.preco||it.preço||0)*it.qtd).toFixed(2).replace('.',',');
+        return label+' × '+it.qtd+' = R$ '+(p.brinde?0:(it.preco||it.preço||0)*it.qtd).toFixed(2).replace('.',',');
       }).join('\n');
-      const situacao=p.troca?'Troca':p.pago?'Pago':p.entregue?'Em aberto':'Pendente';
-      const totalP=p.troca?null:(p.total||p.itens.reduce((s,i)=>s+((i.preco||i.preço||0)*i.qtd),0));
+      const situacao=p.troca?'Troca':p.brinde?'Brinde':p.pago?'Pago':p.entregue?'Em aberto':'Pendente';
+      const totalP=p.troca?null:p.brinde?0:(p.total||p.itens.reduce((s,i)=>s+((i.preco||i.preço||0)*i.qtd),0));
       return [p.numeroPedido||'—', dataFmt, itensDesc, totalP!=null?totalP.toFixed(2).replace('.',','):'—', situacao];
     }),
     foot:[
@@ -7939,6 +7976,7 @@ function gerarPDFCliente(opts){
           data.cell.styles.fontStyle='italic';
         } else if(data.column.index===4){
           if(situacao==='Pago') data.cell.styles.textColor=[22,163,74];
+          else if(situacao==='Brinde'){data.cell.styles.textColor=[194,65,12];data.cell.styles.fontStyle='bold';}
           else if(situacao==='Em aberto') data.cell.styles.textColor=[180,60,0];
           else data.cell.styles.textColor=[100,100,100];
         }
@@ -7981,6 +8019,7 @@ function initNovoFinForm(){
   document.getElementById('novo-fin-obs').value='';
   document.getElementById('novo-fin-troca').checked=false;
   document.getElementById('novo-fin-parceria').checked=false;
+  const _nb=document.getElementById('novo-fin-brinde');if(_nb)_nb.checked=false;
   renderNovoFinGarrafas();
 }
 
@@ -8063,14 +8102,15 @@ async function salvarPedidoRetroativo(){
   if(!data){toast('Selecione a data do pedido.');return;}
   const ehTroca = document.getElementById('novo-fin-troca').checked;
   const ehParceria = document.getElementById('novo-fin-parceria').checked;
+  const ehBrinde = !!document.getElementById('novo-fin-brinde')?.checked;
   const itens = Object.keys(novoFinQtds).filter(key=>novoFinQtds[key]>0).map(key=>{
     const parts=key.split('_');const t=parts[0];const s=parts.slice(1).join('_')||'laranja';
-    const p=novoFinCliSelecionado.precos[key]||(s==='laranja'?novoFinCliSelecionado.precos[t]:0);
+    const p=ehBrinde?0:(novoFinCliSelecionado.precos[key]||(s==='laranja'?novoFinCliSelecionado.precos[t]:0));
     return {tam:t,sabor:s,qtd:novoFinQtds[key],preço:p};
   }).filter(it=>it.qtd>0);
   if(!itens.length){toast('Adicione ao menos um item.');return;}
   const totalReal = itens.reduce((s,i)=>s+(i.preço||0)*i.qtd,0);
-  const total = (ehTroca||ehParceria) ? 0 : totalReal;
+  const total = (ehTroca||ehParceria||ehBrinde) ? 0 : totalReal;
   const hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const numeroPedido = await getNextNumeroPedido();
   try{
@@ -8086,7 +8126,8 @@ async function salvarPedidoRetroativo(){
       entregue: (ehTroca||ehParceria) ? false : true,
       hora_entrega: (ehTroca||ehParceria) ? null : hora,
       data,
-      pago:false,
+      pago:ehBrinde,
+      brinde:ehBrinde,
       foto:null,
       numero_pedido:numeroPedido,
       troca: ehTroca,
@@ -8106,7 +8147,7 @@ async function salvarPedidoRetroativo(){
       if(!historico[data]) historico[data]=[];
       historico[data].push(novo);
     }
-    toast(ehParceria ? '🤝 Parceria #'+numeroPedido+' registrada!' : ehTroca ? '🔄 Troca #'+numeroPedido+' registrada!' : '✓ Pedido #'+numeroPedido+' salvo!');
+    toast(ehBrinde ? '🎁 Brinde #'+numeroPedido+' registrado!' : ehParceria ? '🤝 Parceria #'+numeroPedido+' registrada!' : ehTroca ? '🔄 Troca #'+numeroPedido+' registrada!' : '✓ Pedido #'+numeroPedido+' salvo!');
     initNovoFinForm();
     renderFinanceiro();
     atualizarBadges();
@@ -9115,9 +9156,9 @@ async function sincronizarRapido(){
   if(!perfilAtual)return;
   try{
     const [dbP,dbPOntem,dbPAmanha]=await Promise.all([
-      sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega`),
-      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega`),
-      sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega`)
+      sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`),
+      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`),
+      sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`)
     ]);
     let atualizado=false;
     if(dbP&&dbP.length>=0){
