@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-c)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-d)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -7446,7 +7446,7 @@ function renderFinanceiro(){
   document.getElementById('fin-debito-total').textContent=moeda(debTotal);
   document.getElementById('fin-debito-clientes').textContent=debClientes+' cliente(s) em débito (total geral)';
   const secLabel=document.getElementById('fin-sec-label');
-  if(secLabel) secLabel.textContent=periodoLabel;
+  if(secLabel) secLabel.textContent=finParcIds?'Pedidos de parceria':periodoLabel;
 
   if(finParcIds){finParcMostrar();return;}
   if(filtroFin==='debito-total'){
@@ -7542,15 +7542,16 @@ function renderFinItem(p,dataKey){
   const statusTxt=p.brinde?'🎁 Brinde':p.parceria?'🤝 Parceria':p.pago?'Pago':p.entregue?'A Receber':'Pendente';
   return`<div class="fin-item">
     <div class="fin-nome">${p.clienteNome}<span class="status-badge ${statusPag}" style="margin-left:6px">${statusTxt}</span></div>
-    <div class="fin-meta">${p.hora||'—'} · CNPJ ${p.cnpj||'—'} · ${p.data||''}</div>
+    <div class="fin-meta"><strong style="color:var(--text);font-size:12px">📅 ${p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}):'—'}</strong> · ${p.hora||'—'} · CNPJ ${p.cnpj||'—'}${p.numeroPedido?' · Pedido #'+p.numeroPedido:''}</div>
     <div class="tags-wrap" style="margin-top:6px">${(p.itens||[]).map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
       <div class="fin-valor ${p.pago?'ok':''}">${moeda(p.total)}</div>
       <div style="display:flex;gap:5px">
         ${p.entregue&&!p.pago&&!p.parceria&&!p.brinde?`<button class="psm psm-pago" onclick="marcarPagoHistorico(${p.id},'${dataKey}')">Marcar Pago</button>`:''}
-        ${p.pago?`<span class="status-badge pago">✓ Pago</span>`:''}
+        ${p.pago&&!p.brinde&&!p.parceria?`<span class="status-badge pago">✓ Pago</span>`:''}
+        ${p.entregue&&p.brinde?`<span style="font-size:11px;color:#C2410C;font-style:italic">brinde · sem cobrança</span>`:''}
         ${!p.entregue?`<span style="font-size:11px;color:var(--text3)">Não entregue</span>`:''}
-        ${p.entregue&&p.parceria?`<span style="font-size:11px;color:#1D4ED8;font-style:italic">entregue · grátis</span>`:''}
+        ${p.entregue&&p.parceria&&!p.brinde?`<span style="font-size:11px;color:#1D4ED8;font-style:italic">entregue · grátis</span>`:''}
       </div>
     </div>
   </div>`;
