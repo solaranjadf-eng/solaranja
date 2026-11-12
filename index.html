@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-e)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-f)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11655,7 +11655,9 @@ async function baixaConsultarBB(){
     bbAbrirLista(d,aviso);
   }catch(e){toast('⚠ '+String(e.message||e).slice(0,100));}
 }
-function bbAbrirLista(d,aviso){
+function bbFiltrarCli(v){window._bbCli=v;bbAbrirLista(window._bbD,window._bbAviso,true);}
+function bbAbrirLista(d,aviso,mantem){
+  window._bbD=d;window._bbAviso=aviso;if(!mantem)window._bbCli='';
   let m=document.getElementById('modal-bb');
   if(!m){m=document.createElement('div');m.id='modal-bb';document.body.appendChild(m);}
   m.style.cssText='display:flex;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:12px';
@@ -11665,9 +11667,13 @@ function bbAbrirLista(d,aviso){
     const cart=x.codEstado&&x.codEstado!==1?' <span style="background:#fde8e8;color:#b42318;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">'+escLoc(x.estado||'verificar no BB')+'</span>':'';
     return '<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding:7px 0;font-size:12px"><div style="min-width:0"><strong>'+escLoc(x.cliente)+'</strong>'+cart+'<br><span style="color:var(--text3)">Boleto '+escLoc(x.nosso)+' · venc. '+escLoc(x.vencimento)+' · '+dias+'</span></div><div style="font-weight:700;white-space:nowrap;color:'+(venc?'#b42318':'inherit')+'">'+moeda(Number(x.valor||0))+'</div></div>';
   };
-  const venc=d.vencidos||[],av=d.avencer||[];
+  const vencTodos=d.vencidos||[],avTodos=d.avencer||[];
+  const nomes=[...new Set([...vencTodos,...avTodos].map(x=>x.cliente||''))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const fc=window._bbCli||'';
+  const venc=fc?vencTodos.filter(x=>x.cliente===fc):vencTodos,av=fc?avTodos.filter(x=>x.cliente===fc):avTodos;
+  const seletor='<select onchange="bbFiltrarCli(this.value)" style="width:100%;margin-top:10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--white,#fff);color:var(--text)"><option value="">👥 Todos os clientes ('+nomes.length+')</option>'+nomes.map(n=>'<option value="'+escLoc(n)+'"'+(n===fc?' selected':'')+'>'+escLoc(n)+'</option>').join('')+'</select>';
   const sec=(tit,cor,arr,v)=>'<div style="margin-top:12px"><div style="font-size:13px;font-weight:700;color:'+cor+'">'+tit+' · '+arr.length+' boleto(s) · '+moeda(soma(arr))+'</div>'+(arr.length?arr.map(x=>linha(x,v)).join(''):'<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhum.</div>')+'</div>';
-  m.innerHTML='<div style="background:var(--white,#fff);border-radius:14px;padding:16px;max-width:640px;width:100%;max-height:90vh;overflow:auto"><div style="font-size:15px;font-weight:700">🔄 Boletos em aberto no BB</div>'+(aviso?'<div style="font-size:12px;color:#067647;margin-top:4px">'+escLoc(aviso)+'</div>':'')+'<div style="font-size:12px;color:var(--text3);margin-top:2px">Total em aberto: <strong>'+moeda(soma(venc)+soma(av))+'</strong></div>'+sec('🔴 Vencidos','#b42318',venc,true)+sec('🟢 A vencer','#067647',av,false)+'<div style="text-align:right;margin-top:12px"><button class="btn btn-outline" onclick="document.getElementById(\'modal-bb\').style.display=\'none\'">Fechar</button></div></div>';
+  m.innerHTML='<div style="background:var(--white,#fff);border-radius:14px;padding:16px;max-width:640px;width:100%;max-height:90vh;overflow:auto"><div style="font-size:15px;font-weight:700">🔄 Boletos em aberto no BB</div>'+(aviso?'<div style="font-size:12px;color:#067647;margin-top:4px">'+escLoc(aviso)+'</div>':'')+'<div style="font-size:12px;color:var(--text3);margin-top:2px">'+(fc?'Total em aberto deste cliente':'Total em aberto')+': <strong>'+moeda(soma(venc)+soma(av))+'</strong></div>'+seletor+sec('🔴 Vencidos','#b42318',venc,true)+sec('🟢 A vencer','#067647',av,false)+'<div style="text-align:right;margin-top:12px"><button class="btn btn-outline" onclick="document.getElementById(\'modal-bb\').style.display=\'none\'">Fechar</button></div></div>';
 }
 function concParseExtrato(txt){
   const out=[];
