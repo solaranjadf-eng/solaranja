@@ -1359,7 +1359,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-k)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-l)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -1653,7 +1653,7 @@ a{color:var(--orange);text-decoration:none}
   </div>
   <div class="stats-row" style="margin-bottom:14px">
     <div class="stat-card sand">
-      <div class="stat-label">Preço médio/saco — mês</div>
+      <div class="stat-label">Preço médio/saco (c/ bonificação)</div>
       <div class="stat-val" id="lar-preço-med">R$ 0</div>
     </div>
     <div class="stat-card sand">
@@ -3430,7 +3430,7 @@ function renderDash(){
 
   // Custo de laranja (compras do mês) — parte do custo de PRODUÇÃO
   const gastoLar=(comprasLaranja||[]).filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.total||0),0);
-  const sacosMes=(comprasLaranja||[]).filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.qtd||0),0);
+  const sacosMes=(comprasLaranja||[]).filter(c=>c.data&&c.data.startsWith(mesAtual)).reduce((s,c)=>s+(c.qtdTotal||c.qtd||0),0);
 
   // Custos OPERACIONAIS — excluindo embalagem e laranja (já estão no custo produção)
   const catExcluidas=['embalagem']; // laranja já está nas compras separadas
@@ -3943,7 +3943,7 @@ function renderLaranjas(){
   const sacosBonif=doFiltro.reduce((s,c)=>s+(c.bonif||0),0);
   const sacosTotal=doFiltro.reduce((s,c)=>s+(c.qtdTotal||c.qtd||0),0);
   const gastoMes=doFiltro.reduce((s,c)=>s+(c.total||0),0);
-  const preçoMed=sacosPagos>0?gastoMes/sacosPagos:0;
+  const preçoMed=sacosTotal>0?gastoMes/sacosTotal:0; // inclui sacos de bonificação
   const sm=document.getElementById('lar-sacos-mes');
   if(sm) sm.textContent=sacosTotal;
   const gm=document.getElementById('lar-gasto-mes');if(gm)gm.textContent=moeda(gastoMes);
