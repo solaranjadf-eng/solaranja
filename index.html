@@ -1359,7 +1359,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-m)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/11-n)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -9003,22 +9003,18 @@ function iniciarSistema(){
   // Carregar histórico do cache local — dados ficam disponíveis imediatamente
   const histCache=load('slj_hist_bk',{});
   if(Object.keys(histCache).length>0) historico=histCache;
-  const abaAtiva=localStorage.getItem('slj_aba_ativa')||'dash';
+  const _cidUrl=new URLSearchParams(location.search).get('cliente');
+  const _abrirCli=()=>{try{const _c=clientes.find(c=>String(c.id)===String(_cidUrl));if(_c){setTab('financeiro');setFinAba('cliente',document.getElementById('fin-aba-cliente'));selecionarClienteFin(_c.id);return true;}}catch(e){}return false;};
+  // Vindo de Cobranças: abre direto o financeiro do cliente (com dados do cache), sem passar pelo Início
+  let _jaAbriu=false;
+  if(_cidUrl){window.history.replaceState({},'',location.pathname);_jaAbriu=_abrirCli();}
+  const abaAtiva=_jaAbriu?'financeiro':(localStorage.getItem('slj_aba_ativa')||'dash');
   sincronizar().finally(()=>{
     document.getElementById('loading').classList.add('hidden');
     renderClienteList();
     atualizarBadges();
     // Ir direto para a aba que estava ativa
-    setTab(abaAtiva);
-    // Link vindo de Cobranças (?cliente=ID): abre o financeiro do cliente
-    try{
-      const _cid=new URLSearchParams(location.search).get('cliente');
-      if(_cid){
-        window.history.replaceState({},'',location.pathname);
-        const _c=clientes.find(c=>String(c.id)===String(_cid));
-        if(_c){setTab('financeiro');setFinAba('cliente',document.getElementById('fin-aba-cliente'));selecionarClienteFin(_c.id);}
-      }
-    }catch(e){}
+    if(_jaAbriu){ _abrirCli(); } else setTab(abaAtiva);
     // Re-renderizar rota/dia após sync completa (pode ter novos pedidos de amanhã)
     if(document.getElementById('page-rota')?.classList.contains('active')) renderRota();
     if(document.getElementById('page-dia')?.classList.contains('active')) renderDia();
