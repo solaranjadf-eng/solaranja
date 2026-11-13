@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/13-a)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/13-b)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11691,13 +11691,40 @@ async function baixaConsultarBB(){
     bbAbrirLista(d,aviso);
   }catch(e){toast('⚠ '+String(e.message||e).slice(0,100));}
 }
+function bbAcharBoleto(nosso){const d=window._bbD||{};const v=(d.vencidos||[]).find(b=>String(b.nosso)===String(nosso));if(v)return {x:v,venc:true};const a=(d.avencer||[]).find(b=>String(b.nosso)===String(nosso));return a?{x:a,venc:false}:null;}
+async function bbDetalhe(nosso){
+  const f=bbAcharBoleto(nosso);if(!f)return;
+  const {x,venc}=f;
+  const m=document.getElementById('modal-bb');if(!m)return;
+  const dias=x.dias==null?'':(venc?x.dias+' dia'+(x.dias===1?'':'s')+' de atraso':(x.dias===0?'vence hoje':'vence em '+(-x.dias)+' dia'+(x.dias===-1?'':'s')));
+  const L=(k,v)=>'<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text3)">'+k+'</span><strong style="text-align:right">'+v+'</strong></div>';
+  m.innerHTML='<div style="background:var(--white,#fff);border-radius:14px;padding:16px;max-width:520px;width:100%;max-height:90vh;overflow:auto"><div style="font-size:15px;font-weight:700">🧾 Boleto '+escLoc(String(x.nosso))+'</div><div id="bbd-corpo">'+
+    L('Cliente',escLoc(x.cliente))+L('Nº do boleto',escLoc(String(x.nosso)))+L('Valor',moeda(Number(x.valor||0)))+
+    '<div id="bbd-emissao">'+L('Data de emissão','<span style="color:var(--text3)">carregando…</span>')+'</div>'+
+    L('Vencimento',escLoc(x.vencimento))+L('Situação','<span style="color:'+(venc?'#b42318':'#067647')+'">'+(venc?'🔴 Vencido':'🟢 A vencer')+' · '+dias+'</span>')+
+    (x.estado&&x.codEstado!==1?L('Situação no BB',escLoc(x.estado)):'')+'</div>'+
+    '<div id="bbd-msg"></div><div style="display:flex;gap:8px;justify-content:space-between;margin-top:16px;flex-wrap:wrap"><button class="btn btn-outline" onclick="bbAbrirLista(window._bbD,window._bbAviso,true)">← Voltar à lista</button>'+
+    (perfilAtual==='admin'?'<button id="bbd-btn" onclick="bbCancelarPedirConfirmacao(\''+escLoc(String(x.nosso))+'\')" style="font-size:13px;color:#b42318;background:#fff;border:1px solid #f1b5b0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:700">🚫 Cancelar este boleto</button>':'')+'</div></div>';
+  try{
+    const nn=String(x.nosso).replace(/\D/g,'');
+    const r=await sbGet('cobranca_envios','?boleto_nosso_numero=in.('+nn+','+nn.padStart(10,'0')+')&order=created_at.desc&limit=1&select=created_at,enviado_em,email_para,nfe_numero');
+    const e=(r||[])[0];
+    const el=document.getElementById('bbd-emissao');
+    if(el){
+      const dt=e&&(e.enviado_em||e.created_at);
+      el.innerHTML=L('Data de emissão',dt?new Date(dt).toLocaleDateString('pt-BR'):'—')+(e&&e.nfe_numero?L('Nota fiscal',escLoc(String(e.nfe_numero))):'')+(e&&e.email_para?L('Enviado para',escLoc(e.email_para)):'');
+    }
+  }catch(err){const el=document.getElementById('bbd-emissao');if(el)el.innerHTML=L('Data de emissão','—');}
+}
+function bbCancelarPedirConfirmacao(nosso){
+  const f=bbAcharBoleto(nosso);if(!f)return;const x=f.x;
+  const msg=document.getElementById('bbd-msg');const btn=document.getElementById('bbd-btn');
+  if(btn)btn.style.display='none';
+  msg.innerHTML='<div style="margin-top:14px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:10px;padding:12px 14px"><div style="font-size:14px;font-weight:700;color:#991B1B">⚠ Tem certeza que deseja cancelar este boleto?</div><div style="font-size:12px;color:#7F1D1D;margin-top:6px">Boleto <b>'+escLoc(String(x.nosso))+'</b> · '+escLoc(x.cliente)+' · <b>'+moeda(Number(x.valor||0))+'</b> · venc. '+escLoc(x.vencimento)+'.<br>Ele será baixado no BB e o cliente não poderá mais pagá-lo. <b>Isso não pode ser desfeito.</b></div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-outline" style="flex:1" onclick="document.getElementById(\'bbd-msg\').innerHTML=\'\';document.getElementById(\'bbd-btn\').style.display=\'\'">Não, voltar</button><button id="bbd-sim" onclick="bbCancelar(\''+escLoc(String(x.nosso))+'\')" style="flex:1;background:#B42318;color:#fff;border:none;border-radius:8px;padding:10px;font-weight:700;cursor:pointer">Sim, cancelar boleto</button></div></div>';
+}
 async function bbCancelar(nosso){
-  const d=window._bbD||{};
-  const todos=[...(d.vencidos||[]),...(d.avencer||[])];
-  const x=todos.find(b=>String(b.nosso)===String(nosso));
-  if(!x)return;
-  if(!confirm('CANCELAR o boleto '+nosso+'?\n\nCliente: '+x.cliente+'\nValor: '+moeda(Number(x.valor||0))+'\nVencimento: '+x.vencimento+'\n\nO boleto será baixado no BB e o cliente não poderá mais pagá-lo. Isso não pode ser desfeito.'))return;
-  toast('Cancelando boleto '+nosso+'...');
+  const f=bbAcharBoleto(nosso);if(!f)return;const x=f.x;const d=window._bbD||{};
+  const sim=document.getElementById('bbd-sim');if(sim){sim.disabled=true;sim.textContent='Cancelando…';}
   try{
     const r=await cobChamarFn('cancelar-boleto',{nosso:String(nosso)});
     if(r&&r.success){
@@ -11707,9 +11734,10 @@ async function bbCancelar(nosso){
       bbAbrirLista(d,'✅ Boleto '+nosso+' ('+x.cliente+') cancelado no BB.',true);
       toast('✅ Boleto cancelado.');
     }else{
-      alert('Não foi possível cancelar o boleto '+nosso+'.\n\n'+((r&&r.erro)||'Erro desconhecido')+(r&&r.bb?'\n\n(Resposta do BB. Se for falta de permissão, cancele pelo portal do BB.)':''));
+      const msg=document.getElementById('bbd-msg');
+      if(msg)msg.innerHTML='<div style="margin-top:14px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:10px;padding:12px 14px;font-size:12px;color:#7F1D1D"><b>Não foi possível cancelar. Nada foi alterado.</b><br>'+escLoc((r&&r.erro)||'Erro desconhecido')+(r&&r.bb?'<br><br>Se for falta de permissão, cancele pelo portal do BB.':'')+'</div>';
     }
-  }catch(e){alert('Erro ao cancelar: '+(e.message||e));}
+  }catch(e){const msg=document.getElementById('bbd-msg');if(msg)msg.innerHTML='<div style="margin-top:14px;color:#7F1D1D;font-size:12px">Erro ao cancelar: '+escLoc(e.message||String(e))+'</div>';}
 }
 function bbFiltrarCli(v){window._bbCli=v;bbAbrirLista(window._bbD,window._bbAviso,true);}
 function bbAbrirLista(d,aviso,mantem){
@@ -11721,7 +11749,7 @@ function bbAbrirLista(d,aviso,mantem){
   const linha=(x,venc)=>{
     const dias=x.dias==null?'':(venc?x.dias+' dia'+(x.dias===1?'':'s')+' de atraso':(x.dias===0?'vence hoje':'vence em '+(-x.dias)+' dia'+(x.dias===-1?'':'s')));
     const cart=x.codEstado&&x.codEstado!==1?' <span style="background:#fde8e8;color:#b42318;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">'+escLoc(x.estado||'verificar no BB')+'</span>':'';
-    return '<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding:7px 0;font-size:12px"><div style="min-width:0"><strong>'+escLoc(x.cliente)+'</strong>'+cart+'<br><span style="color:var(--text3)">Boleto '+escLoc(x.nosso)+' · venc. '+escLoc(x.vencimento)+' · '+dias+'</span></div><div style="text-align:right;flex-shrink:0"><div style="font-weight:700;white-space:nowrap;color:'+(venc?'#b42318':'inherit')+'">'+moeda(Number(x.valor||0))+'</div>'+(perfilAtual==='admin'?'<button onclick="bbCancelar(\''+escLoc(String(x.nosso))+'\')" style="margin-top:4px;font-size:11px;color:#b42318;background:#fff;border:1px solid #f1b5b0;border-radius:5px;padding:2px 8px;cursor:pointer;font-weight:700">🚫 Cancelar</button>':'')+'</div></div>';
+    return '<div onclick="bbDetalhe(\''+escLoc(String(x.nosso))+'\')" title="Ver detalhes do boleto" style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding:9px 4px;font-size:12px;cursor:pointer"><div style="min-width:0"><strong>'+escLoc(x.cliente)+'</strong>'+cart+'<br><span style="color:var(--text3)">Boleto '+escLoc(x.nosso)+' · venc. '+escLoc(x.vencimento)+' · '+dias+'</span></div><div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:6px"><span style="font-weight:700;white-space:nowrap;color:'+(venc?'#b42318':'inherit')+'">'+moeda(Number(x.valor||0))+'</span><span style="color:var(--text3);font-size:16px">›</span></div></div>';
   };
   const vencTodos=d.vencidos||[],avTodos=d.avencer||[];
   const nomes=[...new Set([...vencTodos,...avTodos].map(x=>x.cliente||''))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'pt-BR'));
