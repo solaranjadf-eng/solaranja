@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/12-j)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/13-a)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11691,6 +11691,26 @@ async function baixaConsultarBB(){
     bbAbrirLista(d,aviso);
   }catch(e){toast('⚠ '+String(e.message||e).slice(0,100));}
 }
+async function bbCancelar(nosso){
+  const d=window._bbD||{};
+  const todos=[...(d.vencidos||[]),...(d.avencer||[])];
+  const x=todos.find(b=>String(b.nosso)===String(nosso));
+  if(!x)return;
+  if(!confirm('CANCELAR o boleto '+nosso+'?\n\nCliente: '+x.cliente+'\nValor: '+moeda(Number(x.valor||0))+'\nVencimento: '+x.vencimento+'\n\nO boleto será baixado no BB e o cliente não poderá mais pagá-lo. Isso não pode ser desfeito.'))return;
+  toast('Cancelando boleto '+nosso+'...');
+  try{
+    const r=await cobChamarFn('cancelar-boleto',{nosso:String(nosso)});
+    if(r&&r.success){
+      d.vencidos=(d.vencidos||[]).filter(b=>String(b.nosso)!==String(nosso));
+      d.avencer=(d.avencer||[]).filter(b=>String(b.nosso)!==String(nosso));
+      try{localStorage.removeItem('slj_bb_resumo');}catch(e){}
+      bbAbrirLista(d,'✅ Boleto '+nosso+' ('+x.cliente+') cancelado no BB.',true);
+      toast('✅ Boleto cancelado.');
+    }else{
+      alert('Não foi possível cancelar o boleto '+nosso+'.\n\n'+((r&&r.erro)||'Erro desconhecido')+(r&&r.bb?'\n\n(Resposta do BB. Se for falta de permissão, cancele pelo portal do BB.)':''));
+    }
+  }catch(e){alert('Erro ao cancelar: '+(e.message||e));}
+}
 function bbFiltrarCli(v){window._bbCli=v;bbAbrirLista(window._bbD,window._bbAviso,true);}
 function bbAbrirLista(d,aviso,mantem){
   window._bbD=d;window._bbAviso=aviso;if(!mantem)window._bbCli='';
@@ -11701,7 +11721,7 @@ function bbAbrirLista(d,aviso,mantem){
   const linha=(x,venc)=>{
     const dias=x.dias==null?'':(venc?x.dias+' dia'+(x.dias===1?'':'s')+' de atraso':(x.dias===0?'vence hoje':'vence em '+(-x.dias)+' dia'+(x.dias===-1?'':'s')));
     const cart=x.codEstado&&x.codEstado!==1?' <span style="background:#fde8e8;color:#b42318;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700">'+escLoc(x.estado||'verificar no BB')+'</span>':'';
-    return '<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding:7px 0;font-size:12px"><div style="min-width:0"><strong>'+escLoc(x.cliente)+'</strong>'+cart+'<br><span style="color:var(--text3)">Boleto '+escLoc(x.nosso)+' · venc. '+escLoc(x.vencimento)+' · '+dias+'</span></div><div style="font-weight:700;white-space:nowrap;color:'+(venc?'#b42318':'inherit')+'">'+moeda(Number(x.valor||0))+'</div></div>';
+    return '<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding:7px 0;font-size:12px"><div style="min-width:0"><strong>'+escLoc(x.cliente)+'</strong>'+cart+'<br><span style="color:var(--text3)">Boleto '+escLoc(x.nosso)+' · venc. '+escLoc(x.vencimento)+' · '+dias+'</span></div><div style="text-align:right;flex-shrink:0"><div style="font-weight:700;white-space:nowrap;color:'+(venc?'#b42318':'inherit')+'">'+moeda(Number(x.valor||0))+'</div>'+(perfilAtual==='admin'?'<button onclick="bbCancelar(\''+escLoc(String(x.nosso))+'\')" style="margin-top:4px;font-size:11px;color:#b42318;background:#fff;border:1px solid #f1b5b0;border-radius:5px;padding:2px 8px;cursor:pointer;font-weight:700">🚫 Cancelar</button>':'')+'</div></div>';
   };
   const vencTodos=d.vencidos||[],avTodos=d.avencer||[];
   const nomes=[...new Set([...vencTodos,...avTodos].map(x=>x.cliente||''))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'pt-BR'));
