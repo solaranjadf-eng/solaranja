@@ -8239,10 +8239,22 @@ async function confirmarEmissaoNFe(){
     }
   }catch(e){
     const errEl = document.getElementById('nfe-erro');
-    errEl.style.display='block';
-    errEl.innerHTML = '❌ <strong>Erro ao emitir:</strong><br>'+e.message;
-    btn.disabled=false;
-    btn.textContent='Tentar novamente';
+    // Se NF-e já existe com mesmo XML, trata como sucesso
+    const jaExiste=/j[aá]\s*exist|mesmo\s*xml|cadastrada\s*com\s*este\s*xml/i.test(e.message||'');
+    if(jaExiste){
+      errEl.style.display='none';
+      const resEl = document.getElementById('nfe-resultado');
+      resEl.style.display='block';
+      resEl.innerHTML = '⚠️ <strong>NF-e já existe no Bling</strong><br>Esta nota já foi emitida anteriormente. Acesse o Bling para visualizá-la.';
+      btn.textContent='✓ Já emitida';
+      btn.style.display='none';
+      document.getElementById('nfe-acoes').style.display='block';
+    }else{
+      errEl.style.display='block';
+      errEl.innerHTML = '❌ <strong>Erro ao emitir:</strong><br>'+e.message;
+      btn.disabled=false;
+      btn.textContent='Tentar novamente';
+    }
   }
 }
 
@@ -10412,8 +10424,15 @@ async function emitirNFeCliente(){
       toast('✓ NF-e '+d.data.numero+' gerada no Bling! O sistema emitirá automaticamente.');
     }else{
       const msg=d.error?.description||d.errors?.[0]?.description||JSON.stringify(d);
-      toast('Erro Bling: '+msg);
-      console.error('Bling NF-e error:', d);
+      // Se NF-e já existe com mesmo XML (emitida ou cancelada), trata como sucesso silencioso
+      const jaExiste=/j[aá]\s*exist|mesmo\s*xml|cadastrada\s*com\s*este\s*xml/i.test(msg);
+      if(jaExiste){
+        toast('⚠️ NF-e já existente no Bling — nada a fazer.');
+        console.info('Bling NF-e já existe (pulando):', msg);
+      }else{
+        toast('Erro Bling: '+msg);
+        console.error('Bling NF-e error:', d);
+      }
     }
   }catch(e){
     toast('Erro ao gerar NF-e.');
