@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/13-b)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/13-c)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11700,7 +11700,7 @@ async function bbDetalhe(nosso){
   const L=(k,v)=>'<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text3)">'+k+'</span><strong style="text-align:right">'+v+'</strong></div>';
   m.innerHTML='<div style="background:var(--white,#fff);border-radius:14px;padding:16px;max-width:520px;width:100%;max-height:90vh;overflow:auto"><div style="font-size:15px;font-weight:700">🧾 Boleto '+escLoc(String(x.nosso))+'</div><div id="bbd-corpo">'+
     L('Cliente',escLoc(x.cliente))+L('Nº do boleto',escLoc(String(x.nosso)))+L('Valor',moeda(Number(x.valor||0)))+
-    '<div id="bbd-emissao">'+L('Data de emissão','<span style="color:var(--text3)">carregando…</span>')+'</div>'+
+    '<div id="bbd-emissao">'+L('Data de emissão',x.emissao?escLoc(x.emissao):'<span style="color:var(--text3)">carregando…</span>')+'</div>'+
     L('Vencimento',escLoc(x.vencimento))+L('Situação','<span style="color:'+(venc?'#b42318':'#067647')+'">'+(venc?'🔴 Vencido':'🟢 A vencer')+' · '+dias+'</span>')+
     (x.estado&&x.codEstado!==1?L('Situação no BB',escLoc(x.estado)):'')+'</div>'+
     '<div id="bbd-msg"></div><div style="display:flex;gap:8px;justify-content:space-between;margin-top:16px;flex-wrap:wrap"><button class="btn btn-outline" onclick="bbAbrirLista(window._bbD,window._bbAviso,true)">← Voltar à lista</button>'+
@@ -11712,7 +11712,7 @@ async function bbDetalhe(nosso){
     const el=document.getElementById('bbd-emissao');
     if(el){
       const dt=e&&(e.enviado_em||e.created_at);
-      el.innerHTML=L('Data de emissão',dt?new Date(dt).toLocaleDateString('pt-BR'):'—')+(e&&e.nfe_numero?L('Nota fiscal',escLoc(String(e.nfe_numero))):'')+(e&&e.email_para?L('Enviado para',escLoc(e.email_para)):'');
+      el.innerHTML=L('Data de emissão',x.emissao?escLoc(x.emissao):(dt?new Date(dt).toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'}):'<span style="color:var(--text3)">não informada pelo BB</span>'))+(e&&e.nfe_numero?L('Nota fiscal',escLoc(String(e.nfe_numero))):'')+(e&&e.email_para?L('Enviado para',escLoc(e.email_para)):'');
     }
   }catch(err){const el=document.getElementById('bbd-emissao');if(el)el.innerHTML=L('Data de emissão','—');}
 }
@@ -11726,7 +11726,7 @@ async function bbCancelar(nosso){
   const f=bbAcharBoleto(nosso);if(!f)return;const x=f.x;const d=window._bbD||{};
   const sim=document.getElementById('bbd-sim');if(sim){sim.disabled=true;sim.textContent='Cancelando…';}
   try{
-    const r=await cobChamarFn('cancelar-boleto',{nosso:String(nosso)});
+    const r=await cobChamarFn('cancelar-boleto',{nosso:String(nosso),valor:Number(x.valor||0)});
     if(r&&r.success){
       d.vencidos=(d.vencidos||[]).filter(b=>String(b.nosso)!==String(nosso));
       d.avencer=(d.avencer||[]).filter(b=>String(b.nosso)!==String(nosso));
