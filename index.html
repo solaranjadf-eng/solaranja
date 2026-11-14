@@ -11432,7 +11432,48 @@ function analisarColar(){
   const dia=colarDiaSemana(txt);
   let alias={};try{alias=JSON.parse(localStorage.getItem(COLAR_ALIAS)||'{}')||{};}catch(e){}
   colarLinhas=[];
-  txt.split(/\r?\n/).forEach((raw,idx)=>{
+  // Agrupa linhas: "📍Nome\nSabor (qtd)tam\nSabor2 (qtd)tam" → uma linha só "Sabor (qtd)tam + Sabor2 (qtd)tam Nome"
+  const linhasRaw=txt.split(/\r?\n/);
+  const linhasAgrupadas=[];
+  let nomePin=null; // nome do cliente da linha 📍
+  const temItens=s=>/\(\s*\d+\s*\)/.test(s)||/\d+\s*(?:de\s+)?\d+\s*(?:ml|l)\b/i.test(s);
+  const soNome=s=>{
+    const limpo=s.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}️]/gu,'').replace(/^[\s\-•*·📍]+/,'').trim();
+    return limpo&&!temItens(limpo);
+  };
+  for(let i=0;i<linhasRaw.length;i++){
+    const raw=linhasRaw[i];
+    const temPin=/📍/.test(raw);
+    const limpo=raw.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}️]/gu,'').replace(/^[\s\-•*·]+/,'').trim();
+    if(!limpo){nomePin=null;linhasAgrupadas.push(raw);continue;}
+    if(temPin&&soNome(raw)){
+      // Linha só com nome e 📍 — coleta as próximas linhas de itens
+      nomePin=limpo.replace(/^📍\s*/,'').trim();
+      const itensLinhas=[];
+      let j=i+1;
+      while(j<linhasRaw.length){
+        const prox=linhasRaw[j].replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}️]/gu,'').replace(/^[\s\-•*·]+/,'').trim();
+        if(!prox){j++;continue;}
+        // Para se linha tem 📍 ou é claramente um novo cliente (linha de cabeçalho sem itens e sem sabor conhecido)
+        if(/📍/.test(linhasRaw[j]))break;
+        if(temItens(prox)||_saboresList.some(s=>new RegExp('^'+s.nome,'i').test(prox))||new RegExp('^(goiaba|uva|abacaxi|acerola|caju|maracuja|laranja|suco)','i').test(prox)){
+          itensLinhas.push(prox);j++;
+        } else break;
+      }
+      if(itensLinhas.length){
+        // Junta tudo numa linha: "seg1 + seg2 + seg3 Nome"
+        linhasAgrupadas.push(itensLinhas.join(' + ')+' '+nomePin);
+        i=j-1;
+      } else {
+        linhasAgrupadas.push(raw);
+      }
+      nomePin=null;
+      continue;
+    }
+    nomePin=null;
+    linhasAgrupadas.push(raw);
+  }
+  linhasAgrupadas.forEach((raw,idx)=>{
     let l=raw.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}️]/gu,'').replace(/^[\s\-•*·]+/,'').trim();
     if(!l)return;
     // Formatos aceitos (além do padrão "(qtd)tam Nome"):
