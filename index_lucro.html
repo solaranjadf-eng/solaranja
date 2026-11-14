@@ -2703,10 +2703,14 @@ async function sincronizar(){
     // Buscar histórico — sempre na primeira carga, depois a cada 10 minutos
     const agora2=Date.now();
     const ultimaHistSync=parseInt(localStorage.getItem('slj_hist_sync')||'0');
-    const primeiraVez=ultimaHistSync===0||Object.keys(historico).length===0;
     // Busca desde 1º de janeiro do ano atual para o gráfico anual ficar completo
     const anoAtualHist=hoje.getFullYear();
     const noventaDiasAtras=`${anoAtualHist}-01-01`;
+    // Forçar re-sync se o histórico não cobre janeiro do ano atual
+    const histKeys=Object.keys(historico);
+    const cobreJaneiro=histKeys.some(k=>k.startsWith(`${anoAtualHist}-01`));
+    const temHistorico=histKeys.length>0;
+    const primeiraVez=ultimaHistSync===0||!temHistorico||(temHistorico&&!cobreJaneiro);
     if(primeiraVez||agora2-ultimaHistSync>600000){
       // Buscar histórico em partes para superar limite de 1000 do Supabase
       const selectH='id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto';
