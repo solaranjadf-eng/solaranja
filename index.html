@@ -11436,6 +11436,37 @@ function analisarColar(){
     let l=raw.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}️]/gu,'').replace(/^[\s\-•*·]+/,'').trim();
     if(!l)return;
     // Aceita os dois formatos: "Nome (10)1L" e "(10)1L Nome"; vários itens com "+"; BRINDE e PAGO; "AB" = abacaxi
+    // Também aceita: "30 de 1L e 30 de 300ml / Nome" e "30 1L e 30 300ml / Nome"
+    // Normaliza formato "X de TAM e Y de TAM2 / Nome" → "(X)TAM + (Y)TAM2 Nome"
+    function normalizarFormato(txt){
+      // Detecta se tem barra (/) separando itens do nome
+      const partesBarra=txt.split('/');
+      if(partesBarra.length>=2){
+        const itensParte=partesBarra[0].trim();
+        const nomeParte=partesBarra.slice(1).join('/').trim();
+        // Extrai pares "quantidade [de] tamanho" separados por "e" ou ","
+        const reItem=/(\d+)\s*(?:de\s+)?(\d+\s*(?:ml|l)?|1l?)\b/gi;
+        let m2,itensConv=[];
+        let tmp=itensParte;
+        while((m2=reItem.exec(itensParte))){
+          itensConv.push('('+m2[1]+')'+m2[2]);
+          tmp=tmp.replace(m2[0],' ');
+        }
+        if(itensConv.length){
+          return itensConv.join(' + ')+' '+nomeParte;
+        }
+      }
+      // Detecta "30 de 1L Nome" ou "30 1L Nome" sem barra
+      const reSimples=/^(\d+)\s*(?:de\s+)?(\d+\s*(?:ml|l)?|1l?)\s+(?:e\s+(\d+)\s*(?:de\s+)?(\d+\s*(?:ml|l)?|1l?)\s+)?(.+)$/i;
+      const ms=reSimples.exec(txt);
+      if(ms){
+        let conv='('+ms[1]+')'+ms[2];
+        if(ms[3]&&ms[4])conv+=' + ('+ms[3]+')'+ms[4];
+        return conv+' '+(ms[5]||'');
+      }
+      return txt;
+    }
+    l=normalizarFormato(l);
     const segs=l.split(/\s\+\s/);
     const itens=[];let erro='',pago=/\bpago\b/i.test(l),sobras=[],ultTam='',algumItem=false;
     segs.forEach(seg=>{
