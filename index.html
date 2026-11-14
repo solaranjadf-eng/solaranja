@@ -11518,6 +11518,24 @@ function analisarColar(){
         itens.slice(ini).forEach(x=>{if(x.sabor==='laranja')x.sabor='abacaxi';});
       }
       resto=resto.replace(/(^|\s)lar(?=\s|$)/gi,' '); // LAR = laranja (sabor padrão)
+      // Detecta sabores cadastrados no texto restante (ex: "Uva", "Suco do Céu", "Goiaba")
+      {
+        const saborEncontrado=_saboresList.find(s=>{
+          if(s.id==='laranja')return false; // laranja é padrão, não precisa detectar
+          const norm=v=>v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+          const nid=norm(s.id),nnome=norm(s.nome);
+          const nr=norm(resto);
+          // Busca o nome/id do sabor como palavra no texto
+          return new RegExp('(^|\\s)('+nid+'|'+nnome.replace(/\s+/g,'\\s+')+'|suco\\s+do\\s+ceu)(\\s|$)').test(nr);
+        });
+        if(saborEncontrado){
+          const norm=v=>v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+          const nnome=norm(saborEncontrado.nome);
+          // Remove o nome do sabor do texto restante
+          resto=resto.replace(new RegExp('('+saborEncontrado.id+'|'+saborEncontrado.nome.replace(/\s+/g,'\\s+')+'|suco\\s+do\\s+c[eé]u)','gi'),' ').replace(/\s+/g,' ').trim();
+          itens.slice(ini).forEach(x=>{if(x.sabor==='laranja')x.sabor=saborEncontrado.id;});
+        }
+      }
       resto=resto.replace(/\b(pago|brinde)\b/gi,' ').replace(/\s+/g,' ').replace(/^[\s.\-:]+|[\s.\-:]+$/g,'').trim();
       if(resto)sobras.push(resto);
     });
