@@ -10516,22 +10516,23 @@ function interpretarLancamentoRapido(){
   }
 
   // ── Encontrar cliente ──
+  const norm=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s]/g,'').trim();
   let clienteEncontrado=null;
   if(parteCli){
-    const q=parteCli.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-    // Busca por similaridade: score = palavras do input que batem no nome
-    let melhorScore=0;
+    const q=norm(parteCli);
+    const palavras=q.split(/\s+/).filter(p=>p.length>2);
+    let melhorScore=0, melhorCandidato=null;
     clientes.forEach(c=>{
-      const nome=c.nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-      // Score exato parcial
-      if(nome.includes(q)){const sc=q.length/nome.length;if(sc>melhorScore){melhorScore=sc;clienteEncontrado=c;}}
-      // Score por palavras
-      const palavras=q.split(/\s+/).filter(p=>p.length>2);
+      const nome=norm(c.nome);
+      // Score por palavras que batem
       const hits=palavras.filter(p=>nome.includes(p)).length;
-      const sc=hits/Math.max(palavras.length,1);
-      if(sc>melhorScore){melhorScore=sc;clienteEncontrado=c;}
+      const sc=palavras.length>0?hits/palavras.length:0;
+      if(sc>melhorScore){melhorScore=sc;melhorCandidato=c;}
+      // Score exato por substring (bonus)
+      if(nome.includes(q)&&1>melhorScore){melhorScore=1;melhorCandidato=c;}
     });
-    if(melhorScore<0.3){clienteEncontrado=null;}
+    console.log('[lançamento rápido] melhor cliente:', melhorCandidato?.nome, 'score:', melhorScore);
+    if(melhorScore>=0.3) clienteEncontrado=melhorCandidato;
   }
 
   // ── Montar preview ──
