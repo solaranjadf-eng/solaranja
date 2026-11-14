@@ -2860,6 +2860,7 @@ async function sincronizar(){
           }
         }
       }catch(e){}
+      verificarAlertasVencimento(); // diasVencimento já carregados acima
 
       // Colaboradores
       const dbColab=await sbGet('colaboradores','?order=nome');
@@ -2917,7 +2918,6 @@ async function sincronizar(){
     _atualizarLabelMes();
     renderDash();
     mostrarAlertaEstoque();
-    verificarAlertasVencimento();
     // Validação silenciosa de débitos fantasmas (remove do local o que não existe no banco)
     setTimeout(()=>validarDebitosNoBanco(true),2000);
     // Carregar compras, boletos e notas do banco
