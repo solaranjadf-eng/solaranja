@@ -11503,10 +11503,19 @@ function analisarColar(){
       let resto=seg;const ini=itens.length;
       const re=/\(?\s*(\d+)\s*\)\s*(\d+\s*(?:ml|l)?|ab)(?![a-z0-9])/gi;
       const abSeg=/(^|\s)ab(?=\s|$)/i.test(seg.replace(/\(?\s*\d+\s*\)\s*(\d+\s*(?:ml|l)?|ab)(?![a-z0-9])/gi,' '));
+      // Pré-detecta sabor do segmento ANTES do merge, para usar na chave de merge
+      const normStr=v=>v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+      const listaSabores=[..._saboresList].filter(s=>s.id!=='laranja').sort((a,b)=>b.nome.length-a.nome.length);
+      const saborPre=(()=>{
+        if(abSeg)return 'abacaxi';
+        const ns=normStr(seg);
+        const s=listaSabores.find(s=>{const nid=normStr(s.id),nn=normStr(s.nome);return new RegExp('(^|\\s)('+nid+'|'+nn.replace(/\s+/g,'\\s+')+'|lar)(\\s|$)').test(ns);});
+        return s?s.id:'laranja';
+      })();
       let m;
       while((m=re.exec(seg))){
         algumItem=true;
-        const q=parseInt(m[1],10);let sabor=abSeg?'abacaxi':'laranja',tam='';
+        const q=parseInt(m[1],10);let sabor=saborPre,tam='';
         if(/^ab$/i.test(m[2])){sabor='abacaxi';tam=ultTam;if(!tam)erro='Abacaxi (AB) sem tamanho anterior';}
         else{tam=colarTam(m[2]);if(!tam)erro='Tamanho "'+m[2]+'" não reconhecido';}
         if(tam)ultTam=tam;
@@ -11518,23 +11527,13 @@ function analisarColar(){
         itens.slice(ini).forEach(x=>{if(x.sabor==='laranja')x.sabor='abacaxi';});
       }
       resto=resto.replace(/(^|\s)lar(?=\s|$)/gi,' '); // LAR = laranja (sabor padrão)
-      // Detecta sabores cadastrados no texto restante (ex: "Uva", "Suco do Céu", "Goiaba")
+      // Remove nome do sabor detectado do texto restante
       {
-        const normStr=v=>v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
-        const nr=normStr(resto);
-        // Ordena por comprimento decrescente para pegar "suco do ceu" antes de "uva"
-        const listaSabores=[..._saboresList].filter(s=>s.id!=='laranja').sort((a,b)=>b.nome.length-a.nome.length);
-        const saborEncontrado=listaSabores.find(s=>{
-          const nid=normStr(s.id),nnome=normStr(s.nome);
-          const reNome=nnome.replace(/\s+/g,'\\s+');
-          return new RegExp('(^|\\s)('+nid+'|'+reNome+')(\\s|$)').test(nr);
-        });
-        if(saborEncontrado){
-          const nid=normStr(saborEncontrado.id),nnome=normStr(saborEncontrado.nome);
-          const reNome=saborEncontrado.nome.replace(/[-[\]{}()*+?.,\\^$|#\s]/g,'\\$&');
-          const reId=saborEncontrado.id.replace(/[-[\]{}()*+?.,\\^$|#\s]/g,'\\$&');
+        const sf=listaSabores.find(s=>s.id===saborPre);
+        if(sf){
+          const reNome=sf.nome.replace(/[-[\]{}()*+?.,\\^$|#\s]/g,'\\$&');
+          const reId=sf.id.replace(/[-[\]{}()*+?.,\\^$|#\s]/g,'\\$&');
           resto=resto.replace(new RegExp('('+reId+'|'+reNome+')','gi'),' ').replace(/\s+/g,' ').trim();
-          itens.slice(ini).forEach(x=>{if(x.sabor==='laranja')x.sabor=saborEncontrado.id;});
         }
       }
       resto=resto.replace(/\b(pago|brinde)\b/gi,' ').replace(/\s+/g,' ').replace(/^[\s.\-:]+|[\s.\-:]+$/g,'').trim();
