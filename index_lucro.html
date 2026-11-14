@@ -2735,6 +2735,8 @@ async function sincronizar(){
         historico=novoHist;
         // Salvar no localStorage para disponibilidade imediata no próximo carregamento
         lsave('slj_hist_bk',historico);
+        // Re-renderizar o dashboard com dados atualizados (histórico completo do ano)
+        renderDash();
       }
       // Limpeza de fotos antigas — roda só 1x por dia, junto com a sync de histórico (economiza egress)
       limparFotosAntigas();
