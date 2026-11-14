@@ -11435,36 +11435,62 @@ function analisarColar(){
   txt.split(/\r?\n/).forEach((raw,idx)=>{
     let l=raw.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}️]/gu,'').replace(/^[\s\-•*·]+/,'').trim();
     if(!l)return;
-    // Aceita os dois formatos: "Nome (10)1L" e "(10)1L Nome"; vários itens com "+"; BRINDE e PAGO; "AB" = abacaxi
-    // Também aceita: "30 de 1L e 30 de 300ml / Nome" e "30 1L e 30 300ml / Nome"
-    // Normaliza formato "X de TAM e Y de TAM2 / Nome" → "(X)TAM + (Y)TAM2 Nome"
+    // Formatos aceitos (além do padrão "(qtd)tam Nome"):
+    // COM BARRA separando itens do nome:
+    //   "30 de 1L e 30 de 300ml / Nome"
+    //   "30 1L e 30 300ml / Nome"
+    //   "30x1L e 30x300ml / Nome"
+    //   "30 1L, 30 300ml / Nome"
+    //   "1L 30 e 300ml 30 / Nome"  (tam antes da qtd)
+    //   "30 litros e 15 300ml / Nome"
+    // SEM BARRA com "de":
+    //   "30 de 1L e 30 de 300 Nome"
     function normalizarFormato(txt){
-      // Detecta se tem barra (/) separando itens do nome
-      const partesBarra=txt.split('/');
-      if(partesBarra.length>=2){
-        const itensParte=partesBarra[0].trim();
-        const nomeParte=partesBarra.slice(1).join('/').trim();
-        // Extrai pares "quantidade [de] tamanho" separados por "e" ou ","
-        const reItem=/(\d+)\s*(?:de\s+)?(\d+\s*(?:ml|l)?|1l?)\b/gi;
-        let m2,itensConv=[];
-        let tmp=itensParte;
-        while((m2=reItem.exec(itensParte))){
-          itensConv.push('('+m2[1]+')'+m2[2]);
-          tmp=tmp.replace(m2[0],' ');
+      // TAM helper: normaliza texto de tamanho para formato canônico
+      function parseTam(s){
+        s=String(s).toLowerCase().replace(/\s+/g,'').replace(/x$/,'');
+        if(/^1l?$/.test(s)||s==='litro'||s==='litros'||s==='1litro')return '1L';
+        if(/^5l$/.test(s))return '5L';
+        if(/^300(ml)?$/.test(s))return '300ml';
+        if(/^500(ml)?$/.test(s))return '500ml';
+        if(/^200(ml)?$/.test(s))return '200ml';
+        return '';
+      }
+      // Extrai todos os pares (qtd, tam) de um trecho de texto
+      // Aceita: "30 de 1L", "30x1L", "30 1L", "1L 30", "30 litros"
+      function extrairItens(trecho){
+        const itens=[];
+        // Formato: qtd [de|x] tam  OU  tam [de|x] qtd
+        const re=/(\d+)\s*(?:de\s+|x)?(\d+\s*(?:ml|l)?|litros?|1l)\b|(\d+\s*(?:ml|l)?|litros?|1l)\s*(?:de\s+|x)?(\d+)/gi;
+        let m;
+        while((m=re.exec(trecho))){
+          if(m[1]&&m[2]){const t=parseTam(m[2]);if(t)itens.push({q:parseInt(m[1]),t,raw:m[0]});}
+          else if(m[3]&&m[4]){const t=parseTam(m[3]);if(t)itens.push({q:parseInt(m[4]),t,raw:m[0]});}
         }
-        if(itensConv.length){
-          return itensConv.join(' + ')+' '+nomeParte;
+        return itens;
+      }
+      // COM BARRA: "itens / Nome do Cliente"
+      const idxBarra=txt.indexOf('/');
+      if(idxBarra>0){
+        const itensParte=txt.slice(0,idxBarra).trim();
+        const nomeParte=txt.slice(idxBarra+1).trim();
+        const itens=extrairItens(itensParte);
+        if(itens.length&&nomeParte){
+          return itens.map(i=>'('+i.q+')'+i.t).join(' + ')+' '+nomeParte;
         }
       }
-      // Detecta "30 de 1L e 30 de 300ml Nome" sem barra — só quando NÃO começa com ( (formato já padrão)
-      // e obrigatoriamente tem "de" para não confundir com "(2)5L Uva Nome"
+      // SEM BARRA, só se NÃO começa com "(" (já é formato padrão)
       if(!/^\(/.test(txt)){
-        const reSimples=/^(\d+)\s+de\s+(\d+\s*(?:ml|l)?|1l?)\s+(?:e\s+(\d+)\s+de\s+(\d+\s*(?:ml|l)?|1l?)\s+)?(.+)$/i;
-        const ms=reSimples.exec(txt);
+        // Precisa ter "de" ou "x" explícito para não confundir "(2)5L Uva Nome"
+        const reComDe=/^(\d+)\s+(?:de\s+|x)([\w]+)\s+(?:e\s+(\d+)\s+(?:de\s+|x)([\w]+)\s+)?(.+)$/i;
+        const ms=reComDe.exec(txt);
         if(ms){
-          let conv='('+ms[1]+')'+ms[2];
-          if(ms[3]&&ms[4])conv+=' + ('+ms[3]+')'+ms[4];
-          return conv+' '+(ms[5]||'');
+          const t1=parseTam(ms[2]),t2=ms[3]&&ms[4]?parseTam(ms[4]):'';
+          if(t1){
+            let conv='('+ms[1]+')'+t1;
+            if(ms[3]&&t2)conv+=' + ('+ms[3]+')'+t2;
+            return conv+' '+(ms[5]||'');
+          }
         }
       }
       return txt;
