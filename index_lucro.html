@@ -2714,9 +2714,12 @@ async function sincronizar(){
     const mesAtualNum=hoje.getMonth()+1; // 1-12
     const mesMinEsperado=Math.max(1,mesAtualNum-5);
     const mesMaisAntigoHist=histKeys.filter(k=>k.startsWith(anoAtualStr)).map(k=>parseInt(k.slice(5,7))).sort((a,b)=>a-b)[0]||99;
-    const precisaReSyncAno=cobreAnoAtual&&mesMaisAntigoHist>mesMinEsperado;
-    const primeiraVez=ultimaHistSync===0||Object.keys(historico).length===0||precisaReSyncAno;
-    if(primeiraVez||agora2-ultimaHistSync>600000){
+    const precisaReSyncAno=!cobreAnoAtual||(cobreAnoAtual&&mesMaisAntigoHist>mesMinEsperado);
+    // Se precisa re-sync do ano completo, limpar o timestamp para forçar entrada no bloco
+    if(precisaReSyncAno) localStorage.removeItem('slj_hist_sync');
+    const ultimaHistSync2=parseInt(localStorage.getItem('slj_hist_sync')||'0');
+    const primeiraVez=ultimaHistSync2===0||Object.keys(historico).length===0;
+    if(primeiraVez||agora2-ultimaHistSync2>600000){
       // Buscar histórico em partes para superar limite de 1000 do Supabase
       const selectH='id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto';
       const baseQ=`?data=lt.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=500&select=${selectH}`;
