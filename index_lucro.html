@@ -2716,13 +2716,10 @@ async function sincronizar(){
     const mesMaisAntigoHist=histKeys.filter(k=>k.startsWith(anoAtualStr)).map(k=>parseInt(k.slice(5,7))).sort((a,b)=>a-b)[0]||99;
     const precisaReSyncAno=!cobreAnoAtual||(cobreAnoAtual&&mesMaisAntigoHist>mesMinEsperado);
     // Se precisa re-sync do ano completo, limpar o timestamp para forçar entrada no bloco
-    console.log('[hist] meses no cache:',histKeys.map(k=>k.slice(0,7)).filter((v,i,a)=>a.indexOf(v)===i).sort().join(', ')||'(vazio)','precisaReSyncAno:',precisaReSyncAno);
     if(precisaReSyncAno) localStorage.removeItem('slj_hist_sync');
     const ultimaHistSync2=parseInt(localStorage.getItem('slj_hist_sync')||'0');
     const primeiraVez=ultimaHistSync2===0||Object.keys(historico).length===0;
-    console.log('[hist] primeiraVez:',primeiraVez,'diff min:',(agora2-ultimaHistSync2)/60000);
     if(primeiraVez||agora2-ultimaHistSync2>600000){
-      console.log('[hist] iniciando fetch desde',noventaDiasAtras,'até',ontemKey);
       // Buscar histórico em partes para superar limite de 1000 do Supabase
       const selectH='id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto';
       const baseQ=`?data=lt.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=500&select=${selectH}`;
@@ -2734,15 +2731,32 @@ async function sincronizar(){
         sbGet('pedidos',baseQ+'&offset=2000'),
       ]);
       const dbH=[...(dbH1||[]),...(dbH2||[]),...(dbH3||[]),...(dbH4||[]),...(dbH5||[])];
-      console.log('[hist] total pedidos buscados:',dbH.length,'meses únicos:',[...new Set(dbH.map(p=>p.data?.slice(0,7)))].sort().join(', '));
       localStorage.setItem('slj_hist_sync',agora2.toString());
       if(dbH!==null&&dbH.length>0){
         const novoHist={};
-        dbH.forEach(p=>{const dk=p.data||'sem-data';if(!novoHist[dk])novoHist[dk]=[];novoHist[dk].push(mapPedido(p));});
+        const mesLimite=new Date(hoje);mesLimite.setMonth(mesLimite.getMonth()-2);
+        const prefLimite=`${mesLimite.getFullYear()}-${String(mesLimite.getMonth()+1).padStart(2,'0')}`;
+        dbH.forEach(p=>{
+          const dk=p.data||'sem-data';
+          if(!novoHist[dk])novoHist[dk]=[];
+          const mp=mapPedido(p);
+          // Para meses antigos (>2 meses atrás): guardar versão leve sem foto/obs para economizar localStorage
+          if(dk.slice(0,7)<prefLimite){
+            novoHist[dk].push({id:mp.id,data:mp.data,total:mp.total,itens:mp.itens,pago:mp.pago,entregue:mp.entregue,cliente_nome:mp.cliente_nome,parceria:mp.parceria});
+          } else {
+            novoHist[dk].push(mp);
+          }
+        });
         historico=novoHist;
-        console.log('[hist] meses no historico após update:',Object.keys(historico).map(k=>k.slice(0,7)).filter((v,i,a)=>a.indexOf(v)===i).sort().join(', '));
-        // Salvar no localStorage para disponibilidade imediata no próximo carregamento
-        lsave('slj_hist_bk',historico);
+        // Salvar no localStorage — versão compacta para evitar estouro do limite 5MB
+        try{
+          localStorage.setItem('slj_hist_bk',JSON.stringify(historico));
+        }catch(e){
+          // Se ainda estoura, salvar só últimos 3 meses no cache (histórico completo fica só em memória)
+          const hist3m={};
+          Object.keys(historico).filter(k=>k>=prefLimite).forEach(k=>hist3m[k]=historico[k]);
+          try{localStorage.setItem('slj_hist_bk',JSON.stringify(hist3m));}catch{}
+        }
         // Re-renderizar o dashboard com dados atualizados (histórico completo do ano)
         renderDash();
       }
