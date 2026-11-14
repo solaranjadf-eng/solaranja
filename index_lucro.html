@@ -2706,11 +2706,16 @@ async function sincronizar(){
     // Busca desde 1º de janeiro do ano atual para o gráfico anual ficar completo
     const anoAtualHist=hoje.getFullYear();
     const noventaDiasAtras=`${anoAtualHist}-01-01`;
-    // Forçar re-sync se o histórico não cobre janeiro do ano atual
+    // Forçar re-sync se o histórico não cobre julho do ano atual (mês de início)
     const histKeys=Object.keys(historico);
-    const cobreJaneiro=histKeys.some(k=>k.startsWith(`${anoAtualHist}-01`));
-    const temHistorico=histKeys.length>0;
-    const primeiraVez=ultimaHistSync===0||!temHistorico||(temHistorico&&!cobreJaneiro);
+    const anoAtualStr=String(anoAtualHist);
+    const cobreAnoAtual=histKeys.some(k=>k.startsWith(anoAtualStr));
+    // Se tem dados do ano mas não cobre mais de 4 meses atrás, re-sync
+    const mesAtualNum=hoje.getMonth()+1; // 1-12
+    const mesMinEsperado=Math.max(1,mesAtualNum-5);
+    const mesMaisAntigoHist=histKeys.filter(k=>k.startsWith(anoAtualStr)).map(k=>parseInt(k.slice(5,7))).sort((a,b)=>a-b)[0]||99;
+    const precisaReSyncAno=cobreAnoAtual&&mesMaisAntigoHist>mesMinEsperado;
+    const primeiraVez=ultimaHistSync===0||Object.keys(historico).length===0||precisaReSyncAno;
     if(primeiraVez||agora2-ultimaHistSync>600000){
       // Buscar histórico em partes para superar limite de 1000 do Supabase
       const selectH='id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto';
