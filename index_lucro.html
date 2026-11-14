@@ -872,6 +872,18 @@ a{color:var(--orange);text-decoration:none}
   </div>
 </main>
 <main class="page active" id="page-pedido">
+  <!-- LANÇAMENTO RÁPIDO POR TEXTO -->
+  <div class="card" style="margin-bottom:10px">
+    <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">⚡ Lançamento rápido</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Ex: <em>30 de 1L e 30 de 300ml / Paróquia Santuário Santo Antônio</em></div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="lancamento-rapido" placeholder="qtd + tamanho / cliente..." style="flex:1;height:38px;padding:0 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text)" onkeydown="if(event.key==='Enter')interpretarLancamentoRapido()">
+      <button class="btn btn-primary" onclick="interpretarLancamentoRapido()" style="height:38px;padding:0 16px;white-space:nowrap">Lançar</button>
+    </div>
+    <div id="lancamento-rapido-preview" style="display:none;margin-top:8px;padding:8px 10px;background:var(--green-bg,#f0fdf4);border:1px solid var(--green,#22c55e);border-radius:8px;font-size:12px;color:var(--text)"></div>
+    <div id="lancamento-rapido-erro" style="display:none;margin-top:6px;font-size:12px;color:#c00"></div>
+  </div>
+
   <div class="search-wrap"><span class="si">⊙</span><input type="search" id="busca" placeholder="Buscar por nome ou CNPJ..." oninput="filtrar()" autocomplete="off"></div>
   <p class="sec-label">Selecionar cliente</p>
   <div id="client-list"></div>
@@ -10438,6 +10450,123 @@ async function emitirNFeCliente(){
     toast('Erro ao gerar NF-e.');
     console.error(e);
   }
+}
+
+// ── Lançamento rápido por texto ──
+function interpretarLancamentoRapido(){
+  const raw=(document.getElementById('lancamento-rapido').value||'').trim();
+  const previewEl=document.getElementById('lancamento-rapido-preview');
+  const erroEl=document.getElementById('lancamento-rapido-erro');
+  previewEl.style.display='none';
+  erroEl.style.display='none';
+  if(!raw){erroEl.textContent='Digite o pedido.';erroEl.style.display='block';return;}
+
+  // ── Separar quantidades do cliente ──
+  // Aceita separadores: "/" | "para" | "pra" | " - " | " — " ou o nome ao final sem separador
+  // Ex: "30 de 1L e 30 de 300ml / Paróquia Santo Antônio"
+  //     "Paróquia Santo Antônio: 30 1L 30 300ml"
+  //     "30 garrafa de 1L - Santo Antônio"
+  let parteQtd='', parteCli='';
+  const sepMatch=raw.match(/^(.*?)(?:\/|(?:\s+para\s+)|(?:\s+pra\s+)|(?:\s+-\s+)|(?:\s+—\s+))(.+)$/i);
+  if(sepMatch){
+    // Verifica qual lado tem números (esse é o lado das qtds)
+    const a=sepMatch[1].trim(), b=sepMatch[2].trim();
+    if(/\d/.test(a)){parteQtd=a;parteCli=b;}
+    else{parteQtd=b;parteCli=a;}
+  } else {
+    // Sem separador — tenta pegar nome no início (antes dos números) ou no final
+    const mInicio=raw.match(/^([^\d]+?)\s+(\d.*)$/);
+    if(mInicio){parteCli=mInicio[1].trim();parteQtd=mInicio[2].trim();}
+    else{
+      // Número no início, nome no final
+      const mFinal=raw.match(/^(\d[^a-zA-ZÀ-ú]*(?:\d[^a-zA-ZÀ-ú]*)*)\s+([a-zA-ZÀ-ú].+)$/);
+      if(mFinal){parteQtd=mFinal[1].trim();parteCli=mFinal[2].trim();}
+      else{parteQtd=raw;parteCli='';}
+    }
+  }
+
+  // ── Mapear abreviações de tamanho ──
+  const tamMap={
+    'copo200ml':'copo200ml','copo':'copo200ml',
+    '200ml':'200ml','200':'200ml',
+    '300ml':'300ml','300':'300ml',
+    '500ml':'500ml','500':'500ml',
+    '1l':'1L','1lt':'1L','1litro':'1L','1ltr':'1L','litro':'1L','1l':'1L',
+    '5l':'5L','5lt':'5L','5litros':'5L','5ltr':'5L',
+    'garrafa':'1L','garrafao':'5L','garrafão':'5L'
+  };
+
+  // ── Extrair pares quantidade + tamanho ──
+  // Padrões: "30 de 1L", "30 1L", "1L: 30", "30x1L"
+  const qtdsEncontradas={};
+  const reItem=/(\d+)\s*(?:de\s+|x\s*)?(\w+)|(\w+)\s*:\s*(\d+)/gi;
+  let m;
+  const parteQtdNorm=parteQtd.toLowerCase().replace(/\s+/g,' ');
+  while((m=reItem.exec(parteQtdNorm))!==null){
+    let qtd,tam;
+    if(m[1]){qtd=parseInt(m[1]);tam=m[2].toLowerCase();}
+    else{qtd=parseInt(m[4]);tam=m[3].toLowerCase();}
+    const tamKey=tamMap[tam];
+    if(tamKey&&qtd>0) qtdsEncontradas[tamKey]=(qtdsEncontradas[tamKey]||0)+qtd;
+  }
+
+  if(!Object.keys(qtdsEncontradas).length){
+    erroEl.textContent='Não consegui identificar as quantidades. Ex: "30 de 1L e 30 de 300ml".';
+    erroEl.style.display='block';return;
+  }
+
+  // ── Encontrar cliente ──
+  let clienteEncontrado=null;
+  if(parteCli){
+    const q=parteCli.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+    // Busca por similaridade: score = palavras do input que batem no nome
+    let melhorScore=0;
+    clientes.forEach(c=>{
+      const nome=c.nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+      // Score exato parcial
+      if(nome.includes(q)){const sc=q.length/nome.length;if(sc>melhorScore){melhorScore=sc;clienteEncontrado=c;}}
+      // Score por palavras
+      const palavras=q.split(/\s+/).filter(p=>p.length>2);
+      const hits=palavras.filter(p=>nome.includes(p)).length;
+      const sc=hits/Math.max(palavras.length,1);
+      if(sc>melhorScore){melhorScore=sc;clienteEncontrado=c;}
+    });
+    if(melhorScore<0.3){clienteEncontrado=null;}
+  }
+
+  // ── Montar preview ──
+  const linhasQtd=Object.entries(qtdsEncontradas).map(([t,q])=>`<strong>${q}×</strong> ${TL[t]||t}`).join(', ');
+  const nomeCliente=clienteEncontrado?clienteEncontrado.nome:`<span style="color:#c00">❓ "${parteCli}" — não encontrado</span>`;
+  previewEl.innerHTML=`👤 ${nomeCliente}<br>📦 ${linhasQtd}`;
+  previewEl.style.display='block';
+
+  if(!clienteEncontrado){
+    erroEl.textContent='Cliente não encontrado. Verifique o nome ou selecione manualmente abaixo.';
+    erroEl.style.display='block';
+    // Preenche busca com o que digitou para facilitar
+    if(parteCli){document.getElementById('busca').value=parteCli;filtrar();}
+    return;
+  }
+
+  // ── Selecionar cliente e preencher quantidades ──
+  escolher(clienteEncontrado.id);
+  // Aguarda render e preenche qtds via objeto interno
+  setTimeout(()=>{
+    Object.entries(qtdsEncontradas).forEach(([tam,qtd])=>{
+      const key=precoKey(tam,saborAtualPedido);
+      // Suporte a preço legado (laranja sem sabor)
+      const p=clienteEncontrado.precos[key]||(saborAtualPedido==='laranja'?clienteEncontrado.precos[tam]:null);
+      if(p&&p>0){
+        qtds[key]=qtd;
+        const el=document.getElementById('q-'+tam);
+        if(el) el.textContent=qtd;
+      }
+    });
+    atualizarResumo();
+    document.getElementById('lancamento-rapido').value='';
+    previewEl.style.display='none';
+    toast('✅ Pedido preenchido para '+clienteEncontrado.nome);
+  },200);
 }
 
 // Drag & Drop cobrancas
