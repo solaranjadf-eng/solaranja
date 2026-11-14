@@ -2946,7 +2946,7 @@ async function sincronizar(){
         if(!t) await blingRefreshToken().catch(()=>{});
       }
     })();
-    renderClienteList();atualizarBadges();verificarAlertasEstoque();verificarAniversarios();
+    renderClienteList();atualizarBadges();verificarAlertasEstoque();verificarAniversarios();verificarAlertasVencimento();
     TAMS.forEach(t=>{const el=document.getElementById('min-'+t);if(el&&estMinimos[t]>0)el.value=estMinimos[t];});
     // Se entregador, atualizar rota
     if(perfilAtual==='entregador') renderRota();
@@ -10650,7 +10650,6 @@ function salvarDiaVencimento(id,val){
 
 function verificarAlertasVencimento(){
   const el=document.getElementById('alerta-vencimento-cob');
-  if(!el) return;
   const diaHoje=hoje.getDate();
   const alertas=[];
   cobrancas.filter(c=>c.ativo).forEach(c=>{
@@ -10661,9 +10660,7 @@ function verificarAlertasVencimento(){
       else if(diff>0&&diff<=3) alertas.push({nome:c.nome,dia,tipo:'breve',diff});
     });
   });
-  if(!alertas.length){el.innerHTML='';return;}
-  alertas.sort((a,b)=>a.dia-b.dia);
-  el.innerHTML=alertas.map(a=>{
+  const html=alertas.length?alertas.sort((a,b)=>a.dia-b.dia).map(a=>{
     const cor=a.tipo==='hoje'?'var(--red)':'var(--orange)';
     const bg=a.tipo==='hoje'?'var(--red-bg)':'#FFF3CD';
     const border=a.tipo==='hoje'?'var(--red)':'#FBBF24';
@@ -10671,7 +10668,21 @@ function verificarAlertasVencimento(){
       ?'🔴 <strong>HOJE dia '+a.dia+'</strong> — Gerar boleto/NF para <strong>'+a.nome+'</strong>'
       :'⚠ Em <strong>'+a.diff+' dia'+(a.diff>1?'s':'')+'</strong> (dia '+a.dia+') — Gerar boleto/NF para <strong>'+a.nome+'</strong>';
     return '<div style="background:'+bg+';border:1px solid '+border+';border-radius:var(--radius);padding:10px 14px;margin-bottom:6px;font-size:13px;color:'+cor+'">'+msg+'</div>';
-  }).join('');
+  }).join(''):'';
+  if(el) el.innerHTML=html;
+  // Também mostra no dashboard (início)
+  const dash=document.getElementById('dash-alertas');
+  if(dash){
+    // Remove alertas de cobrança anteriores e adiciona novos no topo
+    const existing=dash.querySelector('.dash-cob-alertas');
+    if(existing) existing.remove();
+    if(html){
+      const wrap=document.createElement('div');
+      wrap.className='dash-cob-alertas';
+      wrap.innerHTML=html;
+      dash.prepend(wrap);
+    }
+  }
 }
 
 // ── DIARISTAS ────────────────────────────────────────────────────────────────
