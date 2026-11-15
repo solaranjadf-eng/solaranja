@@ -11381,15 +11381,32 @@ function colarNorm(t){
   let x=String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
   x=x.replace(/[^a-z0-9 ]+/g,' ');
   const mapa={pad:'padaria',h:'hotel',rest:'restaurante',conj:'conjunto',nac:'nacional',shop:'shopping',b:'brasilia',e:'escola',hotel:'hotel',hoteis:'hotel',nobiles:'nobile',cafe:'cafe'};
-  return x.split(/\s+/).filter(Boolean).map(w=>mapa[w]||w);
+  const tokens=x.split(/\s+/).filter(Boolean).map(w=>mapa[w]||w);
+  // Expandir tokens compostos colados: "bhotel"→["bhotel","hotel"], "padsaojoao"→["padsaojoao","padaria","saojoao"]
+  const expandido=[];
+  tokens.forEach(w=>{
+    expandido.push(w);
+    // se tem palavra conhecida embutida, adiciona ela separada
+    const palavras=['hotel','padaria','restaurante','escola','mercado','supermercado','hospital','clinica','lanchonete','cafeteria','shopping','farma','farm','bar','brasilia','goiania'];
+    for(const p of palavras){
+      if(w!==p&&w.includes(p))expandido.push(p);
+    }
+  });
+  return [...new Set(expandido)];
 }
 function colarScore(qTok,cli){
   const cand=[...new Set([...(colarNorm(cli.nome)),...(colarNorm(cli.apelido||''))])];
   if(!qTok.length||!cand.length)return 0;
-  const cmp=(a,b)=>a===b||(a.length>=4&&b.length>=4&&(a.startsWith(b)||b.startsWith(a)));
+  // nomeCompleto = string única para busca de substring (ex: "hotel bh ltda")
+  const nomeCompleto=cand.join(' ');
+  const queryCompleta=qTok.join(' ');
+  // match exato ou prefixo/sufixo entre tokens
+  const cmp=(a,b)=>a===b||(a.length>=3&&b.length>=3&&(a.startsWith(b)||b.startsWith(a)||a.includes(b)||b.includes(a)));
   const hit=qTok.filter(q=>cand.some(c=>cmp(q,c))).length;
   const hit2=cand.filter(c=>qTok.some(q=>cmp(q,c))).length;
-  return (hit/qTok.length)*0.7+(hit2/cand.length)*0.3;
+  // bônus: query inteira aparece como substring no nome completo (ex: "bhotel" em "brasilia hotel")
+  const bonus=nomeCompleto.includes(queryCompleta)||queryCompleta.split(' ').every(q=>nomeCompleto.includes(q))?0.15:0;
+  return Math.min(1,(hit/qTok.length)*0.65+(hit2/cand.length)*0.25+bonus);
 }
 function colarTam(t){
   t=String(t).toLowerCase().replace(/\s+/g,'');
