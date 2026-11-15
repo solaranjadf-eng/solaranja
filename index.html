@@ -11654,6 +11654,7 @@ function colarRender(){
         ${l.estado==='ok'?'':locSel}
         <div style="font-size:12px;margin-top:3px"><b>${cobEsc(itensTxt)}</b>${l.cli?' · '+moeda(total):''}</div>
         ${aviso}${estadoTxt}
+        ${l.estado==='ok'?'':`<input type="text" placeholder="Observação (opcional)" value="${cobEsc(l.obs||'')}" oninput="colarLinhas[${i}].obs=this.value" ${colarLancando?'disabled':''} style="margin-top:5px;width:100%;padding:4px 7px;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text3);background:var(--bg2);box-sizing:border-box">`}
       </div></div>`;}).join('');
   colarResumo();
 }
@@ -11690,7 +11691,10 @@ async function colarLancar(){
       const todoBrinde=l.itens.length>0&&l.itens.every(x=>x.brinde);
       const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
       const numeroPedido=await getNextNumeroPedido();
-      const payload={cliente_id:cli.id,cliente_nome:cli.nome,cnpj:cli.cnpj,tel:cli.tel||'',hora,obs:(l.pago?'PAGO':'')+(l.itens.some(x=>x.brinde)&&!todoBrinde?(l.pago?' · ':'')+'Contém brinde':''),itens,total,precos:cli.precos,entregue:false,hora_entrega:null,data:dataKey,pago:todoBrinde,brinde:todoBrinde,foto:null,numero_pedido:numeroPedido,local_entrega:loc||null,troca:false,parceria:false,itens_troca:null};
+      const obsBase=(l.pago?'PAGO':'')+(l.itens.some(x=>x.brinde)&&!todoBrinde?(l.pago?' · ':'')+'Contém brinde':'');
+      const obsExtra=l.obs?l.obs.trim():'';
+      const obsFinal=[obsBase,obsExtra].filter(Boolean).join(' · ');
+      const payload={cliente_id:cli.id,cliente_nome:cli.nome,cnpj:cli.cnpj,tel:cli.tel||'',hora,obs:obsFinal,itens,total,precos:cli.precos,entregue:false,hora_entrega:null,data:dataKey,pago:todoBrinde,brinde:todoBrinde,foto:null,numero_pedido:numeroPedido,local_entrega:loc||null,troca:false,parceria:false,itens_troca:null};
       let res;
       try{res=await sbPost('pedidos',[payload]);}catch(e1){const {parceria:_p,brinde:_b,...sem}=payload;try{res=await sbPost('pedidos',[sem]);}catch(e2){throw e1;}}
       const ped=Array.isArray(res)?res[0]:res;
