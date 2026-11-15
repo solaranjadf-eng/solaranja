@@ -8568,6 +8568,15 @@ function iniciarSistema(){
   // Carregar histórico do cache local — dados ficam disponíveis imediatamente
   const histCache=load('slj_hist_bk',{});
   if(Object.keys(histCache).length>0) historico=histCache;
+  // Se o cache não cobre junho do ano atual, limpar tudo e forçar re-fetch completo
+  const _anoAtualStr=String(new Date().getFullYear());
+  const _mesesCache=Object.keys(historico).filter(k=>k.startsWith(_anoAtualStr)).map(k=>parseInt(k.slice(5,7)));
+  const _mesInicioEsperado=6; // começamos em junho
+  if(_mesesCache.length===0||Math.min(..._mesesCache)>_mesInicioEsperado){
+    historico={};
+    localStorage.removeItem('slj_hist_bk');
+    localStorage.removeItem('slj_hist_sync');
+  }
   const abaAtiva=localStorage.getItem('slj_aba_ativa')||'dash';
   sincronizar().finally(()=>{
     document.getElementById('loading').classList.add('hidden');
