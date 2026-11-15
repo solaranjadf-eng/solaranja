@@ -3615,13 +3615,15 @@ function renderGraficoDash(lista){
       });
       _renderGraficoMensal(fatsMesCache);
 
-      // 2) Buscar totais do ano direto do banco — query leve (só data+total, sem itens/obs/foto)
-      sbGet('pedidos',`?data=gte.${anoAtual}-01-01&data=lte.${hojeKey}&select=data,total&limit=5000`).then(rows=>{
-        if(!rows||!rows.length)return;
-        const fatsMesBanco=meses.map((_,i)=>{
-          const mes=String(i+1).padStart(2,'0');
-          return rows.filter(p=>p.data&&p.data.startsWith(`${anoAtual}-${mes}`)).reduce((s,p)=>s+(p.total||0),0);
-        });
+      // 2) Buscar soma por mês direto do banco — usa agregação nativa do PostgREST (sem limite de linhas)
+      Promise.all(meses.map((_,i)=>{
+        const mes=String(i+1).padStart(2,'0');
+        const de=`${anoAtual}-${mes}-01`;
+        const mesProx=i===11?`${parseInt(anoAtual)+1}-01-01`:`${anoAtual}-${String(i+2).padStart(2,'0')}-01`;
+        // select=total.sum() — PostgREST retorna [{sum: valor}] sem limite de linhas
+        return fetch(`${SB_URL}/pedidos?data=gte.${de}&data=lt.${mesProx}&select=total.sum()`,{headers:{...HDR,'Prefer':'count=none'}})
+          .then(r=>r.json()).then(rows=>Array.isArray(rows)&&rows[0]?parseFloat(rows[0].sum||rows[0]['sum(total)']||0):0).catch(()=>0);
+      })).then(fatsMesBanco=>{
         _renderGraficoMensal(fatsMesBanco);
       }).catch(()=>{});
     }
