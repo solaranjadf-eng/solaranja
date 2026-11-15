@@ -3574,52 +3574,56 @@ function renderGraficoDash(lista){
     }
   }catch(e){}
 
-  // Gráfico 2: Faturamento mensal do ano
+  // Gráfico 2: Faturamento mensal do ano — busca direto do banco (não depende do cache)
   try{
     const ctx2=document.getElementById('chart-fat-mensal')?.getContext('2d');
     if(ctx2){
       if(window._chartFatMensal) window._chartFatMensal.destroy();
       const anoAtual=hojeKey.slice(0,4);
       const meses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-      const fatsMes=meses.map((_,i)=>{
+      const mesAtualIdx=parseInt(hojeKey.slice(5,7))-1;
+
+      const lbl=document.getElementById('chart-ano-label');
+      if(lbl) lbl.textContent=anoAtual;
+      const cores=meses.map((_,i)=>i===mesAtualIdx?'rgba(224,122,47,.95)':'rgba(224,122,47,.4)');
+
+      // Função para desenhar o gráfico com array de 12 valores
+      const _renderGraficoMensal=(fatsMes)=>{
+        if(window._chartFatMensal) window._chartFatMensal.destroy();
+        // Badge crescimento % (mês atual vs anterior)
+        const diaAtual=parseInt(hojeKey.slice(8,10));
+        const dataMesAnt=new Date(hoje);dataMesAnt.setMonth(dataMesAnt.getMonth()-1);
+        const prefixMesAnt=`${dataMesAnt.getFullYear()}-${String(dataMesAnt.getMonth()+1).padStart(2,'0')}`;
+        const fatMesAnt=todos.filter(p=>p.data&&p.data.startsWith(prefixMesAnt)&&parseInt(p.data.slice(8,10))<=diaAtual).reduce((s,p)=>s+p.total,0);
+        const fatMesAtual=fatsMes[mesAtualIdx];
+        const badgeEl=document.getElementById('dash-crescimento-badge');
+        if(badgeEl){
+          if(fatMesAnt>0){const pct=((fatMesAtual-fatMesAnt)/fatMesAnt*100);const pos=pct>=0;badgeEl.textContent=(pos?'▲ +':'▼ ')+Math.abs(pct).toFixed(1)+'% vs mês anterior';badgeEl.style.background=pos?'var(--green-bg)':'var(--red-bg)';badgeEl.style.color=pos?'var(--green)':'var(--red)';}
+          else badgeEl.textContent='';
+        }
+        window._chartFatMensal=new Chart(ctx2,{
+          type:'bar',
+          data:{labels:meses,datasets:[{label:'Faturamento',data:fatsMes,backgroundColor:cores,borderRadius:4}]},
+          options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'R$ '+c.raw.toLocaleString('pt-BR',{minimumFractionDigits:2})}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR')}}}}
+        });
+      };
+
+      // 1) Renderizar imediatamente com o que está em memória (cache)
+      const fatsMesCache=meses.map((_,i)=>{
         const mes=String(i+1).padStart(2,'0');
         return todos.filter(p=>p.data&&p.data.startsWith(`${anoAtual}-${mes}`)).reduce((s,p)=>s+p.total,0);
       });
-      const mesAtualIdx=parseInt(hojeKey.slice(5,7))-1;
-      const cores=meses.map((_,i)=>i===mesAtualIdx?'rgba(224,122,47,.95)':'rgba(224,122,47,.4)');
-      const lbl=document.getElementById('chart-ano-label');
-      if(lbl) lbl.textContent=anoAtual;
+      _renderGraficoMensal(fatsMesCache);
 
-      // Crescimento % — compara faturamento do mês atual (até hoje) vs mesmo período do mês anterior
-      const diaAtual=parseInt(hojeKey.slice(8,10));
-      const dataMesAnterior=new Date(hoje);dataMesAnterior.setMonth(dataMesAnterior.getMonth()-1);
-      const anoMesAnt=dataMesAnterior.getFullYear();
-      const mesMesAnt=String(dataMesAnterior.getMonth()+1).padStart(2,'0');
-      const prefixMesAnt=`${anoMesAnt}-${mesMesAnt}`;
-      const fatMesAnteriorAteHoje=todos.filter(p=>{
-        if(!p.data||!p.data.startsWith(prefixMesAnt))return false;
-        const diaP=parseInt(p.data.slice(8,10));
-        return diaP<=diaAtual;
-      }).reduce((s,p)=>s+p.total,0);
-      const fatMesAtualAteHoje=fatsMes[mesAtualIdx];
-      const badgeEl=document.getElementById('dash-crescimento-badge');
-      if(badgeEl){
-        if(fatMesAnteriorAteHoje>0){
-          const pct=((fatMesAtualAteHoje-fatMesAnteriorAteHoje)/fatMesAnteriorAteHoje*100);
-          const positivo=pct>=0;
-          badgeEl.textContent=(positivo?'▲ +':'▼ ')+Math.abs(pct).toFixed(1)+'% vs mês anterior';
-          badgeEl.style.background=positivo?'var(--green-bg)':'var(--red-bg)';
-          badgeEl.style.color=positivo?'var(--green)':'var(--red)';
-        }else{
-          badgeEl.textContent='';
-        }
-      }
-
-      window._chartFatMensal=new Chart(ctx2,{
-        type:'bar',
-        data:{labels:meses,datasets:[{label:'Faturamento',data:fatsMes,backgroundColor:cores,borderRadius:4}]},
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'R$ '+c.raw.toLocaleString('pt-BR',{minimumFractionDigits:2})}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'R$'+v.toLocaleString('pt-BR')}}}}
-      });
+      // 2) Buscar totais do ano direto do banco — query leve (só data+total, sem itens/obs/foto)
+      sbGet('pedidos',`?data=gte.${anoAtual}-01-01&data=lte.${hojeKey}&select=data,total&limit=5000`).then(rows=>{
+        if(!rows||!rows.length)return;
+        const fatsMesBanco=meses.map((_,i)=>{
+          const mes=String(i+1).padStart(2,'0');
+          return rows.filter(p=>p.data&&p.data.startsWith(`${anoAtual}-${mes}`)).reduce((s,p)=>s+(p.total||0),0);
+        });
+        _renderGraficoMensal(fatsMesBanco);
+      }).catch(()=>{});
     }
   }catch(e){}
 
