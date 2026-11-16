@@ -10130,8 +10130,7 @@ async function gerarBoletoBB(){
   if(ehSanMarco){
     const diaHoje=hoje.getDate();
     if(diaHoje===15){
-      // Vencimento = dia 24 do próximo mês
-      venc.setMonth(venc.getMonth()+1);
+      // Vencimento = dia 24 do mesmo mês
       venc.setDate(24);
     } else if(diaHoje>=30){
       // Vencimento = dia 9 do próximo mês
