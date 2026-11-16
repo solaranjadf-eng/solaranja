@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-e)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-f)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11878,6 +11878,7 @@ async function bbDetalhe(nosso){
     L('Vencimento',escLoc(x.vencimento))+L('Situação','<span style="color:'+(venc?'#b42318':'#067647')+'">'+(venc?'🔴 Vencido':'🟢 A vencer')+' · '+dias+'</span>')+
     (x.estado&&x.codEstado!==1?L('Situação no BB',escLoc(x.estado)):'')+'</div>'+
     '<div id="bbd-msg"></div><div style="display:flex;gap:8px;justify-content:space-between;margin-top:16px;flex-wrap:wrap"><button class="btn btn-outline" onclick="bbAbrirLista(window._bbD,window._bbAviso,true)">← Voltar à lista</button>'+
+    (perfilAtual==='admin'&&venc?'<button id="bbd-novo" onclick="bbNovoBoletoForm(\''+escLoc(String(x.nosso))+'\')" style="font-size:13px;color:#fff;background:var(--orange,#E87722);border:none;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:700">🔁 Gerar novo boleto</button>':'')+
     (perfilAtual==='admin'?'<button id="bbd-btn" onclick="bbCancelarPedirConfirmacao(\''+escLoc(String(x.nosso))+'\')" style="font-size:13px;color:#b42318;background:#fff;border:1px solid #f1b5b0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:700">🚫 Cancelar este boleto</button>':'')+'</div></div>';
   try{
     const nn=String(x.nosso).replace(/\D/g,'');
@@ -11890,6 +11891,77 @@ async function bbDetalhe(nosso){
     }
   }catch(err){const el=document.getElementById('bbd-emissao');if(el)el.innerHTML=L('Data de emissão','—');}
 }
+
+// ── Gerar novo boleto (mesmo valor, nova data) a partir de um boleto vencido ──
+function bbNovoBoletoForm(nosso){
+  const f=bbAcharBoleto(nosso);if(!f)return;const x=f.x;
+  const msg=document.getElementById('bbd-msg');
+  ['bbd-btn','bbd-novo'].forEach(i=>{const b=document.getElementById(i);if(b)b.style.display='none';});
+  const d=new Date();d.setDate(d.getDate()+3);
+  const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const max=new Date();max.setDate(max.getDate()+30);
+  const maxIso=max.getFullYear()+'-'+String(max.getMonth()+1).padStart(2,'0')+'-'+String(max.getDate()).padStart(2,'0');
+  msg.innerHTML='<div style="margin-top:14px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:10px;padding:12px 14px">'+
+    '<div style="font-size:14px;font-weight:700;color:#9A3412">🔁 Gerar novo boleto</div>'+
+    '<div style="font-size:12px;color:#7C2D12;margin:6px 0 10px">Cliente: <b>'+escLoc(x.cliente)+'</b><br>Valor: <b>'+moeda(Number(x.valor||0))+'</b> (igual ao boleto '+escLoc(String(x.nosso))+')</div>'+
+    '<label style="font-size:12px;font-weight:700;color:#7C2D12">Nova data de vencimento</label>'+
+    '<input type="date" id="bbn-venc" value="'+iso+'" min="'+new Date().toISOString().slice(0,10)+'" max="'+maxIso+'" style="display:block;width:100%;margin:4px 0 10px;padding:9px;border:1px solid #FDBA74;border-radius:8px;font-size:14px">'+
+    '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#7C2D12;cursor:pointer"><input type="checkbox" id="bbn-cancela" checked style="margin-top:2px"><span>Cancelar o boleto antigo ('+escLoc(String(x.nosso))+') depois de gerar o novo, para o cliente não pagar os dois.</span></label>'+
+    '<div id="bbn-erro" style="display:none;margin-top:8px;font-size:12px;color:#991B1B"></div>'+
+    '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button id="bbn-ok" onclick="bbNovoBoletoGerar(\''+escLoc(String(nosso))+'\')" style="background:var(--orange,#E87722);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer">Gerar novo boleto</button>'+
+    '<button onclick="bbDetalhe(\''+escLoc(String(nosso))+'\')" style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer">Voltar</button></div></div>';
+}
+async function bbNovoBoletoGerar(nosso){
+  const f=bbAcharBoleto(nosso);if(!f)return;const x=f.x;
+  const err=document.getElementById('bbn-erro'),btn=document.getElementById('bbn-ok');
+  const v=document.getElementById('bbn-venc').value;
+  err.style.display='none';
+  if(!v){err.style.display='block';err.textContent='Escolha a data de vencimento.';return;}
+  const [a,m,d]=v.split('-');const vencStr=d+'/'+m+'/'+a;
+  const dif=(new Date(a+'-'+m+'-'+d+'T12:00:00')-new Date())/86400000;
+  if(dif<-1||dif>30){err.style.display='block';err.textContent='Vencimento fora do permitido (hoje até 30 dias).';return;}
+  const cancelar=document.getElementById('bbn-cancela').checked;
+  if(!confirm('Gerar novo boleto de '+moeda(Number(x.valor||0))+' para '+x.cliente+' com vencimento em '+vencStr+(cancelar?' e cancelar o boleto antigo '+nosso:'')+'?'))return;
+  btn.disabled=true;btn.textContent='Gerando…';
+  try{
+    const nn=String(nosso).replace(/\D/g,'');
+    const r=await sbGet('cobranca_envios','?boleto_nosso_numero=in.('+nn+','+nn.padStart(10,'0')+')&order=created_at.desc&limit=1&select=*');
+    const env=(r||[])[0]||null;
+    const nz=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+    const cli=(env&&clientes.find(c=>String(c.id)===String(env.cliente_id)))||clientes.find(c=>nz(c.nome)===nz(x.cliente)||nz(c.apelido)===nz(x.cliente));
+    if(!cli)throw new Error('Cliente não encontrado no cadastro ('+x.cliente+').');
+    const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()];
+    const peds=((env&&env.pedidos_ids)||[]).map(id=>todos.find(p=>String(p.id)===String(id))).filter(Boolean);
+    const valor=Number(x.valor||0);
+    const b=await cobBoleto(cli,peds,valor,vencStr);
+    const id='reemit-'+Date.now();
+    try{await sbUps('cobranca_envios',[{id,cliente_id:String(cli.id),cliente_nome:cli.nome,pedidos_ids:(env&&env.pedidos_ids)||[],valor,vencimento:vencStr,
+      nfe_id:env?env.nfe_id:null,nfe_numero:env?env.nfe_numero:null,nfe_link:env?env.nfe_link:null,
+      boleto_nosso_numero:String(b.nossoNum),boleto_link:b.link||null,linha_digitavel:b.linha||null,email_para:env?env.email_para:null,
+      status:'boleto_ok',etapa:'reemissao do boleto '+nosso}]);}catch(e){console.warn('[reemissao]',e);}
+    let avisoCancel='';
+    if(cancelar){
+      try{const rc=await cobChamarFn('cancelar-boleto',{nosso:String(nosso),valor});
+        avisoCancel=(rc&&rc.success)?'<div style="color:#067647;margin-top:6px">✅ Boleto antigo '+escLoc(String(nosso))+' cancelado.</div>':'<div style="color:#B42318;margin-top:6px">⚠ O novo boleto foi gerado, mas o antigo NÃO foi cancelado: '+escLoc((rc&&rc.erro)||'erro')+'. Cancele-o manualmente.</div>';
+      }catch(e){avisoCancel='<div style="color:#B42318;margin-top:6px">⚠ O novo boleto foi gerado, mas o antigo NÃO foi cancelado ('+escLoc(e.message||String(e))+').</div>';}
+    }
+    try{localStorage.removeItem('slj_bb_resumo');}catch(e){}
+    window._bbNovo={cli,b,valor,vencStr,peds};
+    const msg=document.getElementById('bbd-msg');
+    msg.innerHTML='<div style="margin-top:14px;background:#ECFDF3;border:1px solid #86EFAC;border-radius:10px;padding:12px 14px;font-size:13px;color:#14532D">'+
+      '<div style="font-size:14px;font-weight:700">✅ Novo boleto '+escLoc(String(b.nossoNum))+' gerado</div>'+
+      '<div style="margin-top:6px">Valor <b>'+moeda(valor)+'</b> · vencimento <b>'+vencStr+'</b></div>'+
+      (b.linha?'<div style="margin-top:6px;font-size:12px;word-break:break-all">Linha digitável: <b>'+escLoc(b.linha)+'</b></div>':'')+
+      avisoCancel+
+      '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button onclick="bbNovoBaixar()" style="background:#067647;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-weight:700;font-size:13px;cursor:pointer">⬇ Baixar PDF do boleto</button>'+
+      (b.linha?'<button onclick="navigator.clipboard.writeText(window._bbNovo.b.linha).then(()=>toast(\'Linha digitável copiada\'))" style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer">Copiar linha digitável</button>':'')+'</div></div>';
+    toast('✅ Novo boleto gerado.');
+  }catch(e){
+    btn.disabled=false;btn.textContent='Gerar novo boleto';
+    err.style.display='block';err.textContent='Não foi possível gerar. Nada foi alterado no boleto antigo. '+(e.message||String(e));
+  }
+}
+function bbNovoBaixar(){const n=window._bbNovo;if(!n)return;boletoBaixarPDF(n.cli,n.b,n.valor,n.vencStr,n.peds.map(p=>cobFmtData(p.data)).join(', '));}
 function bbCancelarPedirConfirmacao(nosso){
   const f=bbAcharBoleto(nosso);if(!f)return;const x=f.x;
   const msg=document.getElementById('bbd-msg');const btn=document.getElementById('bbd-btn');
