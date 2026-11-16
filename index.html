@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-h)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-i)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -7639,7 +7639,7 @@ let cobradosMap={}, cobradosTs=0;
 function cobradoBadge(p){
   const c=cobradosMap[String(p.id)];if(!c)return '';
   const dt=c.data?new Date(c.data).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
-  return `<div title="Este pedido já entrou numa cobrança anterior" style="margin-top:4px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap">🧾 JÁ COBRADO${c.nfe?' · NF '+c.nfe:''}${dt?' · '+dt:''}</div>`;
+  return `<div title="Este pedido já entrou numa cobrança anterior" style="margin-top:4px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap">🧾 JÁ COBRADO${c.nfe&&c.nfe!=='manual'?' · NF '+c.nfe:''}${dt?' · '+dt:''}${c.manual?' · manual <a onclick="finDesmarcarCobrado(\''+p.id+'\')" title="Remover a marcação" style="cursor:pointer;margin-left:4px">✕</a>':''}</div>`;
 }
 async function cobCarregarCobrados(forcar){
   if(!forcar&&Date.now()-cobradosTs<60000)return;
@@ -7649,11 +7649,41 @@ async function cobCarregarCobrados(forcar){
     const m={};
     (env||[]).forEach(e=>{
       if(!(e.nfe_numero||e.boleto_nosso_numero))return;
-      (e.pedidos_ids||[]).forEach(i=>{m[String(i)]={nfe:e.nfe_numero||'',data:e.enviado_em||e.created_at};});
+      (e.pedidos_ids||[]).forEach(i=>{m[String(i)]={nfe:e.nfe_numero||'',data:e.enviado_em||e.created_at,envId:e.id,manual:e.status==='manual'};});
     });
     const antes=JSON.stringify(cobradosMap);cobradosMap=m;
     if(antes!==JSON.stringify(m)){if(finCliSelecionado)renderExtratocliente();try{if(typeof renderFinanceiro==='function'&&document.getElementById('page-financeiro')&&document.getElementById('page-financeiro').classList.contains('active'))renderFinanceiro();}catch(e){}}
   }catch(e){}
+}
+async function finMarcarCobrados(){
+  const cbs=[...document.querySelectorAll('.fin-sel-ped:checked')];
+  if(!cbs.length){toast('Marque os pedidos na primeira coluna.');return;}
+  if(!finCliSelecionado)return;
+  const ids=cbs.map(c=>c.dataset.id).filter(i=>!cobradosMap[String(i)]);
+  if(!ids.length){toast('Esses pedidos já estão marcados como cobrados.');return;}
+  const nf=prompt('Marcar '+ids.length+' pedido(s) como JÁ COBRADO (nota fiscal já emitida).\n\nNúmero da nota fiscal (opcional, pode deixar em branco):');
+  if(nf===null)return;
+  const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()];
+  const valor=ids.reduce((t,i)=>{const p=todos.find(x=>String(x.id)===String(i));return t+(p?p.total||0:0);},0);
+  try{
+    await sbUps('cobranca_envios',[{id:'manual-'+Date.now(),cliente_id:String(finCliSelecionado.id),cliente_nome:finCliSelecionado.nome,pedidos_ids:ids.map(i=>isNaN(i)?i:Number(i)),valor,vencimento:null,
+      nfe_numero:(nf||'').trim()||'manual',status:'manual',etapa:'marcado manualmente',enviado_em:new Date().toISOString()}]);
+    toast('✓ '+ids.length+' pedido(s) marcado(s) como já cobrado(s).');
+    await cobCarregarCobrados(true);renderExtratocliente();
+  }catch(e){toast('Não foi possível salvar: '+String(e.message||e).slice(0,80));}
+}
+async function finDesmarcarCobrado(pid){
+  const c=cobradosMap[String(pid)];if(!c||!c.manual)return;
+  if(!confirm('Remover a marcação "já cobrado" deste pedido?'))return;
+  try{
+    const r=await sbGet('cobranca_envios','?id=eq.'+encodeURIComponent(c.envId)+'&select=id,pedidos_ids');
+    const e=(r||[])[0];if(!e)return;
+    const rest=(e.pedidos_ids||[]).filter(i=>String(i)!==String(pid));
+    if(rest.length)await sbPatch('cobranca_envios','?id=eq.'+encodeURIComponent(e.id),{pedidos_ids:rest});
+    else await sbDel('cobranca_envios','?id=eq.'+encodeURIComponent(e.id));
+    await cobCarregarCobrados(true);if(finCliSelecionado)renderExtratocliente();
+    toast('Marcação removida.');
+  }catch(err){toast('Não foi possível remover: '+String(err.message||err).slice(0,80));}
 }
 function renderExtratocliente(){
   if(!finCliSelecionado) return;
@@ -7681,6 +7711,7 @@ function renderExtratocliente(){
         Selecionar todos para o PDF
       </label>
       <span style="font-size:11px;color:var(--text3)">(marque os pedidos que deseja incluir no PDF)</span>
+      <button onclick="finMarcarCobrados()" title="Marca os pedidos selecionados como já cobrados (nota emitida fora do sistema)" style="margin-left:auto;font-size:11px;font-weight:700;color:#991B1B;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:6px;padding:5px 10px;cursor:pointer">🧾 Marcar selecionados como já cobrados</button>
     </div>
     <div style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:12px">
