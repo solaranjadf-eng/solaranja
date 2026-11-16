@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-i)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-j)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -3016,7 +3016,7 @@ async function sincronizar(){
       // Cobranças
       const dbCob=await sbGet('cobrancas','?order=created_at');
       if(dbCob&&dbCob.length>0){
-        cobrancas=dbCob.map(c=>({id:c.id,nome:c.nome||'',email:c.email||'',ativo:c.ativo!==false}));
+        cobrancas=dbCob.map(c=>({id:c.id,nome:c.nome||'',email:c.email||'',ativo:c.ativo!==false,clienteId:c.cliente_id||null}));
         lsave('slj_cobrancas',cobrancas);
       } else if(cobrancas.length>0){
         await sbUps('cobrancas',cobrancas.map(c=>({id:c.id,nome:c.nome,email:c.email,ativo:true})));
@@ -6740,8 +6740,7 @@ function renderAcompanhamento(){
       </td>`;
     }).join('');
     const bg=i%2===0?bg1:bg2;
-    const _nz=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
-    const _cli=clientes.find(c=>String(c.id)===String(a.clienteId))||clientes.find(c=>_nz(c.apelido||c.nome)===_nz(a.nome)||_nz(c.nome)===_nz(a.nome))||clientes.find(c=>_nz(a.nome)&&(_nz(c.nome).includes(_nz(a.nome))||_nz(a.nome).includes(_nz(c.nome))));
+    const _cli=cobAcharCliente(a.nome,a.clienteId);
     const _nomeHtml=_cli?`<a href="${location.pathname}?cliente=${encodeURIComponent(_cli.id)}" target="_blank" rel="noopener" title="Abrir financeiro deste cliente em outra aba" style="color:inherit;text-decoration:underline dotted;text-underline-offset:3px">${a.nome} ↗</a>`:a.nome;
     return`<tr style="background:${bg};border-bottom:1px solid var(--border)">
       <td ${_cli?`onclick="window.open('${location.pathname}?cliente=${encodeURIComponent(_cli.id)}','_blank')" title="Abrir financeiro deste cliente"`:''} style="padding:9px 12px;font-weight:600;color:${cor};position:sticky;left:0;background:${bg};${_cli?'cursor:pointer':''}">${_nomeHtml}</td>
@@ -6763,10 +6762,16 @@ function renderAcompanhamento(){
   }
 }
 
+function cobAcharCliente(nome,clienteId){
+  const nz=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  let k=clienteId?clientes.find(c=>String(c.id)===String(clienteId)):null;if(k)return k;
+  const n=nz(nome);if(!n)return null;
+  k=clientes.find(c=>nz(c.apelido)===n||nz(c.nome)===n);if(k)return k;
+  const cand=clientes.filter(c=>nz(c.nome).includes(n)||n.includes(nz(c.nome)));
+  return cand.length===1?cand[0]:null; // ambíguo ou sem correspondência: não adivinha (vincule em cobrancas.cliente_id)
+}
 function _nomeFinLink(c){
-  const nz=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
-  const n=nz(c.nome);
-  const cli=clientes.find(k=>String(k.id)===String(c.clienteId))||clientes.find(k=>nz(k.apelido||k.nome)===n||nz(k.nome)===n)||clientes.find(k=>n&&(nz(k.nome).includes(n)||n.includes(nz(k.nome))));
+  const cli=cobAcharCliente(c.nome,c.clienteId);
   if(!cli)return c.nome;
   return `<a href="${location.pathname}?cliente=${encodeURIComponent(cli.id)}" target="_blank" rel="noopener" draggable="false" title="Abrir financeiro deste cliente" style="color:inherit;text-decoration:underline dotted;text-underline-offset:3px">${c.nome} ↗</a>`;
 }
