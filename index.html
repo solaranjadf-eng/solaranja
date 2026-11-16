@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-g)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-h)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -10701,7 +10701,7 @@ function cobPedidosSel(){
   const cbs=[...document.querySelectorAll('.fin-sel-ped:checked')];
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const ids=new Set(cbs.map(c=>String(c.dataset.id)));
-  let base=cbs.length?todos.filter(p=>ids.has(String(p.id))):todos.filter(p=>p.entregue&&!p.pago&&!cobradosMap[String(p.id)]);
+  let base=cbs.length?todos.filter(p=>ids.has(String(p.id))):todos.filter(p=>p.entregue&&!p.pago);
   if(!cbs.length){const cc=cobCicloAtual(cli);if(cc&&cc.periodo)base=base.filter(p=>p.data>=cc.ini&&p.data<=cc.fim);}
   return base.filter(p=>String(p.clienteId)===String(cli.id)&&!p.troca&&!p.parceria).sort((a,b)=>a.data.localeCompare(b.data));
 }
