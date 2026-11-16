@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-d)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-e)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -3181,6 +3181,8 @@ function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.client
 const TAB_LABELS={'dash':'Início','pedido':'Novo Pedido','dia':'Do Dia','rota':'Rota','resumo':'Resumo','producao':'Produção','financeiro':'Financeiro','estoque':'Estoque','custos':'Custos','laranjas':'Laranjas','historico':'Histórico','ranking':'Ranking','clientes':'Clientes'};
 
 function setTab(t){
+  if(perfilAtual==='entregador')t='rota';
+  else if(perfilAtual==='gerente'&&typeof ABAS_GERENTE_TABS!=='undefined'&&!ABAS_GERENTE_TABS.includes(t))t='pedido';
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.sidebar-item').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.mobile-tab').forEach(b=>b.classList.remove('active'));
@@ -9113,6 +9115,7 @@ function iniciarSistemaEntregador(){
   pedidos=load('slj_ped_bk',[]);
   const cacheOntem=load('slj_ped_ontem_bk',[]);
   pedidosOntem=cacheOntem.filter(p=>p.data===ontemKey);
+  setTab('rota');
   sincronizar().finally(()=>{
     document.getElementById('loading').classList.add('hidden');
     setTab('rota');
