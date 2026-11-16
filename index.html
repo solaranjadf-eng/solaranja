@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-a)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-b)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -6761,6 +6761,13 @@ function renderAcompanhamento(){
   }
 }
 
+function _nomeFinLink(c){
+  const nz=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+  const n=nz(c.nome);
+  const cli=clientes.find(k=>String(k.id)===String(c.clienteId))||clientes.find(k=>nz(k.apelido||k.nome)===n||nz(k.nome)===n)||clientes.find(k=>n&&(nz(k.nome).includes(n)||n.includes(nz(k.nome))));
+  if(!cli)return c.nome;
+  return `<a href="${location.pathname}?cliente=${encodeURIComponent(cli.id)}" target="_blank" rel="noopener" draggable="false" title="Abrir financeiro deste cliente" style="color:inherit;text-decoration:underline dotted;text-underline-offset:3px">${c.nome} ↗</a>`;
+}
 function renderCobrancas(){
   try{lembCarregar();}catch(e){}
   const [ano,mesN]=cobMesVisivel.split('-').map(Number);
@@ -6809,7 +6816,7 @@ function renderCobrancas(){
 
     return`<tr draggable="true" data-id="${c.id}" ondragstart="cobDragStart(event,'${c.id}')" ondragover="cobDragOver(event)" ondrop="cobDrop(event,'${c.id}')" ondragend="cobDragEnd()" style="background:${i%2===0?'var(--white)':'var(--bg)'};border-bottom:1px solid var(--border);cursor:grab">
       <td style="padding:9px 12px;font-weight:600;color:var(--text);white-space:nowrap;position:sticky;left:0;background:${i%2===0?'var(--white)':'var(--bg)'}">
-        <span style="color:var(--text3);margin-right:6px;cursor:grab">⠿</span>${c.nome}
+        <span style="color:var(--text3);margin-right:6px;cursor:grab">⠿</span>${_nomeFinLink(c)}
       </td>
       <td style="padding:6px 8px;text-align:center">
         <input type="text" value="${(c.diasVencimento||[c.diaVencimento]).filter(Boolean).join(', ')}" placeholder="—" onchange="salvarDiaVencimento('${c.id}',this.value)" style="width:70px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px 6px;font-size:12px;text-align:center;background:${(c.diasVencimento||[]).length||(c.diaVencimento)?'#FFF3CD':'var(--bg)'}">
