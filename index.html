@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-b)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-c)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -7553,7 +7553,7 @@ function renderFinItem(p,dataKey){
     <div class="fin-meta"><strong style="color:var(--text);font-size:12px">📅 ${p.data?new Date(p.data+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}):'—'}</strong> · ${p.hora||'—'} · CNPJ ${p.cnpj||'—'}${p.numeroPedido?' · Pedido #'+p.numeroPedido:''}</div>
     <div class="tags-wrap" style="margin-top:6px">${(p.itens||[]).map(it=>`<span class="tag">${itemLabel(it)} × ${it.qtd}</span>`).join('')}</div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
-      <div class="fin-valor ${p.pago?'ok':''}">${moeda(p.total)}</div>
+      <div class="fin-valor ${p.pago?'ok':''}">${moeda(p.total)}</div>${cobradoBadge(p)}
       <div style="display:flex;gap:5px">
         ${p.entregue&&!p.pago&&!p.parceria&&!p.brinde?`<button class="psm psm-pago" onclick="marcarPagoHistorico(${p.id},'${dataKey}')">Marcar Pago</button>`:''}
         ${p.pago&&!p.brinde&&!p.parceria?`<span class="status-badge pago">✓ Pago</span>`:''}
@@ -7631,8 +7631,30 @@ function limparClienteFin(){
   document.getElementById('fin-cli-extrato').style.display = 'none';
 }
 
+// ── Pedidos já cobrados (NF/boleto emitidos) ───────────────────────────────
+let cobradosMap={}, cobradosTs=0;
+function cobradoBadge(p){
+  const c=cobradosMap[String(p.id)];if(!c)return '';
+  const dt=c.data?new Date(c.data).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'';
+  return `<div title="Este pedido já entrou numa cobrança anterior" style="margin-top:4px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;white-space:nowrap">🧾 JÁ COBRADO${c.nfe?' · NF '+c.nfe:''}${dt?' · '+dt:''}</div>`;
+}
+async function cobCarregarCobrados(forcar){
+  if(!forcar&&Date.now()-cobradosTs<60000)return;
+  cobradosTs=Date.now();
+  try{
+    const env=await sbGet('cobranca_envios','?order=created_at.asc&limit=1000&select=id,pedidos_ids,nfe_numero,boleto_nosso_numero,status,created_at,enviado_em');
+    const m={};
+    (env||[]).forEach(e=>{
+      if(!(e.nfe_numero||e.boleto_nosso_numero))return;
+      (e.pedidos_ids||[]).forEach(i=>{m[String(i)]={nfe:e.nfe_numero||'',data:e.enviado_em||e.created_at};});
+    });
+    const antes=JSON.stringify(cobradosMap);cobradosMap=m;
+    if(antes!==JSON.stringify(m)&&finCliSelecionado)renderExtratocliente();
+  }catch(e){}
+}
 function renderExtratocliente(){
   if(!finCliSelecionado) return;
+  cobCarregarCobrados();
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha];
   Object.values(historico).forEach(d=>d.forEach(p=>{if(!todos.find(x=>x.id===p.id))todos.push(p);}));
   const pedsCli = todos.filter(p=>p.clienteId===finCliSelecionado.id).sort((a,b)=>b.data.localeCompare(a.data));
@@ -7707,7 +7729,7 @@ function renderExtratocliente(){
                 <button onclick="desmarcarEntregueFinItem(${p.id})" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:3px;padding:2px 6px;cursor:pointer">↩ Desmarcar</button>
                </div>`
             : `<button onclick="toggleEntregueFinItem(${p.id})" style="font-size:11px;color:var(--od);background:var(--ol);border:1px solid rgba(224,122,47,.3);border-radius:3px;padding:3px 8px;cursor:pointer;font-weight:700">Marcar Entregue</button>`;
-          const rowBg = p.brinde ? 'background:#FFF7ED' : p.parceria ? 'background:#EFF6FF' : p.troca ? 'background:#F5F3FF' : idx%2===1 ? 'background:#F8F9FC' : '';
+          const rowBg = (cobradosMap[String(p.id)]&&!p.pago&&!p.brinde&&!p.troca&&!p.parceria) ? 'background:#FEF2F2' : p.brinde ? 'background:#FFF7ED' : p.parceria ? 'background:#EFF6FF' : p.troca ? 'background:#F5F3FF' : idx%2===1 ? 'background:#F8F9FC' : '';
           return `<tr style="border-bottom:1px solid var(--border);${rowBg}">
             <td style="padding:8px;text-align:center"><input type="checkbox" class="fin-sel-ped" data-id="${p.id}" style="width:14px;height:14px;cursor:pointer;accent-color:var(--orange)" ${(p.troca||p.parceria)?'disabled':''}></td>
             <td style="padding:8px 10px;color:var(--text3);font-weight:600">${num}</td>
@@ -7715,7 +7737,7 @@ function renderExtratocliente(){
             <td style="padding:8px 10px;color:var(--text2)">${p.localEntrega?`<div style="font-size:10px;font-weight:700;color:#C2410C;margin-bottom:2px">📍 ${escLoc(p.localEntrega)}</div>`:''}${p.itens.map(it=>itemLabelPedido(it,p.itens)+'×'+it.qtd).join(' · ')}</td>
             <td style="padding:8px 10px;color:var(--text3);font-style:italic;font-size:11px">${p.obs||'—'}</td>
             <td style="padding:8px 10px;text-align:right;font-weight:700;${p.brinde?'color:#C2410C':p.parceria?'color:#1D4ED8;text-decoration:line-through':p.troca?'color:#5B21B6;text-decoration:line-through':''}">${p.brinde?moeda(0):(p.troca||p.parceria)?'—':moeda(p.total)}</td>
-            <td style="padding:8px 10px;text-align:center">${situacao}</td>
+            <td style="padding:8px 10px;text-align:center">${situacao}${cobradoBadge(p)}</td>
             <td style="padding:8px 10px;text-align:center">${btnAcao}</td>
             <td style="padding:8px;text-align:center"><button onclick="delPedidoFin(${p.id},'${p.data||''}')" title="Excluir" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-b);border-radius:3px;padding:2px 7px;font-size:11px;cursor:pointer">✕</button></td>
           </tr>`;
@@ -7797,7 +7819,7 @@ function togglePagoFin(pedidoId){
 
 // ── PDF DO EXTRATO DO CLIENTE ──────────────────────────────────────────────
 function selecionarTodosFin(checked){
-  document.querySelectorAll('.fin-sel-ped').forEach(cb=>cb.checked=checked);
+  document.querySelectorAll('.fin-sel-ped').forEach(cb=>{cb.checked=checked&&!cobradosMap[String(cb.dataset.id)];});
   const cb1=document.getElementById('sel-todos-fin');
   const cb2=document.getElementById('sel-todos-fin2');
   if(cb1) cb1.checked=checked;
@@ -10675,7 +10697,7 @@ function cobPedidosSel(){
   const cbs=[...document.querySelectorAll('.fin-sel-ped:checked')];
   const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const ids=new Set(cbs.map(c=>String(c.dataset.id)));
-  let base=cbs.length?todos.filter(p=>ids.has(String(p.id))):todos.filter(p=>p.entregue&&!p.pago);
+  let base=cbs.length?todos.filter(p=>ids.has(String(p.id))):todos.filter(p=>p.entregue&&!p.pago&&!cobradosMap[String(p.id)]);
   if(!cbs.length){const cc=cobCicloAtual(cli);if(cc&&cc.periodo)base=base.filter(p=>p.data>=cc.ini&&p.data<=cc.fim);}
   return base.filter(p=>String(p.clienteId)===String(cli.id)&&!p.troca&&!p.parceria).sort((a,b)=>a.data.localeCompare(b.data));
 }
