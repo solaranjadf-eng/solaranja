@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-f)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-g)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11282,7 +11282,7 @@ function loteResumo(){
   const sel=loteItens.filter(i=>i.sel);
   const tot=sel.reduce((s,i)=>s+i.valor,0);
   document.getElementById('lote-info').textContent=loteItens.length+' cliente(s) da aba Cobranças com débito em aberto — '+moeda(loteItens.reduce((s,i)=>s+i.valor,0));
-  document.getElementById('lote-resumo').innerHTML='Selecionados: <strong>'+sel.length+'</strong> cliente(s) · <strong>'+moeda(tot)+'</strong> · vencimento dos boletos em 7 dias <a onclick="loteMarcar(true)" style="margin-left:10px;cursor:pointer;color:var(--blue)">marcar todos</a> · <a onclick="loteMarcar(false)" style="cursor:pointer;color:var(--blue)">desmarcar</a>';
+  document.getElementById('lote-resumo').innerHTML='Selecionados: <strong>'+sel.length+'</strong> cliente(s) · <strong>'+moeda(tot)+'</strong> · vencimento dos boletos em 7 dias (B HOTEL: 15) <a onclick="loteMarcar(true)" style="margin-left:10px;cursor:pointer;color:var(--blue)">marcar todos</a> · <a onclick="loteMarcar(false)" style="cursor:pointer;color:var(--blue)">desmarcar</a>';
 }
 function loteMarcar(v){if(loteRodando)return;const q=((document.getElementById('lote-busca')||{}).value||'').toLowerCase().trim();loteItens.forEach(i=>{if(!q||((i.cli.apelido||'')+' '+i.cli.nome).toLowerCase().includes(q))i.sel=v;});loteRender();}
 function loteParar(){loteParou=true;document.getElementById('lote-parar').textContent='Parando...';}
@@ -11819,7 +11819,7 @@ function cobCicloAtual(cli){
   const r=(c.vencRegras||{})[String(esc.dia)];
   let venc;
   if(r&&r.dia){const t=new Date(esc.y,esc.mo+(r.mes||0),1);venc=new Date(t.getFullYear(),t.getMonth(),Math.min(r.dia,cobUltimoDia(t.getFullYear(),t.getMonth())));}
-  else{venc=new Date(h);venc.setDate(venc.getDate()+7);}
+  else{venc=new Date(h);venc.setDate(venc.getDate()+cobPrazoDias(cli));}
   return {dia:esc.dia,ini:cobIso(ini),fim:cobIso(fim),venc,periodo:!!c.periodoCiclo,temRegra:!!(r&&r.dia)};
 }
 function cobDataBR(iso){const [a,m,d]=iso.split('-');return d+'/'+m;}
@@ -11827,7 +11827,13 @@ function cobDataBR(iso){const [a,m,d]=iso.split('-');return d+'/'+m;}
 function cobVencimentoStr(cli){
   const cc=cobCicloAtual(cli);
   if(cc&&cc.temRegra)return cc.venc.toLocaleDateString('pt-BR');
-  const v=new Date();v.setDate(v.getDate()+7);return v.toLocaleDateString('pt-BR');
+  const v=new Date();v.setDate(v.getDate()+cobPrazoDias(cli));return v.toLocaleDateString('pt-BR');
+}
+// Prazo padrão do boleto: 7 dias; B HOTEL: 15 dias
+function cobPrazoDias(cli){
+  const nz=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+  const re=/(^|[\s\-–])b hotel($|[\s\-–])/;
+  return (cli&&(re.test(nz(cli.nome))||re.test(nz(cli.apelido))))?15:7;
 }
 // ── LEMBRETES AUTOMÁTICOS + BAIXA POR EXTRATO ───────────────────────────────
 let lembModo='teste',lembCarregado=false;
@@ -12194,7 +12200,7 @@ async function gerarBoletoBB(){
         document.getElementById('boleto-bb-resultado').style.display='block';
         document.getElementById('boleto-bb-cli').textContent=cli.apelido||cli.nome;
         document.getElementById('boleto-bb-valor').textContent='R$ '+totalAberto.toFixed(2).replace('.',',');
-        document.getElementById('boleto-bb-venc').textContent=vencStr+' (vencimento em 7 dias)';
+        document.getElementById('boleto-bb-venc').textContent=vencStr+' (vencimento em '+cobPrazoDias(cli)+' dias)';
         document.getElementById('boleto-bb-linha').textContent=data.linhaDigitavel||data.codigoBarraNumerico||'—';
         window._boletoLinhaDigitavel=data.linhaDigitavel||data.codigoBarraNumerico||'';
         const linkEl=document.getElementById('boleto-bb-link');
