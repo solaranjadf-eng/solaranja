@@ -10121,10 +10121,28 @@ async function gerarBoletoBB(){
   const totalAberto=pedsSel.reduce((s,p)=>s+(p.total||0),0);
   if(totalAberto<=0){toast('Total zerado, verifique os pedidos.');return;}
 
-  // Vencimento = hoje + 7 dias
+  // Vencimento = hoje + 7 dias (padrão)
   const hoje=new Date();
   const venc=new Date(hoje);
-  venc.setDate(venc.getDate()+7);
+  // SAN MARCO: boleto gerado dia 15 → venc dia 24 do mês seguinte; dia 30/31 → venc dia 9 do mês seguinte
+  const nomeCliUpper=(cli.nome||'').toUpperCase();
+  const ehSanMarco=nomeCliUpper.includes('SAN MARCO')||nomeCliUpper.includes('SANMARCO');
+  if(ehSanMarco){
+    const diaHoje=hoje.getDate();
+    if(diaHoje===15){
+      // Vencimento = dia 24 do próximo mês
+      venc.setMonth(venc.getMonth()+1);
+      venc.setDate(24);
+    } else if(diaHoje>=30){
+      // Vencimento = dia 9 do próximo mês
+      venc.setMonth(venc.getMonth()+1);
+      venc.setDate(9);
+    } else {
+      venc.setDate(venc.getDate()+7);
+    }
+  } else {
+    venc.setDate(venc.getDate()+7);
+  }
   const vencStr=venc.toLocaleDateString('pt-BR'); // DD/MM/YYYY
 
   // Nosso número sequencial (salvo em localStorage)
@@ -10186,7 +10204,7 @@ async function gerarBoletoBB(){
         document.getElementById('boleto-bb-resultado').style.display='block';
         document.getElementById('boleto-bb-cli').textContent=cli.apelido||cli.nome;
         document.getElementById('boleto-bb-valor').textContent='R$ '+totalAberto.toFixed(2).replace('.',',');
-        document.getElementById('boleto-bb-venc').textContent=vencStr+' (vencimento em 7 dias)';
+        document.getElementById('boleto-bb-venc').textContent=vencStr+(ehSanMarco?' (San Marco — vencimento especial)':' (vencimento em 7 dias)');
         document.getElementById('boleto-bb-linha').textContent=data.linhaDigitavel||data.codigoBarraNumerico||'—';
         window._boletoLinhaDigitavel=data.linhaDigitavel||data.codigoBarraNumerico||'';
         const linkEl=document.getElementById('boleto-bb-link');
