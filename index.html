@@ -1375,7 +1375,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-c)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-d)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -7442,6 +7442,7 @@ async function marcarPagoHistorico(pedidoId,dataKey){
 
 let finParcIds=null;
 function renderFinanceiro(){
+  cobCarregarCobrados();
   const lista=getPedidosPeriodo();
   const periodoLabel=getPeriodoLabel();
   const recebido=lista.filter(p=>p.pago).reduce((s,p)=>s+p.total,0);
@@ -7649,7 +7650,7 @@ async function cobCarregarCobrados(forcar){
       (e.pedidos_ids||[]).forEach(i=>{m[String(i)]={nfe:e.nfe_numero||'',data:e.enviado_em||e.created_at};});
     });
     const antes=JSON.stringify(cobradosMap);cobradosMap=m;
-    if(antes!==JSON.stringify(m)&&finCliSelecionado)renderExtratocliente();
+    if(antes!==JSON.stringify(m)){if(finCliSelecionado)renderExtratocliente();try{if(typeof renderFinanceiro==='function'&&document.getElementById('page-financeiro')&&document.getElementById('page-financeiro').classList.contains('active'))renderFinanceiro();}catch(e){}}
   }catch(e){}
 }
 function renderExtratocliente(){
