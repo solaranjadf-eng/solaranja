@@ -1376,7 +1376,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/18-a)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/18-b)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -12048,7 +12048,7 @@ async function bbBaixarAtual(nosso){
   const erro=t=>{msg.innerHTML='<div style="margin-top:12px;color:#991B1B;font-size:12px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;padding:8px 10px">'+escLoc(t)+'</div>';};
   try{
     const nn=String(nosso).replace(/\D/g,'');
-    const r=await sbGet('cobranca_envios','?boleto_nosso_numero=in.('+nn+','+nn.padStart(10,'0')+')&order=created_at.desc&limit=1&select=cliente_id,boleto_link,linha_digitavel,pedidos_ids');
+    const r=await sbGet('cobranca_envios','?boleto_nosso_numero=in.('+nn+','+nn.padStart(10,'0')+')&order=created_at.desc&limit=1&select=cliente_id,boleto_link,linha_digitavel,pedidos_ids,nfe_id,nfe_numero,nfe_link');
     const env=(r||[])[0]||null;
     let linha=env&&env.linha_digitavel?String(env.linha_digitavel):'',emv='';
     if(String(linha).replace(/\D/g,'').length!==47){
@@ -12068,7 +12068,29 @@ async function bbBaixarAtual(nosso){
     const peds=((env&&env.pedidos_ids)||[]).map(id=>todos.find(p=>String(p.id)===String(id))).filter(Boolean);
     const b={nossoNum:nn,linha,link:env?env.boleto_link:null,emv:emv||null};
     boletoBaixarPDF(cli,b,Number(x.valor||0),String(x.vencimento||''),peds.map(p=>cobFmtData(p.data)).join(', '));
-    toast('⬇ Boleto '+nn+' baixado.');
+    const feitos=['boleto'],faltou=[];
+    // Extrato dos pedidos deste boleto
+    try{
+      if(peds.length&&cli.id){
+        await new Promise(r=>setTimeout(r,700));
+        const _prev=finCliSelecionado;finCliSelecionado=cli;let ex;
+        try{ex=gerarPDFCliente({ids:peds.map(p=>p.id),retornar:true});}finally{finCliSelecionado=_prev;}
+        if(ex&&ex.base64){const a=document.createElement('a');a.href='data:application/pdf;base64,'+ex.base64;a.download=ex.filename;document.body.appendChild(a);a.click();a.remove();feitos.push('extrato');}
+        else faltou.push('extrato');
+      }else faltou.push('extrato (pedidos deste boleto não encontrados)');
+    }catch(e){faltou.push('extrato');}
+    // Nota fiscal
+    try{
+      let nfLink=env&&env.nfe_link?env.nfe_link:null;
+      if(!nfLink&&env&&env.nfe_id){
+        const tk=await blingGetToken();
+        if(tk){const l=await cobBuscarLinkNF(tk,env.nfe_id);if(l&&l.link)nfLink=l.link;}
+      }
+      if(nfLink){await new Promise(r=>setTimeout(r,700));await baixarArquivoNomeado(nfLink,'NF-e '+((env&&env.nfe_numero)||'')+' - '+(cli.nome||x.cliente));feitos.push('nota fiscal');}
+      else faltou.push(env&&env.nfe_numero?'nota fiscal (link não disponível)':'nota fiscal (sem registro)');
+    }catch(e){faltou.push('nota fiscal');}
+    toast('⬇ Baixado: '+feitos.join(', ')+'.');
+    if(faltou.length)msg.innerHTML='<div style="margin-top:12px;color:#92400E;font-size:12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:8px 10px">Não veio: '+escLoc(faltou.join('; '))+'.</div>';
   }catch(e){erro('Não foi possível baixar o boleto. '+(e.message||String(e)));}
   finally{if(btn){btn.disabled=false;btn.textContent=txt0;}}
 }
