@@ -1376,7 +1376,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/16-l)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/18-a)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11956,6 +11956,7 @@ async function bbDetalhe(nosso){
     L('Vencimento',escLoc(x.vencimento))+L('Situação','<span style="color:'+(venc?'#b42318':'#067647')+'">'+(venc?'🔴 Vencido':'🟢 A vencer')+' · '+dias+'</span>')+
     (x.estado&&x.codEstado!==1?L('Situação no BB',escLoc(x.estado)):'')+'</div>'+
     '<div id="bbd-msg"></div><div style="display:flex;gap:8px;justify-content:space-between;margin-top:16px;flex-wrap:wrap"><button class="btn btn-outline" onclick="bbAbrirLista(window._bbD,window._bbAviso,true)">← Voltar à lista</button>'+
+    '<button id="bbd-baixar" onclick="bbBaixarAtual(\''+escLoc(String(x.nosso))+'\')" style="font-size:13px;color:#1D4ED8;background:#EFF6FF;border:1px solid #93C5FD;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:700">⬇ Baixar boleto</button>'+
     (perfilAtual==='admin'&&venc?'<button id="bbd-novo" onclick="bbNovoBoletoForm(\''+escLoc(String(x.nosso))+'\')" style="font-size:13px;color:#fff;background:var(--orange,#E87722);border:none;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:700">🔁 Gerar novo boleto</button>':'')+
     (perfilAtual==='admin'?'<button id="bbd-btn" onclick="bbCancelarPedirConfirmacao(\''+escLoc(String(x.nosso))+'\')" style="font-size:13px;color:#b42318;background:#fff;border:1px solid #f1b5b0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:700">🚫 Cancelar este boleto</button>':'')+'</div></div>';
   try{
@@ -12040,6 +12041,37 @@ async function bbNovoBoletoGerar(nosso){
   }
 }
 function bbNovoBaixar(){const n=window._bbNovo;if(!n)return;boletoBaixarPDF(n.cli,n.b,n.valor,n.vencStr,n.peds.map(p=>cobFmtData(p.data)).join(', '));}
+async function bbBaixarAtual(nosso){
+  const f=bbAcharBoleto(nosso);if(!f)return;const x=f.x;
+  const btn=document.getElementById('bbd-baixar');const msg=document.getElementById('bbd-msg');
+  const txt0=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Gerando…';}
+  const erro=t=>{msg.innerHTML='<div style="margin-top:12px;color:#991B1B;font-size:12px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;padding:8px 10px">'+escLoc(t)+'</div>';};
+  try{
+    const nn=String(nosso).replace(/\D/g,'');
+    const r=await sbGet('cobranca_envios','?boleto_nosso_numero=in.('+nn+','+nn.padStart(10,'0')+')&order=created_at.desc&limit=1&select=cliente_id,boleto_link,linha_digitavel,pedidos_ids');
+    const env=(r||[])[0]||null;
+    let linha=env&&env.linha_digitavel?String(env.linha_digitavel):'',emv='';
+    if(String(linha).replace(/\D/g,'').length!==47){
+      linha='';
+      const d=await cobChamarFn('boleto-detalhe',{nosso:nn});
+      if(!d||!d.success)throw new Error((d&&d.erro)||'Não consegui buscar os dados do boleto no BB.');
+      Object.values(d.campos||{}).forEach(v=>{
+        const t=String(v==null?'':v);
+        if(!linha&&t.replace(/\D/g,'').length===47&&/^[\d .]+$/.test(t))linha=t;
+        if(!emv&&/^000201/.test(t))emv=t;
+      });
+      if(!linha)throw new Error('O BB não devolveu a linha digitável deste boleto.');
+    }
+    const nz=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    const cli=(env&&clientes.find(c=>String(c.id)===String(env.cliente_id)))||clientes.find(c=>nz(c.nome)===nz(x.cliente))||{nome:x.cliente,cnpj:''};
+    const todos=[...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()];
+    const peds=((env&&env.pedidos_ids)||[]).map(id=>todos.find(p=>String(p.id)===String(id))).filter(Boolean);
+    const b={nossoNum:nn,linha,link:env?env.boleto_link:null,emv:emv||null};
+    boletoBaixarPDF(cli,b,Number(x.valor||0),String(x.vencimento||''),peds.map(p=>cobFmtData(p.data)).join(', '));
+    toast('⬇ Boleto '+nn+' baixado.');
+  }catch(e){erro('Não foi possível baixar o boleto. '+(e.message||String(e)));}
+  finally{if(btn){btn.disabled=false;btn.textContent=txt0;}}
+}
 function bbCancelarPedirConfirmacao(nosso){
   const f=bbAcharBoleto(nosso);if(!f)return;const x=f.x;
   const msg=document.getElementById('bbd-msg');const btn=document.getElementById('bbd-btn');
