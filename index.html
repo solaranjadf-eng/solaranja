@@ -11664,7 +11664,8 @@ function analisarColar(){
       return txt;
     }
     l=normalizarFormato(l);
-    const segs=l.split(/\s\+\s/);
+    // separa os itens pelo "+" com ou sem espaço: "300 + (5)300", "300 +(5)300", "300+(5)300"
+    const segs=l.split(/\s+\+\s+|\s*\+\s*(?=\(\s*\d)/);
     const itens=[];let erro='',pago=/\bpago\b/i.test(l),sobras=[],ultTam='',algumItem=false;
     segs.forEach(seg=>{
       const brindeSeg=/\bbrinde\b/i.test(seg);
