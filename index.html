@@ -1288,7 +1288,7 @@ a{color:var(--orange);text-decoration:none}
   <!-- AUTOMAÇÃO DE COBRANÇA: lembretes + baixa -->
   <div class="card" id="card-automacao-cob" style="margin-bottom:12px">
     <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🔔 Lembretes e baixa automática</div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Todo dia às 7h30 o sistema consulta o BB e dá baixa nos boletos pagos. Às 8h avisa o cliente 2 dias antes do vencimento e depois de 1, 5 e 15 dias de atraso. Boletos já pagos são ignorados.</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Todo dia às 7h30 o sistema consulta o BB e dá baixa nos boletos pagos. Às 8h avisa o cliente 2 dias antes do vencimento e depois de 1, 5, 10, 15 e 20 dias de atraso; a partir daí, a cada 15 dias até o pagamento. Boletos já pagos são ignorados.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <label style="font-size:12px;font-weight:600">Lembretes:</label>
       <select id="lemb-modo" onchange="lembMudarModo(this.value)" style="height:34px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 8px;font-size:13px">
@@ -1302,6 +1302,9 @@ a{color:var(--orange);text-decoration:none}
     </div>
     <div id="lemb-status" style="font-size:11px;color:var(--text3);margin-top:8px"></div>
   </div>
+
+  <!-- DIVERGÊNCIAS: boleto x pedidos -->
+  <div class="card" id="card-diverg-cob" style="margin-bottom:12px;display:none;border:1px solid #FBBF24;background:#FFFBEB"></div>
 
 
   <div class="card" style="margin-bottom:12px">
@@ -6813,6 +6816,7 @@ function _nomeFinLink(c){
 }
 function renderCobrancas(){
   try{lembCarregar();}catch(e){}
+  try{divCarregar();}catch(e){}
   const [ano,mesN]=cobMesVisivel.split('-').map(Number);
   const mesNome=new Date(ano,mesN-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   const lbl=document.getElementById('cob-mes-label');
@@ -12216,6 +12220,8 @@ async function concConfirmar(){
       const p=acharPedidoPorId(id);if(p)p.pago=true;
       try{await sbPatch('pedidos',`?id=eq.${id}`,{pago:true});}catch(er){console.warn('baixa',er);}
     }
+    // registra o boleto como pago (senão ele continua "em aberto" e recebe lembrete)
+    try{const cr=concLinhas[i].c;await sbPatch('cobranca_envios','?id=eq.'+encodeURIComponent(e.id),{pago_em:new Date(cr.data+'T12:00:00').toISOString(),valor_pago:cr.valor});}catch(er){console.warn('baixa envio',er);}
     n++;
   }
   try{lsave('slj_ped_bk',pedidos);lsave('slj_hist_bk',historico);}catch(e){}
@@ -12223,6 +12229,110 @@ async function concConfirmar(){
   try{if(typeof renderFinanceiro==='function')renderFinanceiro();}catch(e){}
   document.getElementById('modal-conc').style.display='none';
   toast(n?'✓ Baixa dada em '+n+' cobrança(s).':'Nada marcado.');
+  divCarregado=false;try{divCarregar();}catch(e){}
+}
+// ── DIVERGÊNCIAS ENTRE BOLETO E PEDIDOS ────────────────────────────────────
+// Avisa quando o "pago" do boleto (baixa do banco) e o "pago" dos pedidos não batem.
+let divCarregado=false,divItens=[];
+async function divCarregar(){
+  if(divCarregado)return;divCarregado=true;
+  const card=document.getElementById('card-diverg-cob');if(!card)return;
+  try{
+    const desde=new Date(Date.now()-120*86400000).toISOString();
+    const env=await sbGet('cobranca_envios','?status=eq.ok&boleto_nosso_numero=not.is.null&created_at=gte.'+desde+'&order=created_at.asc&limit=400&select=id,cliente_nome,pedidos_ids,valor,vencimento,pago_em,nfe_numero,boleto_nosso_numero')||[];
+    const ids=[...new Set(env.flatMap(e=>(e.pedidos_ids||[]).map(String)))];
+    const pagos={};
+    for(let i=0;i<ids.length;i+=150){
+      const r=await sbGet('pedidos','?id=in.('+ids.slice(i,i+150).join(',')+')&select=id,pago')||[];
+      r.forEach(p=>{pagos[String(p.id)]=p.pago===true;});
+    }
+    divItens=[];
+    env.forEach(e=>{
+      const pids=(e.pedidos_ids||[]).map(String).filter(x=>x in pagos);
+      const nPagos=pids.filter(x=>pagos[x]).length;
+      const boletoPago=!!e.pago_em;
+      let tipo=null;
+      // mesmos pedidos ja cobrados em OUTRO boleto que foi pago => este e duplicado
+      const dupPago=!boletoPago&&pids.length&&env.some(o=>o.id!==e.id&&o.pago_em&&pids.every(x=>(o.pedidos_ids||[]).map(String).includes(x)));
+      if(dupPago)tipo='duplicado';
+      else if(!pids.length)tipo='semPedidos';
+      else if(!boletoPago&&nPagos===pids.length)tipo='pedidosPagos';
+      else if(boletoPago&&nPagos<pids.length)tipo='boletoPago';
+      else if(!boletoPago&&nPagos>0)tipo='parcial';
+      if(tipo)divItens.push({e,tipo,nPagos,nPeds:pids.length});
+    });
+  }catch(er){console.warn('[divergencias]',er);divItens=[];}
+  divRender();
+}
+function divRender(){
+  const card=document.getElementById('card-diverg-cob');if(!card)return;
+  if(!divItens.length){card.style.display='none';card.innerHTML='';return;}
+  const txt={
+    duplicado:'Boleto duplicado: os mesmos pedidos já foram pagos em outro boleto. Este continua aberto no banco',
+    pedidosPagos:'Pedidos marcados como pagos, mas o banco não deu baixa no boleto',
+    boletoPago:'Banco deu baixa no boleto, mas há pedidos não marcados como pagos',
+    parcial:'Só parte dos pedidos está marcada como paga e o boleto segue em aberto',
+    semPedidos:'Cobrança sem pedidos ligados — o sistema não consegue conferir'
+  };
+  const btn=(on,label,cor)=>'<button onclick="'+on+'" style="font-size:12px;border-radius:8px;padding:6px 10px;cursor:pointer;font-weight:600;border:1px solid '+cor+';color:'+cor+';background:#fff">'+label+'</button>';
+  card.style.display='block';
+  card.innerHTML='<div style="font-size:13px;font-weight:700;color:#92400E;margin-bottom:4px">⚠ Boletos e pedidos que não batem ('+divItens.length+')</div>'+
+    '<div style="font-size:11px;color:#92400E;margin-bottom:10px">Confira cada caso. Enquanto os pedidos estiverem marcados como pagos, o cliente não recebe lembrete desse boleto.</div>'+
+    divItens.map((d,i)=>{
+      const e=d.e;
+      const acoes=d.tipo==='duplicado'
+        ? btn('divCancelarDuplicado('+i+')','✕ Cancelar este boleto no BB','#b42318')
+        : d.tipo==='pedidosPagos'
+        ? btn('divBoletoPago('+i+')','✓ Foi pago — registrar boleto como pago','#067647')+btn('divDesmarcarPedidos('+i+')','↩ Não foi pago — desmarcar pedidos','#b42318')
+        : d.tipo==='boletoPago'||d.tipo==='parcial'
+        ? btn('divMarcarPedidos('+i+')','✓ Marcar todos os pedidos como pagos','#067647')
+        : '';
+      return '<div style="background:#fff;border:1px solid #FDE68A;border-radius:8px;padding:10px;margin-bottom:6px">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px"><strong>'+escLoc(e.cliente_nome)+'</strong><span>'+moeda(Number(e.valor||0))+' · venc. '+escLoc(e.vencimento||'—')+'</span></div>'+
+        '<div style="font-size:12px;color:#92400E;margin:4px 0 8px">'+txt[d.tipo]+(d.nPeds?' ('+d.nPagos+' de '+d.nPeds+' pedidos pagos)':'')+'.</div>'+
+        (acoes?'<div style="display:flex;gap:6px;flex-wrap:wrap">'+acoes+'</div>':'')+'</div>';
+    }).join('');
+}
+async function divPatchPedidos(ids,pago){
+  for(const id of ids){
+    const p=acharPedidoPorId(id);if(p)p.pago=pago;
+    await sbPatch('pedidos','?id=eq.'+id,{pago});
+  }
+  try{lsave('slj_ped_bk',pedidos);lsave('slj_hist_bk',historico);}catch(e){}
+  try{atualizarBadges();}catch(e){}
+  try{if(typeof renderFinanceiro==='function')renderFinanceiro();}catch(e){}
+}
+async function divBoletoPago(i){
+  const d=divItens[i];if(!d)return;
+  if(!confirm('Registrar o boleto de '+d.e.cliente_nome+' ('+moeda(Number(d.e.valor||0))+') como pago?\n\nUse quando o cliente pagou por fora do boleto (PIX, transferência) ou o banco não deu baixa. O cliente para de receber lembretes deste boleto.'))return;
+  try{await sbPatch('cobranca_envios','?id=eq.'+encodeURIComponent(d.e.id),{pago_em:new Date().toISOString(),valor_pago:Number(d.e.valor||0)});toast('✓ Boleto registrado como pago.');}
+  catch(er){toast('⚠ '+String(er.message||er).slice(0,100));return;}
+  divCarregado=false;divCarregar();
+}
+async function divCancelarDuplicado(i){
+  const d=divItens[i];if(!d)return;
+  if(!confirm('Cancelar no BB o boleto nº '+d.e.boleto_nosso_numero+' de '+d.e.cliente_nome+' ('+moeda(Number(d.e.valor||0))+')?\n\nOs pedidos dele já foram pagos em outro boleto. O cancelamento não pode ser desfeito.'))return;
+  toast('Cancelando no BB...');
+  try{
+    const r=await cobChamarFn('cancelar-boleto',{nosso:String(d.e.boleto_nosso_numero),valor:Number(d.e.valor||0)});
+    if(!r.success){toast('⚠ '+String(r.erro||'O BB recusou o cancelamento').slice(0,140));return;}
+    toast('✓ Boleto cancelado no BB.');
+  }catch(er){toast('⚠ '+String(er.message||er).slice(0,100));return;}
+  divCarregado=false;divCarregar();
+}
+async function divDesmarcarPedidos(i){
+  const d=divItens[i];if(!d)return;
+  if(!confirm('Desmarcar como pagos os '+d.nPeds+' pedidos do boleto de '+d.e.cliente_nome+'?\n\nO boleto continua em aberto e o cliente volta a receber os lembretes.'))return;
+  try{await divPatchPedidos(d.e.pedidos_ids||[],false);toast('✓ Pedidos desmarcados.');}
+  catch(er){toast('⚠ '+String(er.message||er).slice(0,100));return;}
+  divCarregado=false;divCarregar();
+}
+async function divMarcarPedidos(i){
+  const d=divItens[i];if(!d)return;
+  if(!confirm('Marcar como pagos todos os '+d.nPeds+' pedidos do boleto de '+d.e.cliente_nome+'?'))return;
+  try{await divPatchPedidos(d.e.pedidos_ids||[],true);toast('✓ Pedidos marcados como pagos.');}
+  catch(er){toast('⚠ '+String(er.message||er).slice(0,100));return;}
+  divCarregado=false;divCarregar();
 }
 function enviarEmailCliente(){
   if(!finCliSelecionado){toast('Selecione um cliente primeiro.');return;}
