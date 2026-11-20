@@ -3153,14 +3153,9 @@ async function sincronizar(){
         localStorage.setItem('slj_notas',JSON.stringify(notas));
       }
     }catch(e){console.warn('Erro ao carregar compras/notas:',e);}
-    // Renovar token Bling automaticamente
-    (async()=>{
-      const tokens=blingGetTokens();
-      if(tokens?.refresh_token){
-        const t=await blingGetToken();
-        if(!t) await blingRefreshToken().catch(()=>{});
-      }
-    })();
+    // Se este navegador ainda tem o acesso antigo ao Bling, entrega para o servidor (migração automática)
+    (async()=>{try{const tokens=blingGetTokens();if(tokens?.refresh_token)await blingGetToken();}catch(e){}})();
+    blingConfigSincronizar();
     renderClienteList();atualizarBadges();verificarAlertasEstoque();verificarAniversarios();
     TAMS.forEach(t=>{const el=document.getElementById('min-'+t);if(el&&estMinimos[t]>0)el.value=estMinimos[t];});
     // Se entregador, atualizar rota
@@ -7616,16 +7611,16 @@ function renderFinItem(p,dataKey){
 
 // ── NÚMERO DO PEDIDO ───────────────────────────────────────────────────────
 async function getNextNumeroPedido(){
-  // Usar localStorage como fonte rápida
-  const local=parseInt(localStorage.getItem('slj_num_pedido')||'5000');
-  const proximo=local+1;
+  // Número vem de um contador único no banco: nunca repete, mesmo com vários aparelhos lançando ao mesmo tempo
+  try{
+    const r=await fetch(`${SB_URL}/rpc/proximo_numero_pedido`,{method:'POST',headers:{...HDR,'Content-Type':'application/json'},body:'{}'});
+    if(r.ok){const n=parseInt(await r.text(),10);if(n>0){localStorage.setItem('slj_num_pedido',n);return n;}}
+  }catch(e){console.warn('[numero pedido]',e);}
+  // Sem conexão com o contador: usa o maior número do banco (e não só o do navegador)
+  let ultimo=0;
+  try{const res=await sbGet('pedidos','?select=numero_pedido&order=numero_pedido.desc.nullslast&limit=1');ultimo=res&&res.length&&res[0].numero_pedido?parseInt(res[0].numero_pedido):0;}catch(e){}
+  const proximo=Math.max(parseInt(localStorage.getItem('slj_num_pedido')||'5000'),ultimo)+1;
   localStorage.setItem('slj_num_pedido',proximo);
-  // Verificar com o banco em segundo plano (sem bloquear)
-  sbGet('pedidos','?select=numero_pedido&order=numero_pedido.desc&limit=1')
-    .then(res=>{
-      const ultimo=res&&res.length&&res[0].numero_pedido?parseInt(res[0].numero_pedido):0;
-      if(ultimo>=proximo) localStorage.setItem('slj_num_pedido',ultimo);
-    }).catch(()=>{});
   return proximo;
 }
 
@@ -8313,6 +8308,28 @@ function getBlingConfig(){
 }
 function saveBlingConfig(cfg){
   localStorage.setItem('slj_bling_config',JSON.stringify(cfg));
+  // guarda também no banco: todos os aparelhos usam os mesmos códigos
+  sbUps('cobranca_config',[{chave:'bling_config_sabores',valor:JSON.stringify(cfg),atualizado_em:new Date().toISOString()}])
+    .catch(e=>{console.warn('[bling config]',e);toast('⚠ Códigos salvos só neste aparelho (sem conexão com o banco).');});
+}
+// Ao abrir o sistema: traz do banco os códigos dos sabores no Bling.
+// Se o banco ainda não tem e este navegador tem, envia (migração automática).
+async function blingConfigSincronizar(){
+  try{
+    const r=await sbGet('cobranca_config','?chave=eq.bling_config_sabores&select=valor');
+    const doBanco=r&&r[0]&&r[0].valor?JSON.parse(r[0].valor):null;
+    const local=getBlingConfig();
+    if(doBanco&&Object.keys(doBanco).length){
+      // banco manda; códigos que só existem neste navegador são somados e enviados
+      const extra=Object.keys(local).filter(k=>!doBanco[k]);
+      const junto={...doBanco};extra.forEach(k=>junto[k]=local[k]);
+      localStorage.setItem('slj_bling_config',JSON.stringify(junto));
+      if(extra.length)saveBlingConfig(junto);
+    }else if(Object.keys(local).length){
+      saveBlingConfig(local);
+    }
+    try{renderBlingConfigTabela();}catch(e){}
+  }catch(e){console.warn('[bling config sync]',e);}
 }
 function renderBlingConfigTabela(){
   const el=document.getElementById('bling-config-tabela');
@@ -8767,7 +8784,7 @@ async function importarDoBlIng(){
   async function fetchComRetry(url,tentativas){
     tentativas=tentativas||3;
     for(let t=0;t<tentativas;t++){
-      try{const r=await fetch(url,{method:'GET'});return await r.json();}
+      try{const r=await (String(url).indexOf('/bling/')>0?blingFetch(url,{method:'GET'}):fetch(url,{method:'GET'}));return await r.json();}
       catch(e){if(t===tentativas-1)throw e;await new Promise(res=>setTimeout(res,1000*(t+1)));}
     }
   }
@@ -9145,16 +9162,9 @@ function iniciarSistema(){
     // Remover code da URL sem recarregar
     window.history.replaceState({},'',window.location.pathname);
     // Trocar code por token automaticamente
-    fetch('https://solaranja-bling.solaranjadf.workers.dev/token',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({code:blingCode})
-    }).then(r=>r.json()).then(d=>{
-      if(d.access_token){
-        d.saved_at=Date.now();
-        localStorage.setItem('slj_bling_tokens',JSON.stringify(d));
-        console.log('✓ Bling autenticado automaticamente!');
-      }
+    // troca o código pelo acesso, guardado só no servidor (vale para todos os aparelhos)
+    blingTrocarCode(blingCode).then(d=>{
+      if(d.autenticado){console.log('✓ Bling autorizado no servidor');try{toast('✓ Bling autorizado! Vale para todos os aparelhos.');}catch(e){}}
     }).catch(()=>{});
   }
   clientes=load('slj_cli_bk',CLIENTES_PADRAO);
@@ -10815,6 +10825,21 @@ function cobRenderPassos(){
     return `<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border)"><span style="width:20px">${ic[st.e]}</span><div style="flex:1"><div style="font-size:13px;font-weight:600;color:${cor[st.e]}">${i+1}. ${n}</div>${st.d?`<div style="font-size:11px;color:var(--text3)">${cobEsc(st.d)}</div>`:''}</div></div>`;}).join('');
 }
 function cobPasso(i,e,d){cobFx.passos[i]={e,d:d||''};cobRenderPassos();}
+// Cobrança interrompida registrada no banco (vale para qualquer aparelho): mesmos pedidos, nota já criada, não concluída
+async function cobBuscarInterrompida(cli,pedIds,valor,vencStr){
+  try{
+    const desde=new Date(Date.now()-45*86400000).toISOString();
+    const r=await sbGet('cobranca_envios','?cliente_id=eq.'+encodeURIComponent(String(cli.id))+'&status=not.in.(ok,cancelado)&nfe_id=not.is.null&created_at=gte.'+desde+'&order=created_at.desc&limit=20&select=*')||[];
+    const chave=JSON.stringify([...pedIds].map(String).sort());
+    const e=r.find(x=>JSON.stringify((x.pedidos_ids||[]).map(String).sort())===chave);
+    if(!e)return null;
+    return {id:e.id,cliId:cli.id,cliNome:cli.nome,pedIds,valor:Number(e.valor)||valor,
+      vencStr:e.boleto_nosso_numero?(e.vencimento||vencStr):vencStr,
+      nfe:{id:e.nfe_id,numero:e.nfe_numero||null,link:e.nfe_link||null},
+      boleto:e.boleto_nosso_numero?{nossoNum:e.boleto_nosso_numero,linha:e.linha_digitavel||'',link:e.boleto_link||null,pix:null,emv:null}:null,
+      extrato:null,passos:[],status:e.status||'nfe_ok',etapa:e.etapa||'',para:e.email_para||cli.email||''};
+  }catch(er){console.warn('[cobranca interrompida]',er);return null;}
+}
 async function abrirCobrancaAuto(){
   if(!finCliSelecionado){toast('Selecione um cliente primeiro.');return;}
   const cli=finCliSelecionado;
@@ -10825,12 +10850,14 @@ async function abrirCobrancaAuto(){
   const pedIds=peds.map(p=>p.id);
   // retomar fluxo salvo (mesmo cliente e mesmos pedidos) se ainda não terminou
   let salvo=null;try{salvo=JSON.parse(localStorage.getItem(COB_LS)||'null');}catch(e){}
-  const mesmo=salvo&&(salvo.nfe||salvo.boleto)&&String(salvo.cliId)===String(cli.id)&&salvo.status!=='ok'&&JSON.stringify([...salvo.pedIds].map(String).sort())===JSON.stringify([...pedIds].map(String).sort());
+  const chavePeds=JSON.stringify([...pedIds].map(String).sort());
+  let mesmo=salvo&&(salvo.nfe||salvo.boleto)&&String(salvo.cliId)===String(cli.id)&&salvo.status!=='ok'&&JSON.stringify([...salvo.pedIds].map(String).sort())===chavePeds;
   const vencStr=cobVencimentoStr(cli);
+  // não achou neste aparelho: procura no banco uma cobrança dos MESMOS pedidos que parou no meio (nota já criada)
+  if(!mesmo){const doBanco=await cobBuscarInterrompida(cli,pedIds,valor,vencStr);if(doBanco){salvo=doBanco;mesmo=true;}}
   if(mesmo){cobFx=salvo;cobFx.erro=null;cobFx.passos=[];COB_PASSOS.forEach((_,i)=>cobFx.passos[i]={e:'pend',d:''});if(cobFx.nfe)cobFx.passos[0]={e:'ok',d:'NF-e nº '+(cobFx.nfe.numero||'')+' já criada no Bling'};if(cobFx.boleto)cobFx.passos[1]={e:'ok',d:'Boleto nosso nº '+cobFx.boleto.nossoNum+' já gerado'};}
   else{try{localStorage.removeItem(COB_LS);}catch(e){}}
-  if(false){}
-  else cobFx={id:'cob_'+Date.now(),cliId:cli.id,cliNome:cli.nome,pedIds,valor,vencStr,nfe:null,boleto:null,extrato:null,passos:[],status:'iniciado',etapa:'',para:cli.email||''};
+  if(!mesmo) cobFx={id:'cob_'+Date.now(),cliId:cli.id,cliNome:cli.nome,pedIds,valor,vencStr,nfe:null,boleto:null,extrato:null,passos:[],status:'iniciado',etapa:'',para:cli.email||''};
   const corpo=COB_TEXTO_PADRAO;
   document.getElementById('cob-para').value=cobFx.para||loteEmailsDe(cli).join(' ')||cli.email||'';
   document.getElementById('cob-assunto').value='BOLETO E NOTA FISCAL SUCO NATURAL DE LARANJA - Só Laranja';
@@ -10899,7 +10926,7 @@ async function cobEnviarTeste(){
 }
 async function cobBuscarLinkNF(token,nfeId){
   try{
-    const r=await fetch(BLING_WORKER+'/bling/nfe/'+nfeId+'?access_token='+encodeURIComponent(token));
+    const r=await blingFetch(BLING_WORKER+'/bling/nfe/'+nfeId+'?access_token='+encodeURIComponent(token));
     const d=await r.json();const n=d&&d.data;if(!n)return null;
     const sit=n.situacao&&typeof n.situacao==='object'?n.situacao.valor:n.situacao;
     const autorizada=(typeof sit!=='number')||[5,6,7].includes(sit);
@@ -10914,7 +10941,7 @@ async function cobAcharNFExistente(token,cli,valor){
     const ini=new Date();ini.setDate(ini.getDate()-5);
     const pad=n=>String(n).padStart(2,'0');
     const di=ini.getFullYear()+'-'+pad(ini.getMonth()+1)+'-'+pad(ini.getDate())+' 00:00:00';
-    const r=await fetch(BLING_WORKER+'/bling/nfe?access_token='+encodeURIComponent(token)+'&tipo=1&limite=100&dataEmissaoInicial='+encodeURIComponent(di));
+    const r=await blingFetch(BLING_WORKER+'/bling/nfe?access_token='+encodeURIComponent(token)+'&tipo=1&limite=100&dataEmissaoInicial='+encodeURIComponent(di));
     const d=await r.json();const lista=(d&&d.data)||[];
     const doc=String(cli.cnpj||'').replace(/\D/g,'');
     const ok=lista.filter(n=>{
@@ -11186,11 +11213,11 @@ async function executarCobranca(){
     if(!fx.nfe){
       cobPasso(0,'run','Enviando a nota ao Bling...');
       const token=await blingGetToken();
-      if(!token) throw new Error('Bling não autenticado neste navegador. Clique em "Bling NF" no menu lateral, autorize e tente de novo. Nada foi emitido.');
+      if(!token) throw new Error('Bling não autorizado. Clique em "Bling NF" no menu lateral e autorize uma vez (vale para todos os aparelhos). Nada foi emitido.');
       const {payload,soma,temItemZerado}=cobMontarPayloadNF(cli,peds);
       if(temItemZerado) throw new Error('Há item sem preço ou sem quantidade nos pedidos. Corrija antes de emitir a nota.');
       if(Math.abs(soma-fx.valor)>0.01) throw new Error('A soma dos itens ('+moeda(soma)+') é diferente do total dos pedidos ('+moeda(fx.valor)+'). Confira os pedidos antes de emitir a nota.');
-      const r=await fetch(BLING_WORKER+'/bling/nfe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload})});
+      const r=await blingFetch(BLING_WORKER+'/bling/nfe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload})});
       const d=await r.json();
       let nid=d.data&&d.data.id?{id:d.data.id,numero:d.data.numero||null}:null;
       if(!nid&&/j[aá] existe uma nota/i.test(blingErroTexto(d))){
@@ -11205,10 +11232,10 @@ async function executarCobranca(){
     if(anexarNF&&!fx.nfe.link){
       cobPasso(0,'run','NF-e nº '+(fx.nfe.numero||'')+' criada no Bling. Aguardando a emissão...');
       const token=await blingGetToken();
-      if(!token) throw new Error('Bling não autenticado neste navegador. Clique em "Bling NF" no menu lateral, autorize e clique em Continuar. A nota não será criada de novo.');
+      if(!token) throw new Error('Bling não autorizado. Clique em "Bling NF" no menu lateral, autorize e clique em Continuar. A nota não será criada de novo.');
       if(!fx.nfe.emitTentada){
         fx.nfe.emitTentada=true;cobSalvarLocal();
-        try{await fetch(BLING_WORKER+'/bling/nfe/'+fx.nfe.id+'/emitir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload:{}})});}catch(e){}
+        try{await blingFetch(BLING_WORKER+'/bling/nfe/'+fx.nfe.id+'/emitir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload:{}})});}catch(e){}
       }
       for(let t=0;t<7&&!fx.nfe.link;t++){
         const l=await cobBuscarLinkNF(token,fx.nfe.id);
@@ -11386,6 +11413,8 @@ function fecharCobrancaLote(){
 function loteSet(it,estado,det){it.estado=estado;it.det=det||'';loteRender();}
 async function loteRodarCliente(it,opts){
   const cli=it.cli,peds=it.peds;
+  // não tem progresso neste aparelho: procura no banco uma cobrança destes mesmos pedidos que parou no meio
+  if(!it.retoma){const db=await cobBuscarInterrompida(cli,peds.map(p=>p.id),it.valor,cobVencimentoStr(cli));if(db){db.para=db.para||loteEmailsDe(cli).join(' ');it.retoma=db;}}
   let fx=it.retoma||{id:'cob_'+Date.now()+'_'+it.cid,cliId:cli.id,cliNome:cli.nome,pedIds:peds.map(p=>p.id),valor:it.valor,
     vencStr:cobVencimentoStr(cli),nfe:null,boleto:null,status:'iniciado',etapa:'',para:loteEmailsDe(cli).join(' ')};
   it.retoma=fx;
@@ -11399,11 +11428,11 @@ async function loteRodarCliente(it,opts){
     if(!fx.nfe){
       loteSet(it,'run','Criando NF-e no Bling...');
       const token=await blingGetToken();
-      if(!token) throw new Error('Bling não autenticado neste navegador (menu "Bling NF"). Nada foi emitido.');
+      if(!token) throw new Error('Bling não autorizado (menu "Bling NF", vale para todos os aparelhos). Nada foi emitido.');
       const {payload,soma,temItemZerado}=cobMontarPayloadNF(cli,peds);
       if(temItemZerado) throw new Error('Há item sem preço ou quantidade. Corrija os pedidos.');
       if(Math.abs(soma-fx.valor)>0.01) throw new Error('Soma dos itens ('+moeda(soma)+') diferente do total ('+moeda(fx.valor)+').');
-      const r=await fetch(BLING_WORKER+'/bling/nfe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload})});
+      const r=await blingFetch(BLING_WORKER+'/bling/nfe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload})});
       const d=await r.json();
       let nid=d.data&&d.data.id?{id:d.data.id,numero:d.data.numero||null}:null;
       if(!nid&&/j[aá] existe uma nota/i.test(blingErroTexto(d))){
@@ -11420,7 +11449,7 @@ async function loteRodarCliente(it,opts){
       const token=await blingGetToken();
       if(!fx.nfe.emitTentada){
         fx.nfe.emitTentada=true;loteSalvarFx(fx);
-        try{await fetch(BLING_WORKER+'/bling/nfe/'+fx.nfe.id+'/emitir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload:{}})});}catch(e){}
+        try{await blingFetch(BLING_WORKER+'/bling/nfe/'+fx.nfe.id+'/emitir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({access_token:token,payload:{}})});}catch(e){}
         await new Promise(r=>setTimeout(r,2500));
       }
       const l=token?await cobBuscarLinkNF(token,fx.nfe.id):null;
@@ -12572,32 +12601,56 @@ const BLING_PRODUTO={
 function blingGetTokens(){return JSON.parse(localStorage.getItem('slj_bling_tokens')||'null');}
 function blingSaveTokens(t){localStorage.setItem('slj_bling_tokens',JSON.stringify(t));}
 
-async function blingRefreshToken(){
-  const tokens=blingGetTokens();
-  if(!tokens?.refresh_token) return null;
+// ── ACESSO AO BLING PELO SERVIDOR ─────────────────────────────────────────
+// O token do Bling fica guardado só no servidor (função bling-api), não no navegador.
+// Assim qualquer aparelho emite nota sem precisar autorizar de novo.
+let _blingSrvOk=false,_blingSrvTs=0;
+async function blingSrv(corpo){
   try{
-    const r=await fetch(BLING_WORKER+'/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:tokens.refresh_token})});
-    const d=await r.json();
-    if(d.access_token){blingSaveTokens(d);return d.access_token;}
-    return null;
-  }catch(e){return null;}
+    const r=await fetch(SUPABASE_FUNCTIONS_URL+'/bling-api',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:JSON.stringify(corpo)});
+    return await r.json();
+  }catch(e){return {success:false,erro:'Sem resposta do servidor ('+(e.message||e)+')'};}
 }
-
+// Mantém o nome antigo: devolve algo "verdadeiro" quando o servidor está autorizado no Bling
 async function blingGetToken(){
-  const tokens=blingGetTokens();
-  if(!tokens) return null;
-  // Se expirou (guardamos timestamp de quando salvou)
-  const salvoEm=tokens.saved_at||0;
-  const expiresIn=(tokens.expires_in||21600)*1000;
-  if(Date.now()-salvoEm>expiresIn-60000){
-    return await blingRefreshToken();
+  if(_blingSrvOk&&Date.now()-_blingSrvTs<300000)return 'servidor';
+  let st=await blingSrv({acao:'status'});
+  if(!st.autenticado){
+    // migração: se este navegador ainda tem o acesso antigo, entrega para o servidor
+    const t=blingGetTokens();
+    if(t&&t.refresh_token){const im=await blingSrv({acao:'importar',refresh_token:t.refresh_token});if(im.autenticado)st=im;}
   }
-  return tokens.access_token;
+  if(st.autenticado){
+    try{localStorage.removeItem('slj_bling_tokens');}catch(e){}
+    _blingSrvOk=true;_blingSrvTs=Date.now();return 'servidor';
+  }
+  _blingSrvOk=false;return null;
+}
+// Substitui fetch(BLING_WORKER+'/bling/...'): mesma resposta do Bling, mas pelo servidor
+async function blingFetch(url,opts){
+  const u=new URL(url);
+  const caminho=u.pathname.replace(/^\/bling/,'');
+  const query={};u.searchParams.forEach((v,k)=>{if(k!=='access_token')query[k]=v;});
+  const metodo=String((opts&&opts.method)||'GET').toUpperCase();
+  let corpo;
+  if(metodo==='POST'){try{corpo=(JSON.parse((opts&&opts.body)||'{}')).payload||{};}catch(e){corpo={};}}
+  const d=await blingSrv({acao:'chamar',metodo,caminho,query,corpo});
+  if(!d.success){
+    if(d.naoAutenticado)_blingSrvOk=false;
+    const erro={error:{description:d.erro||'Falha ao falar com o Bling'}};
+    return {ok:false,status:d.naoAutenticado?401:400,json:async()=>erro};
+  }
+  return {ok:!!d.ok,status:d.status,json:async()=>d.resposta};
+}
+async function blingTrocarCode(code){
+  const d=await blingSrv({acao:'trocar_code',code});
+  if(d.autenticado){_blingSrvOk=true;_blingSrvTs=Date.now();try{localStorage.removeItem('slj_bling_tokens');}catch(e){}}
+  return d;
 }
 
 async function blingAuth(){
   const token=await blingGetToken();
-  if(token){toast('✓ Bling já autenticado!');return;}
+  if(token){toast('✓ Bling já autorizado (vale para todos os aparelhos).');return;}
   window.open('https://www.bling.com.br/Api/v3/oauth/authorize?response_type=code&client_id=017840c85f70865a76ae30219d7d8f4e345b1302&state=solaranja','_blank');
   toast('Autorize no Bling — quando redirecionar copie a URL e cole aqui');
   setTimeout(()=>{
@@ -12606,10 +12659,9 @@ async function blingAuth(){
     const match=code.match(/[?&]code=([^&]+)/);
     const c=match?match[1]:code.trim();
     if(!c){toast('Code não encontrado.');return;}
-    fetch(BLING_WORKER+'/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:c})})
-    .then(r=>r.json()).then(d=>{
-      if(d.access_token){d.saved_at=Date.now();blingSaveTokens(d);toast('✓ Bling autenticado!');}
-      else toast('Erro: '+(d.error?.description||JSON.stringify(d)));
+    blingTrocarCode(c).then(d=>{
+      if(d.autenticado)toast('✓ Bling autorizado! Vale para todos os aparelhos.');
+      else toast('Erro: '+(d.erro||JSON.stringify(d)));
     });
   },3000);
 }
@@ -12623,7 +12675,7 @@ async function importarIEsBling(){
     // Primeiro buscar lista de todos os contatos
     const todosContatos=[];
     while(true){
-      const r=await fetch(`${BLING_WORKER}/bling/contatos?access_token=${token}&pagina=${pagina}&limite=100`,{method:'GET'});
+      const r=await blingFetch(`${BLING_WORKER}/bling/contatos?access_token=${token}&pagina=${pagina}&limite=100`,{method:'GET'});
       const d=await r.json();
       const contatos=d.data||[];
       if(!contatos.length) break;
@@ -12642,7 +12694,7 @@ async function importarIEsBling(){
       if(!cli) continue;
       // Buscar detalhes do contato
       try{
-        const r2=await fetch(`${BLING_WORKER}/bling/contatos/${ct.id}?access_token=${token}`,{method:'GET'});
+        const r2=await blingFetch(`${BLING_WORKER}/bling/contatos/${ct.id}?access_token=${token}`,{method:'GET'});
         const d2=await r2.json();
         const ie=(d2.data?.ie||'').trim();
         if(ie&&cli.ie!==ie){
@@ -12742,7 +12794,7 @@ async function emitirNFeCliente(){
   toast('Gerando NF-e no Bling...');
 
   try{
-    const r=await fetch(BLING_WORKER+'/bling/nfe',{
+    const r=await blingFetch(BLING_WORKER+'/bling/nfe',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({access_token:token,payload})
