@@ -1306,6 +1306,17 @@ a{color:var(--orange);text-decoration:none}
   <!-- DIVERGÊNCIAS: boleto x pedidos -->
   <div class="card" id="card-diverg-cob" style="margin-bottom:12px;display:none;border:1px solid #FBBF24;background:#FFFBEB"></div>
 
+  <!-- JUNTAR BOLETOS: soma 2+ boletos em aberto do mesmo cliente num boleto único -->
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:14px;font-weight:700">🔗 Juntar boletos em aberto</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Soma 2 ou mais boletos do mesmo cliente, gera um boleto novo com o total e cancela os antigos no BB. As notas fiscais continuam as mesmas.</div>
+      </div>
+      <button class="btn btn-primary" onclick="juntarAbrir()" style="white-space:nowrap">Juntar boletos</button>
+    </div>
+  </div>
+
 
   <div class="card" style="margin-bottom:12px">
     <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">+ Adicionar estabelecimento</div>
@@ -2181,6 +2192,15 @@ a{color:var(--orange);text-decoration:none}
     </div>
     <div id="lote-resumo" style="font-size:12px;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px"><button class="btn btn-outline" style="flex:1" onclick="fecharCobrancaLote()">Fechar</button><button class="btn btn-outline" style="flex:1;display:none" id="lote-parar" onclick="loteParar()">Parar</button><button class="btn btn-primary" style="flex:2" id="lote-btn" onclick="loteExecutar()">Gerar para os selecionados</button></div>
+  </div>
+</div>
+<div id="modal-juntar" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:12px">
+  <div style="background:var(--white);border-radius:var(--radius);padding:18px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <strong style="font-size:15px">🔗 Juntar boletos em aberto</strong>
+      <button onclick="juntarFechar()" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div id="juntar-corpo" style="font-size:13px">Carregando boletos em aberto...</div>
   </div>
 </div>
 <div id="modal-cob-auto" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:12px">
@@ -12339,6 +12359,147 @@ function divRender(){
         '<div style="font-size:12px;color:#92400E;margin:4px 0 8px">'+txt[d.tipo]+(d.nPeds?' ('+d.nPagos+' de '+d.nPeds+' pedidos pagos)':'')+'.</div>'+
         (acoes?'<div style="display:flex;gap:6px;flex-wrap:wrap">'+acoes+'</div>':'')+'</div>';
     }).join('');
+}
+// ── JUNTAR BOLETOS EM ABERTO ───────────────────────────────────────────────
+// Cliente com 2+ boletos em aberto pede um só: gera um boleto novo com a soma e cancela os antigos no BB.
+let juntarEnvios=[],juntarRodando=false;
+const juntarData=s=>{const m=String(s||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);return m?new Date(+m[3],+m[2]-1,+m[1]):null;};
+function juntarFechar(){if(juntarRodando&&!confirm('A operação está em andamento. Fechar não desfaz o que já foi feito. Fechar mesmo assim?'))return;document.getElementById('modal-juntar').style.display='none';}
+async function juntarAbrir(){
+  document.getElementById('modal-juntar').style.display='flex';
+  const corpo=document.getElementById('juntar-corpo');corpo.innerHTML='Carregando boletos em aberto...';
+  try{
+    const desde=new Date(Date.now()-180*86400000).toISOString();
+    juntarEnvios=await sbGet('cobranca_envios','?status=eq.ok&pago_em=is.null&boleto_nosso_numero=not.is.null&created_at=gte.'+desde+'&order=created_at.asc&limit=500&select=*')||[];
+  }catch(e){corpo.innerHTML='<div style="color:#b42318">Não foi possível carregar os boletos: '+escLoc(e.message||e)+'</div>';return;}
+  const porCli={};juntarEnvios.forEach(e=>{(porCli[e.cliente_id]=porCli[e.cliente_id]||[]).push(e);});
+  const cands=Object.keys(porCli).filter(k=>porCli[k].length>=2).sort((a,b)=>String(porCli[a][0].cliente_nome).localeCompare(String(porCli[b][0].cliente_nome)));
+  if(!cands.length){corpo.innerHTML='<div style="color:var(--text3)">Nenhum cliente tem 2 ou mais boletos em aberto agora.</div>';return;}
+  corpo.innerHTML='<div class="form-group"><label>Cliente</label><select id="juntar-cli" onchange="juntarRenderCli()" style="width:100%">'+
+    cands.map(k=>'<option value="'+escLoc(k)+'">'+escLoc(porCli[k][0].cliente_nome)+' — '+porCli[k].length+' boletos</option>').join('')+'</select></div><div id="juntar-cli-area"></div>';
+  juntarRenderCli();
+}
+function juntarRenderCli(){
+  const cid=document.getElementById('juntar-cli').value;
+  const lista=juntarEnvios.filter(e=>String(e.cliente_id)===String(cid)).sort((a,b)=>(juntarData(a.vencimento)||0)-(juntarData(b.vencimento)||0));
+  const cli=clientes.find(c=>String(c.id)===String(cid));
+  const hoje=new Date();hoje.setHours(0,0,0,0);
+  const vp=new Date();vp.setDate(vp.getDate()+(cli?cobPrazoDias(cli):7));
+  const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const emails=cli?(loteEmailsDe(cli).join(' ')||cli.email||''):(lista[0].email_para||'');
+  document.getElementById('juntar-cli-area').innerHTML=
+    (cli?'':'<div style="color:#b42318;margin-bottom:8px">Cliente não encontrado no cadastro — não é possível gerar o boleto.</div>')+
+    '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Boletos a juntar</div>'+
+    lista.map(e=>{const v=juntarData(e.vencimento);const at=v&&v<hoje?Math.round((hoje-v)/86400000):0;
+      return '<label style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;font-size:13px;text-transform:none;letter-spacing:normal;color:var(--text);font-weight:400">'+
+        '<input type="checkbox" class="juntar-sel" value="'+escLoc(e.id)+'" checked onchange="juntarTotal()" style="width:16px;height:16px;accent-color:var(--orange)">'+
+        '<span style="flex:1">Boleto nº '+escLoc(e.boleto_nosso_numero)+' · venc. '+escLoc(e.vencimento||'—')+(at?' <span style="color:#b42318">('+at+' dias de atraso)</span>':'')+(e.nfe_numero?'<br><span style="font-size:11px;color:var(--text3)">NF-e nº '+escLoc(e.nfe_numero)+'</span>':'')+'</span>'+
+        '<strong>'+moeda(Number(e.valor||0))+'</strong></label>';}).join('')+
+    '<div id="juntar-total" style="background:var(--bg2);border-radius:8px;padding:10px 12px;margin:8px 0 12px;font-size:13px"></div>'+
+    '<div class="form-group"><label>Vencimento do boleto novo</label><input type="date" id="juntar-venc" value="'+iso(vp)+'" min="'+iso(hoje)+'"></div>'+
+    '<div class="form-group"><label>E-mail do cliente</label><input type="text" id="juntar-para" value="'+escLoc(emails)+'" placeholder="cliente@empresa.com.br"></div>'+
+    '<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:12px;cursor:pointer;text-transform:none;letter-spacing:normal;color:var(--text);font-weight:400"><input type="checkbox" id="juntar-enviar" checked style="width:16px;height:16px;accent-color:var(--orange)"> Enviar o boleto novo por e-mail ao cliente (com as notas fiscais e o extrato)</label>'+
+    '<button class="btn btn-primary" id="juntar-btn" onclick="juntarExecutar()" style="width:100%"'+(cli?'':' disabled')+'>Gerar boleto único</button>'+
+    '<div id="juntar-log" style="margin-top:12px;font-size:12px;line-height:1.7"></div>';
+  juntarTotal();
+}
+function juntarSelecionados(){const ids=[...document.querySelectorAll('.juntar-sel:checked')].map(i=>i.value);return juntarEnvios.filter(e=>ids.includes(e.id));}
+function juntarTotal(){
+  const sel=juntarSelecionados();const t=Math.round(sel.reduce((s,e)=>s+Number(e.valor||0),0)*100)/100;
+  const el=document.getElementById('juntar-total');if(el)el.innerHTML=sel.length+' boleto(s) · <strong>Total do boleto novo: '+moeda(t)+'</strong><br><span style="font-size:11px;color:var(--text3)">Soma dos valores originais (sem multa e juros).</span>';
+  const b=document.getElementById('juntar-btn');if(b&&!juntarRodando)b.disabled=sel.length<2||!clientes.find(c=>String(c.id)===String(document.getElementById('juntar-cli').value));
+}
+function juntarLog(txt,tipo){const el=document.getElementById('juntar-log');if(!el)return;const cor={ok:'#067647',err:'#b42318',warn:'#b54708',run:'var(--text2)'}[tipo||'run'];el.innerHTML+='<div style="color:'+cor+'">'+txt+'</div>';}
+async function juntarExecutar(){
+  if(juntarRodando)return;
+  const cid=document.getElementById('juntar-cli').value;
+  const cli=clientes.find(c=>String(c.id)===String(cid));
+  const sel=juntarSelecionados();
+  if(!cli||sel.length<2){toast('Escolha pelo menos 2 boletos.');return;}
+  const vIso=document.getElementById('juntar-venc').value;
+  if(!vIso){toast('Informe o vencimento do boleto novo.');return;}
+  const [Y,M,D]=vIso.split('-');const vencStr=D+'/'+M+'/'+Y;
+  const hoje=new Date();hoje.setHours(0,0,0,0);if(new Date(+Y,+M-1,+D)<hoje){toast('O vencimento não pode ser no passado.');return;}
+  const total=Math.round(sel.reduce((s,e)=>s+Number(e.valor||0),0)*100)/100;
+  const enviar=document.getElementById('juntar-enviar').checked;
+  const para=document.getElementById('juntar-para').value.trim();
+  if(enviar&&!para){toast('Informe o e-mail do cliente ou desmarque o envio.');return;}
+  if(!confirm('Juntar '+sel.length+' boletos de '+cli.nome+'?\n\nBoleto novo: '+moeda(total)+' com vencimento '+vencStr+'.\nOs boletos nº '+sel.map(e=>e.boleto_nosso_numero).join(', ')+' serão CANCELADOS no Banco do Brasil.'))return;
+  juntarRodando=true;const btn=document.getElementById('juntar-btn');btn.disabled=true;btn.textContent='Processando...';
+  document.getElementById('juntar-log').innerHTML='';
+  const avisos=[];
+  try{
+    // 1) confere no BB que nenhum foi pago
+    juntarLog('⏳ Conferindo no Banco do Brasil se algum já foi pago...');
+    const nossos=sel.map(e=>String(e.boleto_nosso_numero));
+    const st=await cobChamarFn('listar-boletos-bb',{detalhe:nossos});
+    const res=(st&&st.resultados)||{};
+    if(!st||!st.resultados){
+      if(!confirm('Não consegui confirmar no BB se algum desses boletos já foi pago ('+String((st&&(st.erro||st.error))||'sem resposta').slice(0,120)+').\n\nContinuar mesmo assim?')){juntarLog('Cancelado: não foi possível conferir no BB.','warn');return;}
+      juntarLog('⚠ Continuando sem conferência no BB.','warn');
+    }else{
+      const pagos=sel.filter(e=>res[String(e.boleto_nosso_numero)]&&res[String(e.boleto_nosso_numero)].pago);
+      if(pagos.length){juntarLog('❌ O boleto nº '+pagos.map(e=>e.boleto_nosso_numero).join(', ')+' já foi PAGO no BB. Nada foi feito — tire ele da seleção.','err');return;}
+      juntarLog('✅ Nenhum dos boletos foi pago.','ok');
+    }
+    const jaBaixado=e=>res[String(e.boleto_nosso_numero)]&&Number(res[String(e.boleto_nosso_numero)].estado)===7;
+    // 2) pedidos dos boletos (para as datas no boleto e o extrato)
+    const pedIds=[...new Set(sel.flatMap(e=>(e.pedidos_ids||[]).map(Number)))];
+    let peds=[];
+    if(pedIds.length){try{peds=await sbGet('pedidos','?id=in.('+pedIds.join(',')+')&select=id,data,total&order=data.asc')||[];}catch(e){}}
+    // 3) boleto novo
+    juntarLog('⏳ Gerando o boleto novo de '+moeda(total)+'...');
+    const boleto=await cobBoleto(cli,peds,total,vencStr);
+    juntarLog('✅ Boleto novo nº '+boleto.nossoNum+' · vence '+vencStr,'ok');
+    const novoId='cob_'+Date.now()+'_junta';
+    const nfs=sel.map(e=>e.nfe_numero).filter(Boolean);
+    await sbUps('cobranca_envios',[{id:novoId,cliente_id:String(cli.id),cliente_nome:cli.nome,pedidos_ids:pedIds,valor:total,vencimento:vencStr,
+      nfe_id:null,nfe_numero:nfs.join(', ')||null,nfe_link:(sel.find(e=>e.nfe_link)||{}).nfe_link||null,
+      boleto_nosso_numero:String(boleto.nossoNum),boleto_link:boleto.link||null,linha_digitavel:boleto.linha||null,
+      email_para:para||null,status:'ok',etapa:'agrupado: boletos nº '+nossos.join(', '),erro:null}]);
+    // 4) cancela os antigos no BB
+    for(const e of sel){
+      const marca='Agrupado no boleto nº '+boleto.nossoNum+' em '+new Date().toLocaleDateString('pt-BR');
+      if(jaBaixado(e)){
+        await sbPatch('cobranca_envios','?id=eq.'+encodeURIComponent(e.id),{status:'cancelado',erro:marca+' (já estava baixado no BB)'});
+        juntarLog('✅ Boleto nº '+e.boleto_nosso_numero+' já estava cancelado no BB.','ok');continue;
+      }
+      juntarLog('⏳ Cancelando o boleto nº '+e.boleto_nosso_numero+' no BB...');
+      const r=await cobChamarFn('cancelar-boleto',{nosso:String(e.boleto_nosso_numero),valor:Number(e.valor||0)});
+      if(r&&r.success){
+        await sbPatch('cobranca_envios','?id=eq.'+encodeURIComponent(e.id),{erro:marca});
+        juntarLog('✅ Boleto nº '+e.boleto_nosso_numero+' cancelado.','ok');
+      }else{
+        const m='Boleto nº '+e.boleto_nosso_numero+' NÃO foi cancelado: '+String((r&&r.erro)||'sem resposta').slice(0,150)+' — cancele no portal do BB.';
+        avisos.push(m);juntarLog('⚠ '+m,'warn');
+      }
+    }
+    // 5) e-mail
+    if(enviar){
+      juntarLog('⏳ Enviando o boleto novo para '+escLoc(para)+'...');
+      const datas=peds.map(p=>cobFmtData(p.data)).join(', ');
+      const anexos=[];
+      {const bp=gerarBoletoPDF(cli,boleto,total,vencStr,datas);anexos.push({filename:bp.filename,base64:bp.base64});}
+      sel.forEach(e=>{if(e.nfe_link)anexos.push({filename:'NF-e '+(e.nfe_numero||''),url:e.nfe_link});});
+      try{const ant=finCliSelecionado;finCliSelecionado=cli;const ex=gerarPDFCliente({ids:pedIds,retornar:true});finCliSelecionado=ant;if(ex&&ex.base64)anexos.push({filename:ex.filename,base64:ex.base64});}catch(er){console.warn('[juntar extrato]',er);}
+      const linhas=sel.map(e=>'- Boleto nº '+e.boleto_nosso_numero+' (vencimento '+(e.vencimento||'—')+'): '+moeda(Number(e.valor||0))).join('\n');
+      const i=COB_TEXTO_PADRAO.indexOf('\n\nAgradecemos');
+      const texto='Prezados,\n\nConforme solicitado, juntamos os boletos em aberto em um único boleto:\n'+linhas+
+        '\n\nNovo boleto: '+moeda(total)+'\nVencimento: '+vencStr+(boleto.linha?'\nLinha digitável: '+boleto.linha:'')+(boleto.pix?'\nPIX: '+boleto.pix:'')+
+        '\n\nOs boletos anteriores foram cancelados. Por favor, pague apenas este novo boleto.'+(nfs.length?'\nAs notas fiscais continuam as mesmas (NF-e nº '+nfs.join(', ')+').':'')+
+        (i>=0?COB_TEXTO_PADRAO.slice(i):'');
+      const r=await cobChamarFn('enviar-cobranca',{para,assunto:'NOVO BOLETO (BOLETOS AGRUPADOS) - Só Laranja',texto,anexos});
+      if(r&&r.success){await sbPatch('cobranca_envios','?id=eq.'+encodeURIComponent(novoId),{enviado_em:new Date().toISOString()});juntarLog('✅ E-mail enviado.','ok');}
+      else{avisos.push('E-mail não enviado: '+String((r&&r.erro)||'erro').slice(0,150));juntarLog('⚠ E-mail não enviado: '+escLoc(String((r&&r.erro)||'erro').slice(0,150)),'warn');}
+    }
+    juntarLog('<div style="margin-top:8px;padding:10px;border-radius:8px;background:#ECFDF3;color:#067647"><strong>Pronto.</strong> Boleto nº '+boleto.nossoNum+' de '+moeda(total)+' com vencimento '+vencStr+'.'+(boleto.linha?'<br>Linha digitável: <span style="user-select:all">'+escLoc(boleto.linha)+'</span>':'')+(avisos.length?'<br><span style="color:#b54708">Atenção: '+avisos.length+' pendência(s) acima.</span>':'')+'</div>','ok');
+    toast(avisos.length?'⚠ Boleto gerado, mas confira as pendências.':'✓ Boletos juntados.');
+    try{divCarregado=false;divCarregar();}catch(e){}
+  }catch(er){
+    juntarLog('❌ '+escLoc(String(er.message||er).slice(0,200)),'err');
+  }finally{
+    juntarRodando=false;btn.textContent='Gerar boleto único';btn.disabled=true;
+  }
 }
 async function divPatchPedidos(ids,pago){
   for(const id of ids){
