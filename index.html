@@ -8377,8 +8377,11 @@ function getBlingCodigoNome(sabor,tam){
   const key=s+'__'+tam;
   const cur=cfg[key]||{};
   const nomeSaborDisp=(_saboresList.find(x=>x.id===s)||{nome:s}).nome;
+  // Sem código configurado neste navegador: usa um código fixo por sabor/tamanho.
+  // A NF-e exige código no item; vazio fazia o Bling recusar ("Alguns dados informados não são válidos").
+  const codPadrao='SUCO-'+String(s).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]+/g,'-')+'-'+String(tam).toUpperCase();
   return {
-    codigo: cur.codigo||'',
+    codigo: cur.codigo||codPadrao,
     nome: cur.nome||('Garrafa de suco de '+nomeSaborDisp+' '+TL[tam]+' natural')
   };
 }
@@ -12733,7 +12736,7 @@ async function emitirNFeCliente(){
     if(d.data?.id){
       toast('✓ NF-e '+d.data.numero+' gerada no Bling! O sistema emitirá automaticamente.');
     }else{
-      const msg=d.error?.description||d.errors?.[0]?.description||JSON.stringify(d);
+      const msg=blingErroTexto(d); // mostra também qual campo o Bling recusou
       toast('Erro Bling: '+msg);
       console.error('Bling NF-e error:', d);
     }
