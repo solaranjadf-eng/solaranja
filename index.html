@@ -8363,6 +8363,9 @@ function salvarBlingConfig(){
   saveBlingConfig(cfg);
   toast('✓ Configuração salva!');
 }
+function blingNcm(sabor){
+  return (BLING_PRODUTO.ncmPorSabor&&BLING_PRODUTO.ncmPorSabor[sabor||'laranja'])||BLING_PRODUTO.ncm;
+}
 function getBlingCodigoNome(sabor,tam){
   const s=sabor||'laranja';
   // Laranja: usa sempre os dados padrão do BLING_PRODUTO, sem precisar configurar
@@ -10868,7 +10871,7 @@ function cobMontarPayloadNF(cli,peds){
   const itens=Object.entries(qtd).map(([key,q])=>{
     const [sabor,tam]=key.split('__');
     const {codigo,nome}=getBlingCodigoNome(sabor,tam);
-    return {descricao:nome,unidade:BLING_PRODUTO.unidade,codigo,ncm:BLING_PRODUTO.ncm,origem:0,quantidade:q,valor:preco[key]||0,valorUnitario:preco[key]||0,tipo:'P',cfop:BLING_PRODUTO.cfop,impostos:[{tipo:'S',csosn:BLING_PRODUTO.csosn}]};
+    return {descricao:nome,unidade:BLING_PRODUTO.unidade,codigo,ncm:blingNcm(sabor),origem:0,quantidade:q,valor:preco[key]||0,valorUnitario:preco[key]||0,tipo:'P',cfop:BLING_PRODUTO.cfop,impostos:[{tipo:'S',csosn:BLING_PRODUTO.csosn}]};
   });
   const soma=Math.round(itens.reduce((t,i)=>t+i.quantidade*i.valor,0)*100)/100;
   const payload={tipo:1,finalidade:1,dataOperacao:new Date().toISOString().slice(0,10),naturezaOperacao:'Venda de mercadoria a não contribuinte',
@@ -12532,7 +12535,11 @@ function copiarWppCliente(){
 // ── BLING NF-e INTEGRATION ───────────────────────────────────────────────────
 const BLING_WORKER='https://solaranja-bling.solaranjadf.workers.dev';
 const BLING_PRODUTO={
-  ncm:'20091900',
+  ncm:'20091900', // padrão (suco de laranja)
+  // NCM por sabor quando for diferente do padrão
+  ncmPorSabor:{
+    'abacaxi':'22021000'
+  },
   csosn:'0102',
   cfop:'5102',
   unidade:'UN',
@@ -12685,7 +12692,7 @@ async function emitirNFeCliente(){
       descricao: nome,
       unidade: BLING_PRODUTO.unidade,
       codigo: codigo,
-      ncm: BLING_PRODUTO.ncm,
+      ncm: blingNcm(sabor),
       origem: 0,
       quantidade: qtd,
       valor: precoPorSaborTam[key]||0,
