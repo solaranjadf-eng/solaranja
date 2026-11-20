@@ -11114,10 +11114,20 @@ async function cobChamarFn(nome,corpo){
   const d=await r.json().catch(()=>({}));
   return d;
 }
+async function cobMaiorNossoNumero(){
+  // maior número de boleto já registrado no sistema (de qualquer navegador)
+  try{
+    const r=await sbGet('cobranca_envios','?boleto_nosso_numero=not.is.null&select=boleto_nosso_numero&order=created_at.desc&limit=300')||[];
+    return r.reduce((m,x)=>{const n=parseInt(String(x.boleto_nosso_numero).replace(/\D/g,''),10);return n>m?n:m;},0);
+  }catch(e){console.warn('[nosso numero]',e);return 0;}
+}
 async function cobBoleto(cli,peds,total,vencStr){
-  let nossoNum=parseInt(localStorage.getItem('slj_bb_nosso_num')||'100')+1;
+  // o contador do navegador pode estar atrasado (boletos emitidos em outro aparelho): parte do maior número já usado
+  const local=parseInt(localStorage.getItem('slj_bb_nosso_num')||'100');
+  const doSistema=await cobMaiorNossoNumero();
+  let nossoNum=Math.max(local,doSistema)+1;
   localStorage.setItem('slj_bb_nosso_num',String(nossoNum));
-  for(let i=0;i<10;i++){
+  for(let i=0;i<25;i++){
     const payload={valor:parseFloat(total.toFixed(2)),vencimento:vencStr,nossoNumero:nossoNum,numeroTitulo:String(nossoNum),nomePagador:cli.nome,
       cnpjPagador:(cli.cnpj||'').replace(/\D/g,''),tipoPagador:(cli.cnpj||'').replace(/\D/g,'').length===14?2:1,
       enderecoPagador:cli.endereco||cli.enderecoCompleto||'',cepPagador:(cli.cep||'').replace(/\D/g,''),cidadePagador:cli.cidade||'Brasilia',
@@ -11135,6 +11145,7 @@ async function cobBoleto(cli,peds,total,vencStr){
       throw new Error('Boleto recusado: '+erroMsg.slice(0,200));
     }
     nossoNum++;
+    localStorage.setItem('slj_bb_nosso_num',String(nossoNum)); // guarda o avanço para a próxima tentativa
   }
   throw new Error('Não foi possível gerar o boleto (número já usado). Tente novamente.');
 }
@@ -12386,8 +12397,8 @@ async function gerarBoletoBB(){
   // Vencimento = 7 dias (ou a regra do ciclo do cliente, ex.: dia 24 / dia 9 do mês seguinte)
   const vencStr=cobVencimentoStr(cli); // DD/MM/YYYY
 
-  // Nosso número sequencial (salvo em localStorage)
-  let nossoNum=parseInt(localStorage.getItem('slj_bb_nosso_num')||'100');
+  // Nosso número sequencial: parte do maior entre o contador do navegador e o maior já usado no sistema
+  let nossoNum=Math.max(parseInt(localStorage.getItem('slj_bb_nosso_num')||'100'),await cobMaiorNossoNumero());
   nossoNum++;
   localStorage.setItem('slj_bb_nosso_num',String(nossoNum));
 
