@@ -8364,7 +8364,7 @@ function salvarBlingConfig(){
   toast('✓ Configuração salva!');
 }
 function blingNcm(sabor){
-  return (BLING_PRODUTO.ncmPorSabor&&BLING_PRODUTO.ncmPorSabor[sabor||'laranja'])||BLING_PRODUTO.ncm;
+  return (!sabor||sabor==='laranja')?BLING_PRODUTO.ncm:BLING_PRODUTO.ncmOutrosSabores;
 }
 function getBlingCodigoNome(sabor,tam){
   const s=sabor||'laranja';
@@ -12535,11 +12535,8 @@ function copiarWppCliente(){
 // ── BLING NF-e INTEGRATION ───────────────────────────────────────────────────
 const BLING_WORKER='https://solaranja-bling.solaranjadf.workers.dev';
 const BLING_PRODUTO={
-  ncm:'20091900', // padrão (suco de laranja)
-  // NCM por sabor quando for diferente do padrão
-  ncmPorSabor:{
-    'abacaxi':'22021000'
-  },
+  ncm:'20091900', // suco de laranja
+  ncmOutrosSabores:'22021000', // todos os sabores que não são laranja (abacaxi, uva, goiaba...)
   csosn:'0102',
   cfop:'5102',
   unidade:'UN',
