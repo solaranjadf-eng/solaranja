@@ -12640,6 +12640,15 @@ async function gerarBoletoBB(){
       if(data.numero||data.linhaDigitavel||data.codigoBarraNumerico){
         // Sucesso
         localStorage.setItem('slj_bb_nosso_num',String(nossoNum));
+        // Registra o boleto no sistema de cobranças (lembretes, baixa automática, juntar boletos, painel)
+        try{
+          await sbUps('cobranca_envios',[{id:'bb_'+nossoNum,cliente_id:String(cli.id),cliente_nome:cli.nome,
+            pedidos_ids:pedsSel.map(p=>Number(p.id)),valor:parseFloat(totalAberto.toFixed(2)),vencimento:vencStr,
+            boleto_nosso_numero:String(nossoNum),boleto_link:data.urlImagemBoleto||null,
+            linha_digitavel:data.linhaDigitavel||data.codigoBarraNumerico||null,
+            email_para:(typeof loteEmailsDe==='function'?loteEmailsDe(cli).join(' '):'')||cli.email||null,
+            status:'ok',etapa:'boleto avulso (Financeiro)',erro:null}]);
+        }catch(er){console.warn('[registro boleto]',er);toast('⚠ Boleto gerado, mas não foi registrado no sistema de cobranças.');}
         document.getElementById('boleto-bb-status').style.display='none';
         document.getElementById('boleto-bb-resultado').style.display='block';
         document.getElementById('boleto-bb-cli').textContent=cli.apelido||cli.nome;
