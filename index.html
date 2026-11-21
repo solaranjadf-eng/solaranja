@@ -12372,10 +12372,31 @@ async function juntarAbrir(){
     const desde=new Date(Date.now()-180*86400000).toISOString();
     juntarEnvios=await sbGet('cobranca_envios','?status=eq.ok&pago_em=is.null&boleto_nosso_numero=not.is.null&created_at=gte.'+desde+'&order=created_at.asc&limit=500&select=*')||[];
   }catch(e){corpo.innerHTML='<div style="color:#b42318">Não foi possível carregar os boletos: '+escLoc(e.message||e)+'</div>';return;}
+  // Mesma lista do painel "Dinheiro a receber": boletos em aberto direto no Banco do Brasil
+  // (inclui os gerados fora da cobrança, ex.: botão do Financeiro)
+  let avisoBB='';
+  try{
+    corpo.innerHTML='Consultando os boletos em aberto no Banco do Brasil...';
+    const d=await cobChamarFn('boletos-abertos',{});
+    if(d&&d.success){
+      const dig=t=>String(t||'').replace(/\D/g,'');
+      const noBB=new Set([...(d.vencidos||[]),...(d.avencer||[])].map(b=>String(b.nosso)));
+      // registrado no sistema mas já não está aberto no BB (pago/cancelado): fica fora
+      juntarEnvios=juntarEnvios.filter(e=>noBB.has(String(e.boleto_nosso_numero)));
+      const conhecidos=new Set(juntarEnvios.map(e=>String(e.boleto_nosso_numero)));
+      [...(d.vencidos||[]),...(d.avencer||[])].forEach(b=>{
+        if(!b.nosso||conhecidos.has(String(b.nosso)))return;
+        const cli=b.cnpj?clientes.find(c=>dig(c.cnpj)===dig(b.cnpj)):null;
+        juntarEnvios.push({id:'bb_'+b.nosso,_soNoBanco:true,cliente_id:cli?String(cli.id):'cnpj_'+dig(b.cnpj),cliente_nome:cli?cli.nome:(b.cliente||'(sem cadastro)'),
+          valor:Number(b.valor||0),vencimento:b.vencimento||'',boleto_nosso_numero:String(b.nosso),pedidos_ids:[],nfe_numero:null,nfe_link:null});
+      });
+    }else avisoBB='Não consegui consultar o BB agora ('+escLoc(String((d&&d.erro)||'sem resposta').slice(0,100))+'). Mostrando só os boletos registrados no sistema.';
+  }catch(e){avisoBB='Não consegui consultar o BB agora. Mostrando só os boletos registrados no sistema.';}
   const porCli={};juntarEnvios.forEach(e=>{(porCli[e.cliente_id]=porCli[e.cliente_id]||[]).push(e);});
   const cands=Object.keys(porCli).filter(k=>porCli[k].length>=2).sort((a,b)=>String(porCli[a][0].cliente_nome).localeCompare(String(porCli[b][0].cliente_nome)));
-  if(!cands.length){corpo.innerHTML='<div style="color:var(--text3)">Nenhum cliente tem 2 ou mais boletos em aberto agora.</div>';return;}
-  corpo.innerHTML='<div class="form-group"><label>Cliente</label><select id="juntar-cli" onchange="juntarRenderCli()" style="width:100%">'+
+  const avisoHtml=avisoBB?'<div style="background:#FFF7ED;border:1px solid #FDBA74;color:#9A3412;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:10px">'+avisoBB+'</div>':'';
+  if(!cands.length){corpo.innerHTML=avisoHtml+'<div style="color:var(--text3)">Nenhum cliente tem 2 ou mais boletos em aberto agora.</div>';return;}
+  corpo.innerHTML=avisoHtml+'<div class="form-group"><label>Cliente</label><select id="juntar-cli" onchange="juntarRenderCli()" style="width:100%">'+
     cands.map(k=>'<option value="'+escLoc(k)+'">'+escLoc(porCli[k][0].cliente_nome)+' — '+porCli[k].length+' boletos</option>').join('')+'</select></div><div id="juntar-cli-area"></div>';
   juntarRenderCli();
 }
@@ -12393,7 +12414,7 @@ function juntarRenderCli(){
     lista.map(e=>{const v=juntarData(e.vencimento);const at=v&&v<hoje?Math.round((hoje-v)/86400000):0;
       return '<label style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;font-size:13px;text-transform:none;letter-spacing:normal;color:var(--text);font-weight:400">'+
         '<input type="checkbox" class="juntar-sel" value="'+escLoc(e.id)+'" checked onchange="juntarTotal()" style="width:16px;height:16px;accent-color:var(--orange)">'+
-        '<span style="flex:1">Boleto nº '+escLoc(e.boleto_nosso_numero)+' · venc. '+escLoc(e.vencimento||'—')+(at?' <span style="color:#b42318">('+at+' dias de atraso)</span>':'')+(e.nfe_numero?'<br><span style="font-size:11px;color:var(--text3)">NF-e nº '+escLoc(e.nfe_numero)+'</span>':'')+'</span>'+
+        '<span style="flex:1">Boleto nº '+escLoc(e.boleto_nosso_numero)+' · venc. '+escLoc(e.vencimento||'—')+(at?' <span style="color:#b42318">('+at+(at===1?' dia':' dias')+' de atraso)</span>':'')+(e.nfe_numero?'<br><span style="font-size:11px;color:var(--text3)">NF-e nº '+escLoc(e.nfe_numero)+'</span>':'')+(e._soNoBanco?'<br><span style="font-size:11px;color:var(--text3)">gerado pelo Financeiro (sem pedidos ligados)</span>':'')+'</span>'+
         '<strong>'+moeda(Number(e.valor||0))+'</strong></label>';}).join('')+
     '<div id="juntar-total" style="background:var(--bg2);border-radius:8px;padding:10px 12px;margin:8px 0 12px;font-size:13px"></div>'+
     '<div class="form-group"><label>Vencimento do boleto novo</label><input type="date" id="juntar-venc" value="'+iso(vp)+'" min="'+iso(hoje)+'"></div>'+
@@ -12460,14 +12481,19 @@ async function juntarExecutar(){
     // 4) cancela os antigos no BB
     for(const e of sel){
       const marca='Agrupado no boleto nº '+boleto.nossoNum+' em '+new Date().toLocaleDateString('pt-BR');
+      // boleto que só existia no BB ganha registro (cancelado); os registrados são atualizados
+      const registrar=async(campos)=>{
+        if(e._soNoBanco)await sbUps('cobranca_envios',[{id:e.id,cliente_id:String(cli.id),cliente_nome:cli.nome,pedidos_ids:[],valor:Number(e.valor||0),vencimento:e.vencimento,boleto_nosso_numero:String(e.boleto_nosso_numero),etapa:'boleto avulso (Financeiro)',...campos}]);
+        else await sbPatch('cobranca_envios','?id=eq.'+encodeURIComponent(e.id),campos);
+      };
       if(jaBaixado(e)){
-        await sbPatch('cobranca_envios','?id=eq.'+encodeURIComponent(e.id),{status:'cancelado',erro:marca+' (já estava baixado no BB)'});
+        await registrar({status:'cancelado',erro:marca+' (já estava baixado no BB)'});
         juntarLog('✅ Boleto nº '+e.boleto_nosso_numero+' já estava cancelado no BB.','ok');continue;
       }
       juntarLog('⏳ Cancelando o boleto nº '+e.boleto_nosso_numero+' no BB...');
       const r=await cobChamarFn('cancelar-boleto',{nosso:String(e.boleto_nosso_numero),valor:Number(e.valor||0)});
       if(r&&r.success){
-        await sbPatch('cobranca_envios','?id=eq.'+encodeURIComponent(e.id),{erro:marca});
+        await registrar({status:'cancelado',erro:marca});
         juntarLog('✅ Boleto nº '+e.boleto_nosso_numero+' cancelado.','ok');
       }else{
         const m='Boleto nº '+e.boleto_nosso_numero+' NÃO foi cancelado: '+String((r&&r.erro)||'sem resposta').slice(0,150)+' — cancele no portal do BB.';
