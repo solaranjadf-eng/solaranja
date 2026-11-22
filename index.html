@@ -10801,7 +10801,7 @@ function renderBoletos(){
 }
 
 // ── COBRANÇA COMPLETA: NF-e única + boleto + extrato + e-mail ─────────────────
-const COB_TEXTO_PADRAO='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\nAgradecemos pela parceria e pela confiança no melhor suco natural de laranja de Brasília.\n--\nAtenciosamente,\n Xavier Filho\n Financeiro\n Tel: (61) 99828-2205\n PA 04 Lote 4 S/N Sala 211 e 212 – Jardins Mangueiral - DF\n CEP: 71699-603';
+const COB_TEXTO_PADRAO='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\nAgradecemos pela parceria e pela confiança no melhor suco natural de laranja de Brasília.\n--\nAtenciosamente,\n Xavier Filho\n Financeiro\n Tel: (61) 99828-2205 | (61) 99607-0076\n PA 04 Lote 4 S/N Sala 211 e 212 – Jardins Mangueiral - DF\n CEP: 71699-603';
 function cobInserirPagamento(texto,bloco){const i=texto.indexOf('\n\nAgradecemos');return i>=0?texto.slice(0,i)+bloco+texto.slice(i):texto+bloco;}
 let cobFx=null, cobRodando=false, cobEnviosCache=[];
 const COB_LS='slj_cob_fluxo';
