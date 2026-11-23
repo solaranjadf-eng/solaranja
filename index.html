@@ -1390,7 +1390,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/23-a)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/23-b)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11136,6 +11136,10 @@ function gerarBoletoPDF(cli,b,valor,vencStr,obsDatas,marca){
   const base64=doc.output('datauristring').split(',')[1];
   return {filename:nomeArquivoSeguro('Boleto - '+(cli.apelido||cli.nome||'cliente'))+'.pdf',base64};
 }
+function juntarBaixarNovo(){
+  const u=window._juntaUlt;if(!u){toast('Gere o boleto primeiro.');return;}
+  try{boletoBaixarPDF(u.cli,u.boleto,u.total,u.vencStr,u.datas);}catch(e){alert('Não foi possível baixar o boleto: '+(e.message||e));}
+}
 function boletoBaixarPDF(cli,b,valor,vencStr,obsDatas){
   const r=gerarBoletoPDF(cli,b,valor,vencStr,obsDatas);
   const bin=atob(r.base64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
@@ -12535,7 +12539,8 @@ async function juntarExecutar(){
       if(r&&r.success){await sbPatch('cobranca_envios','?id=eq.'+encodeURIComponent(novoId),{enviado_em:new Date().toISOString()});juntarLog('✅ E-mail enviado.','ok');}
       else{avisos.push('E-mail não enviado: '+String((r&&r.erro)||'erro').slice(0,150));juntarLog('⚠ E-mail não enviado: '+escLoc(String((r&&r.erro)||'erro').slice(0,150)),'warn');}
     }
-    juntarLog('<div style="margin-top:8px;padding:10px;border-radius:8px;background:#ECFDF3;color:#067647"><strong>Pronto.</strong> Boleto nº '+boleto.nossoNum+' de '+moeda(total)+' com vencimento '+vencStr+'.'+(boleto.linha?'<br>Linha digitável: <span style="user-select:all">'+escLoc(boleto.linha)+'</span>':'')+(avisos.length?'<br><span style="color:#b54708">Atenção: '+avisos.length+' pendência(s) acima.</span>':'')+'</div>','ok');
+    window._juntaUlt={cli,boleto,total,vencStr,datas:peds.map(p=>cobFmtData(p.data)).join(', ')};
+    juntarLog('<div style="margin-top:8px;padding:10px;border-radius:8px;background:#ECFDF3;color:#067647"><strong>Pronto.</strong> Boleto nº '+boleto.nossoNum+' de '+moeda(total)+' com vencimento '+vencStr+'.'+(boleto.linha?'<br>Linha digitável: <span style="user-select:all">'+escLoc(boleto.linha)+'</span>':'')+'<div style="margin-top:10px"><button class="btn btn-primary" onclick="juntarBaixarNovo()" style="font-size:12px">🏦 Baixar boleto novo</button></div>'+(avisos.length?'<br><span style="color:#b54708">Atenção: '+avisos.length+' pendência(s) acima.</span>':'')+'</div>','ok');
     toast(avisos.length?'⚠ Boleto gerado, mas confira as pendências.':'✓ Boletos juntados.');
     try{divCarregado=false;divCarregar();}catch(e){}
   }catch(er){
