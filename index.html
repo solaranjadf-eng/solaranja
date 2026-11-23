@@ -2215,6 +2215,11 @@ a{color:var(--orange);text-decoration:none}
       <div class="form-group"><label>E-mail do cliente</label><input type="text" id="cob-para" placeholder="cliente@empresa.com.br (vários: separe por espaço, vírgula ou ponto e vírgula)"><a onclick="cobEnviarTeste()" style="display:inline-block;margin-top:6px;font-size:12px;color:var(--blue);cursor:pointer;text-decoration:underline">✉️ Enviar e-mail de TESTE para este endereço (sem NF-e e sem boleto)</a></div>
       <div class="form-group"><label>Assunto</label><input type="text" id="cob-assunto"></div>
       <div class="form-group"><label>Mensagem <span style="font-size:10px;color:var(--text3)">(vencimento, valor e linha digitável do boleto são inseridos automaticamente antes do agradecimento)</span></label><textarea id="cob-texto" rows="9" style="width:100%;font-size:12px"></textarea></div>
+      <div style="background:var(--bg2);border-radius:8px;padding:10px 12px 2px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">O QUE GERAR NESTA COBRANÇA</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer;text-transform:none;letter-spacing:normal;color:var(--text);font-weight:500"><input type="checkbox" id="cob-gerar-nf" checked onchange="cobDocsMudou()" style="width:16px;height:16px;accent-color:var(--orange)"> Gerar nota fiscal (NF-e)</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer;text-transform:none;letter-spacing:normal;color:var(--text);font-weight:500"><input type="checkbox" id="cob-gerar-boleto" checked onchange="cobDocsMudou()" style="width:16px;height:16px;accent-color:var(--orange)"> Gerar boleto (Banco do Brasil)</label>
+      </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer"><input type="checkbox" id="cob-enviar" checked style="width:16px;height:16px;accent-color:var(--orange)"> Enviar o e-mail automaticamente ao cliente (com NF-e, boleto e extrato em anexo)</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer"><input type="checkbox" id="cob-anexar-nf" checked style="width:16px;height:16px;accent-color:var(--orange)"> Anexar o PDF da NF-e (o sistema espera a nota ser emitida no Bling)</label>
     </div>
@@ -10846,6 +10851,19 @@ function cobRenderPassos(){
     return `<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border)"><span style="width:20px">${ic[st.e]}</span><div style="flex:1"><div style="font-size:13px;font-weight:600;color:${cor[st.e]}">${i+1}. ${n}</div>${st.d?`<div style="font-size:11px;color:var(--text3)">${cobEsc(st.d)}</div>`:''}</div></div>`;}).join('');
 }
 function cobPasso(i,e,d){cobFx.passos[i]={e,d:d||''};cobRenderPassos();}
+// Caixinhas "Gerar nota fiscal" / "Gerar boleto": ajusta o assunto, a mensagem e o anexo da NF-e
+function cobDocsMudou(inicial){
+  const nf=document.getElementById('cob-gerar-nf').checked,bol=document.getElementById('cob-gerar-boleto').checked;
+  const an=document.getElementById('cob-anexar-nf');if(an){an.disabled=!nf;an.closest('label').style.opacity=nf?'1':'0.45';}
+  const docs=[bol?'o boleto':null,nf?'a nota fiscal':null,'o extrato'].filter(Boolean);
+  const lista=docs.length>1?docs.slice(0,-1).join(', ')+' e '+docs[docs.length-1]:docs[0];
+  const tx=document.getElementById('cob-texto');
+  if(tx)tx.value=tx.value.replace(/Encaminhamos, em anexo, .*? dos pedidos/,'Encaminhamos, em anexo, '+lista+' dos pedidos');
+  const as=document.getElementById('cob-assunto');
+  const tit=(bol&&nf)?'BOLETO E NOTA FISCAL':bol?'BOLETO':nf?'NOTA FISCAL':'EXTRATO DE PEDIDOS';
+  if(as&&/SUCO NATURAL DE LARANJA - Só Laranja$/.test(as.value))as.value=tit+' SUCO NATURAL DE LARANJA - Só Laranja';
+  const b=document.getElementById('cob-btn');if(b&&!cobRodando&&b.textContent!=='Continuar de onde parou')b.textContent=(nf||bol)?'Gerar tudo e enviar':'Gerar extrato e enviar';
+}
 // Cobrança interrompida registrada no banco (vale para qualquer aparelho): mesmos pedidos, nota já criada, não concluída
 async function cobBuscarInterrompida(cli,pedIds,valor,vencStr){
   try{
@@ -10884,6 +10902,7 @@ async function abrirCobrancaAuto(){
   document.getElementById('cob-assunto').value='BOLETO E NOTA FISCAL SUCO NATURAL DE LARANJA - Só Laranja';
   document.getElementById('cob-texto').value=corpo;
   document.getElementById('cob-enviar').checked=true;
+  document.getElementById('cob-gerar-nf').checked=true;document.getElementById('cob-gerar-boleto').checked=true;cobDocsMudou(true);
   document.getElementById('cob-resumo').innerHTML=`<strong>${cobEsc(cli.apelido||cli.nome)}</strong> · CNPJ ${cobEsc(cli.cnpj||'—')}<br>${peds.length} pedido(s): ${peds.map(p=>cobFmtData(p.data)+(p.numeroPedido?' (nº '+p.numeroPedido+')':'')).join(', ')}<br>Total: <strong>${moeda(valor)}</strong> · Vencimento do boleto: <strong>${cobFx.vencStr}</strong> · 1 NF-e com todos os pedidos${(()=>{const cc=cobCicloAtual(cli);return cc&&(cc.periodo||cc.temRegra)?'<br>📅 Ciclo dia '+cc.dia+(cc.periodo?' · pedidos de '+cobDataBR(cc.ini)+' a '+cobDataBR(cc.fim):'')+(cc.temRegra?' · vencimento pela regra do cliente':''):'';})()}`;
   document.getElementById('cob-erro').style.display='none';
   document.getElementById('cob-final').style.display='none';
@@ -11213,6 +11232,8 @@ async function executarCobranca(){
   const peds=fx.pedIds.map(id=>todos.find(p=>String(p.id)===String(id))).filter(Boolean);
   if(peds.length!==fx.pedIds.length){toast('Alguns pedidos não foram encontrados. Feche e abra de novo.');return;}
   const enviar=document.getElementById('cob-enviar').checked;
+  const gerarNF=document.getElementById('cob-gerar-nf').checked;
+  const gerarBol=document.getElementById('cob-gerar-boleto').checked;
   const para=emailsLista(document.getElementById('cob-para').value).join(' ');
   const assunto=(document.getElementById('cob-assunto').value||'').trim();
   const texto=document.getElementById('cob-texto').value||'';
@@ -11236,9 +11257,9 @@ async function executarCobranca(){
     }
     // 1) NF-e única (mesmo caminho do botão "Emitir NF-e" do Financeiro: Bling via navegador)
     passoAtual.i=0;fx.etapa='nfe';
-    const anexarNF=document.getElementById('cob-anexar-nf').checked;
+    const anexarNF=gerarNF&&document.getElementById('cob-anexar-nf').checked;
     let nfPend=false;
-    if(!fx.nfe){
+    if(gerarNF&&!fx.nfe){
       cobPasso(0,'run','Enviando a nota ao Bling...');
       const token=await blingGetToken();
       if(!token) throw new Error('Bling não autorizado. Clique em "Bling NF" no menu lateral e autorize uma vez (vale para todos os aparelhos). Nada foi emitido.');
@@ -11257,7 +11278,7 @@ async function executarCobranca(){
       fx.nfe={id:nid.id,numero:nid.numero,link:null};
       fx.status='nfe_ok';cobSalvarLocal();cobPersistir();
     }
-    if(anexarNF&&!fx.nfe.link){
+    if(anexarNF&&fx.nfe&&!fx.nfe.link){
       cobPasso(0,'run','NF-e nº '+(fx.nfe.numero||'')+' criada no Bling. Aguardando a emissão...');
       const token=await blingGetToken();
       if(!token) throw new Error('Bling não autorizado. Clique em "Bling NF" no menu lateral, autorize e clique em Continuar. A nota não será criada de novo.');
@@ -11273,15 +11294,17 @@ async function executarCobranca(){
       cobSalvarLocal();cobPersistir();
       if(!fx.nfe.link)nfPend=true;
     }
-    if(nfPend)cobPasso(0,'wait','NF-e nº '+(fx.nfe.numero||'')+' criada no Bling — falta emitir lá');else cobPasso(0,'ok','NF-e nº '+(fx.nfe.numero||'')+(fx.nfe.link?' emitida':' criada no Bling'));
+    if(!fx.nfe)cobPasso(0,'skip','Não gerar nota fiscal (desmarcado)');
+    else if(nfPend)cobPasso(0,'wait','NF-e nº '+(fx.nfe.numero||'')+' criada no Bling — falta emitir lá');else cobPasso(0,'ok','NF-e nº '+(fx.nfe.numero||'')+(fx.nfe.link?' emitida':' criada no Bling'));
     // 2) Boleto
     passoAtual.i=1;fx.etapa='boleto';
-    if(!fx.boleto){
+    if(gerarBol&&!fx.boleto){
       cobPasso(1,'run','Gerando boleto...');
       fx.boleto=await cobBoleto(cli,peds,fx.valor,fx.vencStr);
       fx.status='boleto_ok';cobSalvarLocal();cobPersistir();
     }
-    cobPasso(1,'ok','Nosso nº '+fx.boleto.nossoNum+' · vence '+fx.vencStr);
+    if(fx.boleto)cobPasso(1,'ok','Nosso nº '+fx.boleto.nossoNum+' · vence '+fx.vencStr);
+    else cobPasso(1,'skip','Não gerar boleto (desmarcado)');
     // 3) Extrato
     passoAtual.i=2;fx.etapa='extrato';
     cobPasso(2,'run','Montando PDF...');
@@ -11292,13 +11315,15 @@ async function executarCobranca(){
     cobPasso(2,'ok',ex.filename);
     // 4) E-mail
     passoAtual.i=3;fx.etapa='email';
-    if(enviar&&nfPend){const ew=new Error('✅ Boleto e extrato prontos. A NF-e nº '+(fx.nfe.numero||'')+' foi enviada ao Bling corretamente e falta só emiti-la lá. Depois de emitir, clique em "Continuar de onde parou" para enviar o e-mail (a nota e o boleto não serão criados de novo). Se o Bling já envia a nota ao cliente, desmarque "Anexar o PDF da NF-e" e continue.');ew.aguardando=true;throw ew;}
+    if(enviar&&nfPend){const ew=new Error('✅ '+(fx.boleto?'Boleto e extrato prontos':'Extrato pronto')+'. A NF-e nº '+(fx.nfe.numero||'')+' foi enviada ao Bling corretamente e falta só emiti-la lá. Depois de emitir, clique em "Continuar de onde parou" para enviar o e-mail (a nota e o boleto não serão criados de novo). Se o Bling já envia a nota ao cliente, desmarque "Anexar o PDF da NF-e" e continue.');ew.aguardando=true;throw ew;}
     if(enviar){
       cobPasso(3,'run','Enviando para '+para+'...');
-      const bloco='\n\nDados do pagamento:\nVencimento: '+fx.vencStr+'\nValor: '+moeda(fx.valor)+(fx.boleto.linha?'\nLinha digitável: '+fx.boleto.linha:'')+(fx.boleto.pix?'\nPIX: '+fx.boleto.pix:'')+(fx.nfe.numero?'\nNF-e nº '+fx.nfe.numero:'');
+      const bloco=fx.boleto
+        ?'\n\nDados do pagamento:\nVencimento: '+fx.vencStr+'\nValor: '+moeda(fx.valor)+(fx.boleto.linha?'\nLinha digitável: '+fx.boleto.linha:'')+(fx.boleto.pix?'\nPIX: '+fx.boleto.pix:'')+(fx.nfe&&fx.nfe.numero?'\nNF-e nº '+fx.nfe.numero:'')
+        :'\n\nValor total: '+moeda(fx.valor)+(fx.nfe&&fx.nfe.numero?'\nNF-e nº '+fx.nfe.numero:'');
       const anexos=[];
-      if(fx.nfe.link)anexos.push({filename:'NF-e '+(fx.nfe.numero||''),url:fx.nfe.link});
-      {const bp=gerarBoletoPDF(cli,fx.boleto,fx.valor,fx.vencStr,peds.map(p=>cobFmtData(p.data)).join(', '));anexos.push({filename:bp.filename,base64:bp.base64});}
+      if(fx.nfe&&fx.nfe.link)anexos.push({filename:'NF-e '+(fx.nfe.numero||''),url:fx.nfe.link});
+      if(fx.boleto){const bp=gerarBoletoPDF(cli,fx.boleto,fx.valor,fx.vencStr,peds.map(p=>cobFmtData(p.data)).join(', '));anexos.push({filename:bp.filename,base64:bp.base64});}
       anexos.push({filename:ex.filename,base64:ex.base64});
       const r=await cobChamarFn('enviar-cobranca',{para,assunto,texto:cobInserirPagamento(texto,bloco),anexos});
       if(!r.success) throw new Error('E-mail não enviado: '+(r.erro||'erro desconhecido'));
