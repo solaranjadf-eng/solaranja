@@ -8917,6 +8917,7 @@ async function confirmarEmissaoNFe(){
     if(data.success){
       nfeLinkDanfe = data.linkDanfe || null;
       nfeNumero = data.numero || null;
+      await nfeRegistrarAvulsa({id:p.clienteId,nome:p.clienteNome},[p],p.total||0,data.nfeId,data.numero,data.linkDanfe);
       const resEl = document.getElementById('nfe-resultado');
       resEl.style.display='block';
       resEl.innerHTML = '✅ <strong>NF-e emitida com sucesso!</strong><br>' +
@@ -12933,6 +12934,20 @@ async function importarIEsBling(){
   }
 }
 
+// Registra no sistema quais pedidos entraram numa NF-e emitida fora da cobrança automática.
+// Com isso os pedidos aparecem como "JÁ COBRADO · NF nº" e, se depois for feita a cobrança
+// desses mesmos pedidos, o sistema usa esta nota e segue direto para o boleto (não emite outra).
+async function nfeRegistrarAvulsa(cli,peds,total,nfeId,numero,link){
+  try{
+    const ids=(peds||[]).map(p=>isNaN(p.id)?p.id:Number(p.id));
+    if(!ids.length||!cli)return;
+    await sbUps('cobranca_envios',[{id:'nfe_'+(nfeId||Date.now()),cliente_id:String(cli.id),cliente_nome:cli.nome,pedidos_ids:ids,
+      valor:Math.round(Number(total||0)*100)/100,vencimento:null,nfe_id:nfeId?String(nfeId):null,nfe_numero:numero?String(numero):'s/n',
+      nfe_link:link&&link!=='https://www.bling.com.br/nfe.php#list'?link:null,status:'nfe_ok',etapa:'nota avulsa',erro:null}]);
+    await cobCarregarCobrados(true);
+    try{if(finCliSelecionado)renderExtratocliente();}catch(e){}
+  }catch(er){console.warn('[registro NF avulsa]',er);toast('⚠ Nota emitida, mas não foi marcada nos pedidos. Use "Marcar como cobrado".');}
+}
 async function emitirNFeCliente(){
   if(!finCliSelecionado){toast('Selecione um cliente no financeiro.');return;}
 
@@ -13020,6 +13035,7 @@ async function emitirNFeCliente(){
     const d=await r.json();
     if(d.data?.id){
       toast('✓ NF-e '+d.data.numero+' gerada no Bling! O sistema emitirá automaticamente.');
+      await nfeRegistrarAvulsa(cli,pedsSel,totalNF,d.data.id,d.data.numero);
     }else{
       const msg=blingErroTexto(d); // mostra também qual campo o Bling recusou
       toast('Erro Bling: '+msg);
