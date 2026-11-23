@@ -1390,7 +1390,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/22-a)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/23-a)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11144,13 +11144,16 @@ function boletoBaixarPDF(cli,b,valor,vencStr,obsDatas){
 }
 async function baixarArquivoNomeado(url,nomeBase){
   try{
+    // link de visualização da nota no Bling abre uma página HTML; com PDF=true entrega o PDF da nota
+    try{const uu=new URL(url);if(/bling\.com\.br$/i.test(uu.hostname)&&/doc\.view\.php$/.test(uu.pathname)&&uu.searchParams.get('PDF')!=='true'){uu.searchParams.set('PDF','true');url=uu.toString();}}catch(_){}
     const r=await fetch(SUPABASE_FUNCTIONS_URL+'/baixar-arquivo',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:JSON.stringify({url})});
     const d=await r.json();
     if(!d.success) throw new Error(d.erro||'falha');
     const ct=(d.contentType||'').toLowerCase();
-    const ext=ct.includes('pdf')?'pdf':ct.includes('png')?'png':(ct.includes('jpeg')||ct.includes('jpg'))?'jpg':ct.includes('html')?'html':'pdf';
     const bin=atob(d.base64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
-    const blob=new Blob([arr],{type:ct||'application/pdf'});
+    const ehPdf=bin.slice(0,4)==='%PDF';
+    const ext=ehPdf?'pdf':ct.includes('pdf')?'pdf':ct.includes('png')?'png':(ct.includes('jpeg')||ct.includes('jpg'))?'jpg':ct.includes('html')?'html':'pdf';
+    const blob=new Blob([arr],{type:ehPdf?'application/pdf':(ct||'application/pdf')});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nomeArquivoSeguro(nomeBase)+'.'+ext;document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   }catch(e){window.open(url,'_blank');toast('Não foi possível dar o nome ao arquivo; abrindo o boleto.');}
