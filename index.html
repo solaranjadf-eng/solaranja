@@ -1399,7 +1399,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-e)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-f)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11458,9 +11458,14 @@ function cobMostrarFinal(enviou){
   const b='display:inline-block;padding:7px 12px;border:1px solid var(--border2);border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;color:var(--text);margin:0 6px 6px 0;cursor:pointer;background:var(--white)';
   el.style.display='block';
   el.innerHTML=`<div style="background:#ECFDF5;border:1px solid #86EFAC;color:#166534;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:8px">${enviou?'✅ Tudo pronto e enviado ao cliente.':'✅ Documentos gerados.'}</div>`
-   +(fx.nfe&&fx.nfe.link?`<a style="${b}" href="${cobEsc(fx.nfe.link)}" target="_blank">🧾 Abrir NF-e ${cobEsc(fx.nfe.numero||'')}</a>`:'')
+   +(fx.nfe&&fx.nfe.link?`<a style="${b}" onclick="cobBaixarNfe()">🧾 Baixar NF-e ${cobEsc(fx.nfe.numero||'')}</a>`:'')
    +(fx.boleto?`<a style="${b}" onclick="cobBaixarBoleto()">🏦 Baixar boleto</a>`:'')
    +`<a style="${b}" onclick="cobBaixarExtrato()">📄 Baixar extrato</a>`;
+}
+function cobBaixarNfe(){
+  if(!cobFx||!cobFx.nfe||!cobFx.nfe.link)return;
+  const c=clientes.find(x=>String(x.id)===String(cobFx.cliId))||{};
+  baixarArquivoNomeado(cobFx.nfe.link,'NF-e '+(cobFx.nfe.numero||'')+' - '+(c.apelido||c.nome||'cliente'));
 }
 function cobBaixarExtrato(){
   if(!window._cobExtratoB64||!cobFx||!cobFx.extrato)return;
