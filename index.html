@@ -164,6 +164,7 @@ label{font-size:11px;font-weight:600;color:var(--text3);display:block;margin-bot
 .status-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:2px 6px;border-radius:var(--radius-xs);letter-spacing:.02em;text-transform:uppercase}
 .status-badge.entregue{background:var(--green-bg);color:var(--green)}
 .status-badge.pago{background:var(--green-bg);color:var(--green)}
+.status-badge.pago-auto{background:#CFFAFE;color:#0E7490}
 .status-badge.pendente{background:var(--bg2);color:var(--text3)}
 .status-badge.debito{background:var(--red-bg);color:var(--red)}
 /* CLIENT */
@@ -1395,7 +1396,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/23-b)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-a)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2888,9 +2889,9 @@ async function sincronizar(){
       clientes=[...CLIENTES_PADRAO];
       lsave('slj_cli_bk',clientes);
     }
-    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`);
-    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`);
-    const dbPAmanha=await sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`);
+    const dbP=await sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,pago_auto,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`);
+    const dbPOntem=await sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,pago_auto,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`);
+    const dbPAmanha=await sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,pago_auto,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`);
     // Capturar estado local ANTES de sobrescrever — timestamp para saber qual é mais recente
     const localState={};
     const agora=Date.now();
@@ -2935,7 +2936,7 @@ async function sincronizar(){
     const noventaDiasAtras=d90.toLocaleDateString('pt-BR',{year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-');
     if(primeiraVez||agora2-ultimaHistSync>600000){
       // Buscar histórico em partes para superar limite de 1000 do Supabase
-      const selectH='id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca';
+      const selectH='id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,pago_auto,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca';
       const baseQ=`?data=lt.${ontemKey}&data=gte.${noventaDiasAtras}&order=data.desc,id.desc&limit=500&select=${selectH}`;
       const [dbH1,dbH2,dbH3,dbH4,dbH5]=await Promise.all([
         sbGet('pedidos',baseQ+'&offset=0'),
@@ -3205,7 +3206,7 @@ async function sincronizar(){
   }
 }
 
-function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],itensTroca:p.itens_troca||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,foto:p.foto||null,numeroPedido:p.numero_pedido||null,troca:p.troca||false,parceria:p.parceria||false,brinde:p.brinde||false,localEntrega:p.local_entrega||''};}
+function mapPedido(p){return{id:p.id,clienteId:p.cliente_id,clienteNome:p.cliente_nome,cnpj:p.cnpj,tel:p.tel||'',hora:p.hora,obs:p.obs,itens:p.itens||[],itensTroca:p.itens_troca||[],total:p.total,precos:p.precos||{},entregue:p.entregue||false,horaEntrega:p.hora_entrega,data:p.data,pago:p.pago||false,pagoAuto:!!p.pago_auto,foto:p.foto||null,numeroPedido:p.numero_pedido||null,troca:p.troca||false,parceria:p.parceria||false,brinde:p.brinde||false,localEntrega:p.local_entrega||''};}
 
 // ── TABS ───────────────────────────────────────────────────────────────────
 const TAB_LABELS={'dash':'Início','pedido':'Novo Pedido','dia':'Do Dia','rota':'Rota','resumo':'Resumo','producao':'Produção','financeiro':'Financeiro','estoque':'Estoque','custos':'Custos','laranjas':'Laranjas','historico':'Histórico','ranking':'Ranking','clientes':'Clientes'};
@@ -3280,7 +3281,7 @@ function dashCarregarAntigos(){
   const precisa=dashPeriodo==='ano'||(dashPeriodo==='mes'||dashPeriodo==='mesant')&&getMesDashKey()<=min.slice(0,7);
   if(!precisa||min<=ano+'-01-01')return;
   dashExtraBusy=true;
-  sbGetAll('pedidos','?data=gte.'+ano+'-01-01&data=lt.'+min+'&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,troca,parceria,itens_troca,local_entrega&order=data')
+  sbGetAll('pedidos','?data=gte.'+ano+'-01-01&data=lt.'+min+'&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,pago_auto,numero_pedido,troca,parceria,itens_troca,local_entrega&order=data')
     .then(rows=>{dashExtra=(rows||[]).map(r=>{const p=mapPedido(r);p.total=Number(p.total)||0;return p;});dashExtraTs=Date.now();dashExtraBusy=false;try{renderDash();}catch(e){}})
     .catch(()=>{dashExtraTs=Date.now();dashExtraBusy=false;});
 }
@@ -4429,7 +4430,7 @@ function renderHistorico(){
           <div class="pedido-header">
             <div class="pedido-nome">${p.clienteNome}${p.localEntrega?` <span style="font-size:10px;background:#FFF3E0;color:#C2410C;border-radius:3px;padding:1px 6px;font-weight:700">📍 ${escLoc(p.localEntrega)}</span>`:''}
               <span class="status-badge ${p.entregue?'entregue':'pendente'}">${p.entregue?'Entregue':'Pendente'}</span>
-              ${p.pago?'<span class="status-badge pago">Pago</span>':''}
+              ${p.pago?`<span class="status-badge ${p.pagoAuto?'pago-auto':'pago'}" title="${p.pagoAuto?'Pago automaticamente (boleto pago no BB)':'Pago (marcado manualmente)'}">Pago</span>`:''}
             </div>
             <div class="pedido-hora">${p.hora||''}</div>
           </div>
@@ -4961,7 +4962,7 @@ function renderDia(){
       if(!lista.find(x=>x.id===p.id)) lista.push(p);
     });
     // Buscar do banco sempre para garantir foto atualizada
-    sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`).then(dbP=>{
+    sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,pago_auto,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`).then(dbP=>{
       if(dbP&&dbP.length){
         if(!historico[dataSel]) historico[dataSel]=[];
         historico[dataSel]=(dbP||[]).map(mapPedido);
@@ -5003,7 +5004,7 @@ function renderDia(){
         <div style="min-width:0;flex:1">
           <div class="pedido-nome">${p.clienteNome}${p.localEntrega?` <span style="font-size:10px;background:#FFF3E0;color:#C2410C;border-radius:3px;padding:1px 6px;font-weight:700">📍 ${escLoc(p.localEntrega)}</span>`:''}
             <span class="status-badge ${statusEnt}">${p.entregue?'Entregue':'Pendente'}</span>
-            ${p.entregue?`<span class="status-badge ${statusPag}">${p.pago?'Pago':'A Receber'}</span>`:''}
+            ${p.entregue?`<span class="status-badge ${p.pago&&p.pagoAuto?'pago-auto':statusPag}" ${p.pago&&p.pagoAuto?'title="Pago automaticamente (boleto pago no BB)"':''}>${p.pago?'Pago':'A Receber'}</span>`:''}
           </div>
           <div class="pedido-meta">CNPJ ${p.cnpj||'—'} · ${p.hora}${p.horaEntrega?' · Entregue '+p.horaEntrega:''}</div>
         </div>
@@ -5313,8 +5314,8 @@ function confirmarEntrega(){
 }
 
 async function marcarPago(i){
-  pedidos[i].pago=true;
-  try{await sbPatch('pedidos',`?id=eq.${pedidos[i].id}`,{pago:true});setSyncStatus('ok','Sincronizado — nuvem ativa');}catch(e){setSyncStatus('err','Erro ao sincronizar');}
+  pedidos[i].pago=true;pedidos[i].pagoAuto=false;
+  try{await sbPatch('pedidos',`?id=eq.${pedidos[i].id}`,{pago:true,pago_auto:false});setSyncStatus('ok','Sincronizado — nuvem ativa');}catch(e){setSyncStatus('err','Erro ao sincronizar');}
   atualizarBadges();renderDia();toast('Pagamento confirmado.');
 }
 
@@ -5705,7 +5706,7 @@ function renderRota(){
     listaRota=[...(historico[dataSel]||[])];
     // Se não tem, buscar do banco
     if(!listaRota.length){
-      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`).then(dbP=>{
+      sbGet('pedidos',`?data=eq.${dataSel}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,pago_auto,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`).then(dbP=>{
         if(dbP&&dbP.length){
           if(!historico[dataSel]) historico[dataSel]=[];
           historico[dataSel]=(dbP||[]).map(mapPedido);
@@ -7548,7 +7549,7 @@ function setFiltroFin(f,btn){
 async function marcarPagoHistorico(pedidoId,dataKey){
   const atualizarNaLista=(lista)=>{
     const i=lista.findIndex(p=>p.id===pedidoId);
-    if(i!==-1){lista[i].pago=true;return true;}
+    if(i!==-1){lista[i].pago=true;lista[i].pagoAuto=false;return true;}
     return false;
   };
   atualizarNaLista(pedidos);
@@ -7556,7 +7557,7 @@ async function marcarPagoHistorico(pedidoId,dataKey){
   lsave('slj_ped_bk',pedidos);
   lsave('slj_hist_bk',historico);
   try{
-    await sbPatch('pedidos',`?id=eq.${pedidoId}`,{pago:true});
+    await sbPatch('pedidos',`?id=eq.${pedidoId}`,{pago:true,pago_auto:false});
     setSyncStatus('ok','Sincronizado — nuvem ativa');
   }catch(e){setSyncStatus('err','Erro ao sincronizar');}
   atualizarBadges();renderFinanceiro();toast('Pagamento confirmado.');
@@ -7859,7 +7860,7 @@ function renderExtratocliente(){
             : p.troca
             ? `<span style="background:#EDE9FE;color:#5B21B6;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">🔄 Troca</span>`
             : p.pago
-            ? `<span style="background:#D1FAE5;color:#065F46;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pago</span>`
+            ? `<span ${p.pagoAuto?'title="Pago automaticamente (boleto pago no BB)"':''} style="background:${p.pagoAuto?'#CFFAFE':'#D1FAE5'};color:${p.pagoAuto?'#0E7490':'#065F46'};font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pago</span>`
             : p.entregue
             ? `<span style="background:#FEF3C7;color:#92400E;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Em aberto</span>`
             : `<span style="background:var(--bg2);color:var(--text3);font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase">Pendente</span>`;
@@ -7962,9 +7963,9 @@ function togglePagoFin(pedidoId){
   let p = pedidos.find(x=>x.id===pedidoId);
   if(!p) Object.values(historico).forEach(d=>d.forEach(x=>{if(x.id===pedidoId)p=x;}));
   if(!p) return;
-  p.pago = !p.pago;
+  p.pago = !p.pago;p.pagoAuto=false;
   lsave('slj_ped_bk',pedidos);
-  sbPatch('pedidos',`?id=eq.${pedidoId}`,{pago:p.pago}).catch(()=>{});
+  sbPatch('pedidos',`?id=eq.${pedidoId}`,{pago:p.pago,pago_auto:false}).catch(()=>{});
   renderExtratocliente();
   renderFinanceiro();
   atualizarBadges();
@@ -8648,7 +8649,7 @@ function verHistoricoCliente(id){
       </div>
       <div style="text-align:right">
         <div style="font-size:13px;font-weight:700;color:var(--orange-dark)">${moeda(p.total)}</div>
-        <span class="status-badge ${p.pago?'pago':'debito'}">${p.pago?'Pago':'A Receber'}</span>
+        <span class="status-badge ${p.pago?(p.pagoAuto?'pago-auto':'pago'):'debito'}" ${p.pago&&p.pagoAuto?'title="Pago automaticamente (boleto pago no BB)"':''}>${p.pago?'Pago':'A Receber'}</span>
       </div>
     </div>`).join(''):'<p style="font-size:13px;color:var(--text3)">Nenhum pedido ainda.</p>';
   document.getElementById('modal-cli-hist').classList.add('open');
@@ -9373,9 +9374,9 @@ async function sincronizarRapido(){
   if(!perfilAtual)return;
   try{
     const [dbP,dbPOntem,dbPAmanha]=await Promise.all([
-      sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`),
-      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`),
-      sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`)
+      sbGet('pedidos',`?data=eq.${hojeKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,pago_auto,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`),
+      sbGet('pedidos',`?data=eq.${ontemKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,pago_auto,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`),
+      sbGet('pedidos',`?data=eq.${amanhaKey}&order=id&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,pago_auto,numero_pedido,foto,local_entrega,brinde,troca,parceria,itens_troca`)
     ]);
     let atualizado=false;
     if(dbP&&dbP.length>=0){
@@ -10092,11 +10093,11 @@ async function quitarDebitoAlerta(clienteId){
   const todos=[...pedidos,...pedidosOntem,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i);
   const abertos=todos.filter(p=>p.clienteId===clienteId&&p.entregue&&!p.pago);
   for(const p of abertos){
-    p.pago=true;
+    p.pago=true;p.pagoAuto=false;
     // Atualiza no array local correto
-    [pedidos,pedidosOntem,pedidosAmanha].forEach(arr=>{const x=arr.find(x=>x.id===p.id);if(x)x.pago=true;});
-    Object.values(historico).forEach(d=>d.forEach(x=>{if(x.id===p.id)x.pago=true;}));
-    await sbPatch('pedidos',`?id=eq.${p.id}`,{pago:true}).catch(()=>{});
+    [pedidos,pedidosOntem,pedidosAmanha].forEach(arr=>{const x=arr.find(x=>x.id===p.id);if(x){x.pago=true;x.pagoAuto=false;}});
+    Object.values(historico).forEach(d=>d.forEach(x=>{if(x.id===p.id){x.pago=true;x.pagoAuto=false;}}));
+    await sbPatch('pedidos',`?id=eq.${p.id}`,{pago:true,pago_auto:false}).catch(()=>{});
   }
   toast('✓ '+abertos.length+' pedido(s) marcado(s) como pago.');
   atualizarBadges();renderFinanceiro();verificarClientesSemPagar();renderDash();
@@ -11469,7 +11470,7 @@ async function abrirCobrancaLote(){
   // pedidos em aberto: banco (inclui os mais antigos) + memória local
   let doBanco=[];
   try{
-    const db=await sbGet('pedidos','?entregue=eq.true&pago=eq.false&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,numero_pedido,troca,parceria,itens_troca,local_entrega&order=data&limit=2000');
+    const db=await sbGet('pedidos','?entregue=eq.true&pago=eq.false&select=id,cliente_id,cliente_nome,cnpj,tel,hora,obs,itens,total,precos,entregue,hora_entrega,data,pago,pago_auto,numero_pedido,troca,parceria,itens_troca,local_entrega&order=data&limit=2000');
     doBanco=(db||[]).map(mapPedido);
   }catch(e){}
   const locais=loteTodosLocais();
@@ -12403,8 +12404,8 @@ async function concConfirmar(){
     const e=concEnvios.find(x=>String(x.id)===sel.value);if(!e)continue;
     feitos.add(sel.value);
     for(const id of (e.pedidos_ids||[])){
-      const p=acharPedidoPorId(id);if(p)p.pago=true;
-      try{await sbPatch('pedidos',`?id=eq.${id}`,{pago:true});}catch(er){console.warn('baixa',er);}
+      const p=acharPedidoPorId(id);if(p){p.pago=true;p.pagoAuto=false;}
+      try{await sbPatch('pedidos',`?id=eq.${id}`,{pago:true,pago_auto:false});}catch(er){console.warn('baixa',er);}
     }
     // registra o boleto como pago (senão ele continua "em aberto" e recebe lembrete)
     try{const cr=concLinhas[i].c;await sbPatch('cobranca_envios','?id=eq.'+encodeURIComponent(e.id),{pago_em:new Date(cr.data+'T12:00:00').toISOString(),valor_pago:cr.valor});}catch(er){console.warn('baixa envio',er);}
