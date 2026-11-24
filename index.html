@@ -670,12 +670,12 @@ a{color:var(--orange);text-decoration:none}
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
-      <div class="rec-box" style="background:var(--red-bg);border:1px solid var(--red-b)">
+      <div class="rec-box" onclick="dashReceberLista('v')" title="Ver os boletos vencidos" style="background:var(--red-bg);border:1px solid var(--red-b);cursor:pointer">
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">🔴 Vencidos</div>
         <div style="font-size:20px;font-weight:700;color:var(--red);margin-top:2px" id="rec-venc-total">—</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px" id="rec-venc-sub"></div>
       </div>
-      <div class="rec-box" style="background:var(--green-bg);border:1px solid var(--green-b)">
+      <div class="rec-box" onclick="dashReceberLista('a')" title="Ver os boletos a vencer" style="background:var(--green-bg);border:1px solid var(--green-b);cursor:pointer">
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">🟢 A vencer</div>
         <div style="font-size:20px;font-weight:700;color:var(--green);margin-top:2px" id="rec-av-total">—</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px" id="rec-av-sub"></div>
@@ -1399,7 +1399,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-c)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-d)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -3467,7 +3467,8 @@ async function dashReceberAtualizar(silencioso){
   }catch(e){if(st&&!silencioso)st.textContent='⚠ Sem conexão com o BB.';}
   dashRecBusy=false;
 }
-function dashReceberLista(){
+function dashReceberLista(sec){
+  window._bbSec=sec||'';
   let d=null;try{d=JSON.parse(localStorage.getItem('slj_bb_resumo')||'null');}catch(e){}
   if(d&&d.dados)bbAbrirLista(d.dados,'');else baixaConsultarBB();
 }
@@ -12167,7 +12168,7 @@ async function baixaConsultarBB(){
   try{
     const d=await cobChamarFn('boletos-abertos',{});
     if(!d.success){toast('⚠ '+String(d.erro||'falha na consulta').slice(0,140));return;}
-    bbAbrirLista(d,aviso);
+    window._bbSec='';bbAbrirLista(d,aviso);
   }catch(e){toast('⚠ '+String(e.message||e).slice(0,100));}
 }
 function bbAcharBoleto(nosso){const d=window._bbD||{};const v=(d.vencidos||[]).find(b=>String(b.nosso)===String(nosso));if(v)return {x:v,venc:true};const a=(d.avencer||[]).find(b=>String(b.nosso)===String(nosso));return a?{x:a,venc:false}:null;}
@@ -12360,7 +12361,7 @@ async function bbCobrarEmail(nosso,btn){
   finally{if(btn){btn.disabled=false;btn.textContent=txt;}}
 }
 function bbAbrirLista(d,aviso,mantem){
-  window._bbD=d;window._bbAviso=aviso;if(!mantem)window._bbCli='';
+  window._bbD=d;window._bbAviso=aviso;if(!mantem)window._bbCli='';const secF=window._bbSec||'';
   let m=document.getElementById('modal-bb');
   if(!m){m=document.createElement('div');m.id='modal-bb';document.body.appendChild(m);}
   m.style.cssText='display:flex;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:12px';
@@ -12376,7 +12377,7 @@ function bbAbrirLista(d,aviso,mantem){
   const venc=fc?vencTodos.filter(x=>x.cliente===fc):vencTodos,av=fc?avTodos.filter(x=>x.cliente===fc):avTodos;
   const seletor='<select onchange="bbFiltrarCli(this.value)" style="width:100%;margin-top:10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--white,#fff);color:var(--text)"><option value="">👥 Todos os clientes ('+nomes.length+')</option>'+nomes.map(n=>'<option value="'+escLoc(n)+'"'+(n===fc?' selected':'')+'>'+escLoc(n)+'</option>').join('')+'</select>';
   const sec=(tit,cor,arr,v)=>'<div style="margin-top:12px"><div style="font-size:13px;font-weight:700;color:'+cor+'">'+tit+' · '+arr.length+' boleto(s) · '+moeda(soma(arr))+'</div>'+(arr.length?arr.map(x=>linha(x,v)).join(''):'<div style="font-size:12px;color:var(--text3);padding:6px 0">Nenhum.</div>')+'</div>';
-  m.innerHTML='<div style="background:var(--white,#fff);border-radius:14px;padding:16px;max-width:640px;width:100%;max-height:90vh;overflow:auto"><div style="font-size:15px;font-weight:700">🔄 Boletos em aberto no BB</div>'+(aviso?'<div style="font-size:12px;color:#067647;margin-top:4px">'+escLoc(aviso)+'</div>':'')+'<div style="font-size:12px;color:var(--text3);margin-top:2px">'+(fc?'Total em aberto deste cliente':'Total em aberto')+': <strong>'+moeda(soma(venc)+soma(av))+'</strong></div>'+seletor+sec('🔴 Vencidos','#b42318',venc,true)+sec('🟢 A vencer','#067647',av,false)+'<div style="text-align:right;margin-top:12px"><button class="btn btn-outline" onclick="document.getElementById(\'modal-bb\').style.display=\'none\'">Fechar</button></div></div>';
+  m.innerHTML='<div style="background:var(--white,#fff);border-radius:14px;padding:16px;max-width:640px;width:100%;max-height:90vh;overflow:auto"><div style="font-size:15px;font-weight:700">'+(secF==='v'?'🔴 Boletos vencidos':secF==='a'?'🟢 Boletos a vencer':'🔄 Boletos em aberto no BB')+'</div>'+(aviso?'<div style="font-size:12px;color:#067647;margin-top:4px">'+escLoc(aviso)+'</div>':'')+'<div style="font-size:12px;color:var(--text3);margin-top:2px">'+(fc?'Total em aberto deste cliente':'Total em aberto')+': <strong>'+moeda(secF==='v'?soma(venc):secF==='a'?soma(av):soma(venc)+soma(av))+'</strong></div>'+seletor+(secF!=='a'?sec('🔴 Vencidos','#b42318',venc,true):'')+(secF!=='v'?sec('🟢 A vencer','#067647',av,false):'')+'<div style="text-align:right;margin-top:12px"><button class="btn btn-outline" onclick="document.getElementById(\'modal-bb\').style.display=\'none\'">Fechar</button></div></div>';
 }
 function concParseExtrato(txt){
   const out=[];
