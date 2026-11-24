@@ -1291,6 +1291,9 @@ a{color:var(--orange);text-decoration:none}
   <!-- ALERTAS DE VENCIMENTO -->
   <div id="alerta-vencimento-cob" style="margin-bottom:12px"></div>
 
+  <!-- COBRANÇA DO CICLO: lista pronta + 1 clique -->
+  <button class="btn btn-primary btn-full" style="margin-bottom:12px" onclick="abrirCobrancaLote()">📅 Cobrar clientes do ciclo (semanal / quinzenal): revisar e gerar</button>
+
   <!-- AUTOMAÇÃO DE COBRANÇA: lembretes + baixa -->
   <div class="card" id="card-automacao-cob" style="margin-bottom:12px">
     <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🔔 Lembretes e baixa automática</div>
@@ -1396,7 +1399,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-a)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-b)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -11455,6 +11458,34 @@ function lotePersistir(fx,extra){
     boleto_nosso_numero:fx.boleto?String(fx.boleto.nossoNum):null,boleto_link:fx.boleto?fx.boleto.link||null:null,linha_digitavel:fx.boleto?fx.boleto.linha||null:null,
     email_para:fx.para||null,status:fx.status,etapa:fx.etapa||null,erro:fx.erro||null,...(extra||{})}]).catch(e=>console.warn('[cobranca_envios]',e));
 }
+// ── CICLO DE COBRANÇA (semanal / quinzenal) lido da observação do cadastro em Cobranças ──
+// "TODA SEMANA" -> toda semana (pedidos de segunda a domingo da semana anterior)
+// "A CADA 15 DIAS" ou dias 15 e 30 -> cortes no dia 15 e no ÚLTIMO dia do mês (31 se o mês tem 31)
+const COBAUTO_PISO='2026-11-09';
+function cobAutoTipo(cli){
+  const c=cobEntradaDe(cli);if(!c)return null;
+  const obs=String(c.obs||'');const dias=(c.diasVencimento||[]).filter(Boolean);
+  if(/toda\s+semana/i.test(obs))return 'semanal';
+  if(/a\s+cada\s+15\s+dias/i.test(obs)||(dias.includes(15)&&dias.some(d=>d>=28)))return 'quinzena';
+  return null;
+}
+function cobAutoPeriodo(tipo,hoje){
+  const d0=new Date(hoje.getFullYear(),hoje.getMonth(),hoje.getDate());
+  let ini,fim;
+  if(tipo==='semanal'){
+    const dow=(d0.getDay()+6)%7;                       // 0 = segunda
+    const seg=new Date(d0);seg.setDate(d0.getDate()-dow);
+    fim=new Date(seg);fim.setDate(seg.getDate()-1);    // domingo anterior
+    ini=new Date(fim);ini.setDate(fim.getDate()-6);    // segunda anterior
+  }else{
+    const y=d0.getFullYear(),m=d0.getMonth(),ult=cobUltimoDia(y,m),dia=d0.getDate();
+    if(dia>=ult){ini=new Date(y,m,16);fim=new Date(y,m,ult);}             // hoje é o último dia do mês
+    else if(dia>=15){ini=new Date(y,m,1);fim=new Date(y,m,15);}           // corte do dia 15
+    else{const up=cobUltimoDia(y,m-1);ini=new Date(y,m-1,16);fim=new Date(y,m-1,up);} // corte do mês anterior
+  }
+  return {tipo,ini:cobIso(ini),fim:cobIso(fim),rot:(tipo==='semanal'?'semana ':'quinzena ')+cobDataBR(cobIso(ini))+' a '+cobDataBR(cobIso(fim))};
+}
+function cobAutoCiclo(cli,hoje){const t=cobAutoTipo(cli);return t?cobAutoPeriodo(t,hoje||new Date()):null;}
 function loteTodosLocais(){
   return [...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].filter((p,i,a)=>a.findIndex(x=>String(x.id)===String(p.id))===i);
 }
@@ -11480,6 +11511,7 @@ async function abrirCobrancaLote(){
   const porCli={};
   todos.forEach(p=>{(porCli[String(p.clienteId)]=porCli[String(p.clienteId)]||[]).push(p);});
   let envios=[];try{envios=await sbGet('cobranca_envios','?order=created_at.desc&limit=400&select=id,pedidos_ids,nfe_numero,status')||[];}catch(e){}
+  try{await cobCarregarCobrados(true);}catch(e){}
   const mapa=loteMapa();
   const _estab=new Set(cobrancas.filter(c=>c.ativo!==false).map(c=>(c.nome||'').toLowerCase().trim()).filter(Boolean));
   loteItens=Object.entries(porCli).map(([cid,peds])=>{
@@ -11488,6 +11520,9 @@ async function abrirCobrancaLote(){
     const cc=cobCicloAtual(cli);
     let pedsUsar=peds;
     if(cc&&cc.periodo)pedsUsar=peds.filter(p=>p.data>=cc.ini&&p.data<=cc.fim);
+    // ciclo automático (semanal / quinzenal): pedidos até o fim do último período, desde 09/11, que ainda não foram cobrados
+    const ca=cobAutoCiclo(cli,new Date());
+    if(ca)pedsUsar=peds.filter(p=>p.data>=COBAUTO_PISO&&p.data<=ca.fim&&!cobradosMap[String(p.id)]);
     if(!pedsUsar.length)return null;
     const pedsOrig=peds;peds=pedsUsar;
     peds.sort((a,b)=>a.data.localeCompare(b.data));
@@ -11496,7 +11531,7 @@ async function abrirCobrancaLote(){
     const ja=envios.filter(e=>e.nfe_numero&&(e.pedidos_ids||[]).some(i=>set.has(String(i))));
     const salvo=mapa[cid];
     const retoma=salvo&&(salvo.nfe||salvo.boleto)&&salvo.status!=='ok'&&JSON.stringify(salvo.pedIds.map(String).sort())===JSON.stringify(peds.map(p=>String(p.id)).sort());
-    return {cid,cli,peds,valor,ja,ciclo:cc,retoma:retoma?salvo:null,sel:false,estado:'pend',det:''};
+    return {cid,cli,peds,valor,ja,ciclo:cc,auto:ca,retoma:retoma?salvo:null,sel:!!ca&&loteEmailsDe(cli).length>0,estado:'pend',det:''};
   }).filter(Boolean).sort((a,b)=>a.peds[0].data.localeCompare(b.peds[0].data));
   loteRender();
   btn.disabled=false;
@@ -11512,6 +11547,7 @@ function loteRender(){
     const nome=cobEsc(it.cli.apelido||it.cli.nome);
     const avisos=[];
     if(!loteEmailsDe(it.cli).length)avisos.push('⚠ sem e-mail cadastrado');
+    if(it.auto)avisos.unshift('📅 Ciclo '+(it.auto.tipo==='semanal'?'semanal':'quinzenal')+' · '+it.auto.rot);
     if(it.ja.length)avisos.push('⚠ já cobrado antes (NF-e nº '+it.ja.map(e=>e.nfe_numero).join(', ')+')');
     if(it.ciclo&&(it.ciclo.periodo||it.ciclo.temRegra))avisos.push('📅 Ciclo dia '+it.ciclo.dia+(it.ciclo.periodo?' ('+cobDataBR(it.ciclo.ini)+' a '+cobDataBR(it.ciclo.fim)+')':'')+(it.ciclo.temRegra?' · vence '+it.ciclo.venc.toLocaleDateString('pt-BR'):''));
     if(it.retoma)avisos.push('↩ continua: NF-e nº '+(it.retoma.nfe?it.retoma.nfe.numero:'—')+' já criada'+(it.retoma.boleto?', boleto já gerado':''));
@@ -11527,7 +11563,7 @@ function loteRender(){
 function loteResumo(){
   const sel=loteItens.filter(i=>i.sel);
   const tot=sel.reduce((s,i)=>s+i.valor,0);
-  document.getElementById('lote-info').textContent=loteItens.length+' cliente(s) da aba Cobranças com débito em aberto — '+moeda(loteItens.reduce((s,i)=>s+i.valor,0));
+  document.getElementById('lote-info').textContent=loteItens.length+' cliente(s) da aba Cobranças com débito em aberto — '+moeda(loteItens.reduce((s,i)=>s+i.valor,0))+(loteItens.some(i=>i.auto)?' · '+loteItens.filter(i=>i.auto).length+' do ciclo já marcado(s) (confira e clique em Gerar)':'');
   document.getElementById('lote-resumo').innerHTML='Selecionados: <strong>'+sel.length+'</strong> cliente(s) · <strong>'+moeda(tot)+'</strong> · vencimento dos boletos em 7 dias (B HOTEL: 15) <a onclick="loteMarcar(true)" style="margin-left:10px;cursor:pointer;color:var(--blue)">marcar todos</a> · <a onclick="loteMarcar(false)" style="cursor:pointer;color:var(--blue)">desmarcar</a>';
 }
 function loteMarcar(v){if(loteRodando)return;const q=((document.getElementById('lote-busca')||{}).value||'').toLowerCase().trim();loteItens.forEach(i=>{if(!q||((i.cli.apelido||'')+' '+i.cli.nome).toLowerCase().includes(q))i.sel=v;});loteRender();}
