@@ -1399,7 +1399,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-d)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-e)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2534,6 +2534,7 @@ a{color:var(--orange);text-decoration:none}
   <div class="modal-box" style="width:100%;max-width:480px;background:var(--white);border-radius:16px 16px 0 0;padding:20px">
     <div class="modal-title">Editar Pedido — <span id="modal-ped-nome"></span></div>
     <div id="modal-sabor-sel" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div class="obs-wrap" style="margin-bottom:12px"><label>Data do pedido</label><input type="date" id="modal-data" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--white);color:var(--text)"></div>
     <p class="sec-label">Quantidade por embalagem</p>
     <div class="garrafas-grid" id="modal-garrafas" style="margin-bottom:12px"></div>
     <div class="obs-wrap"><label>Observações</label><textarea id="modal-obs"></textarea></div>
@@ -8569,7 +8570,7 @@ function _abrirModalEditComum(p,idx,isHist,dataKey){
   editPedQtds={};
   p.itens.forEach(it=>{const s=it.sabor||'laranja';const key=precoKey(it.tam,s);editPedQtds[key]=(editPedQtds[key]||0)+it.qtd;});
   document.getElementById('modal-ped-nome').textContent=p.clienteNome;
-  document.getElementById('modal-obs').value=p.obs||'';
+  document.getElementById('modal-obs').value=p.obs||'';{const di=document.getElementById('modal-data');if(di)di.value=/^\d{4}-\d{2}-\d{2}$/.test(p.data||'')?p.data:'';}
   const c=clientes.find(x=>x.id===p.clienteId)||{precos:p.precos||{}};
   const precos=c.precos||p.precos||{};
   // Detecta sabor predominante do pedido para pré-selecionar
@@ -8613,11 +8614,14 @@ async function salvarEdicaoPedido(){
   if(!itens.length){toast('Adicione ao menos um item.');return;}
   const total=itens.reduce((s,i)=>s+i.preco*i.qtd,0);
   const obs=document.getElementById('modal-obs').value.trim();
+  const novaData=(document.getElementById('modal-data')||{}).value||p.data;
+  const mudouData=!!novaData&&novaData!==p.data;
+  const dataAntiga=p.data;
 
   try{
-    await sbPatch('pedidos',`?id=eq.${p.id}`,{itens,total,obs});
+    await sbPatch('pedidos',`?id=eq.${p.id}`,mudouData?{itens,total,obs,data:novaData}:{itens,total,obs});
     // Ajustar estoque: repor antigos, descontar novos (só pedidos de hoje)
-    if(!isHist){
+    if(!isHist&&!mudouData){
       for(const it of itensAntigos){
         if(TAMS.includes(it.tam)){estoque[it.tam]=(estoque[it.tam]||0)+it.qtd;}
       }
@@ -8628,13 +8632,23 @@ async function salvarEdicaoPedido(){
         .map(t=>sbUps('estoque',[{tam:t,qty:estoque[t]}]).catch(()=>{})));
     }
     p.itens=itens;p.total=total;p.obs=obs;
-    if(!isHist){lsave('slj_ped_bk',pedidos);}
+    if(mudouData){
+      p.data=novaData;
+      const tira=a=>{const i=a.findIndex(x=>String(x.id)===String(p.id));if(i>=0)a.splice(i,1);};
+      tira(pedidos);tira(pedidosOntem);tira(pedidosAmanha);Object.values(historico).forEach(tira);
+      if(novaData===hojeKey)pedidos.push(p);
+      else if(novaData===ontemKey)pedidosOntem.push(p);
+      else if(novaData===amanhaKey)pedidosAmanha.push(p);
+      else{(historico[novaData]=historico[novaData]||[]).push(p);}
+      lsave('slj_ped_bk',pedidos);lsave('slj_ped_ontem_bk',pedidosOntem);
+    }
+    if(!isHist&&!mudouData){lsave('slj_ped_bk',pedidos);}
     setSyncStatus('ok','✓ Conectado — dados sincronizados');
   }catch(e){setSyncStatus('err','Erro ao sincronizar');}
 
   fecharModal('edit');
   renderDia();
-  toast('✓ Pedido atualizado.');
+  toast(mudouData?'✓ Pedido atualizado e movido para '+novaData.split('-').reverse().join('/')+'.':'✓ Pedido atualizado.');
   window._editHistPedido=null;
   window._editHistDataKey=null;
 }
