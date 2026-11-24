@@ -1399,7 +1399,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-b)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-c)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -3410,7 +3410,7 @@ async function dashPagosHojeBuscar(){
   const hoje=dashHojeBB();
   if(!r||(!r.ok&&!/n[aã]o existem boletos/i.test(String(r.detalhe||''))))throw new Error(String((r&&(r.error||r.erro))||'falha na consulta'));
   const lista=(r.boletos||[]).filter(b=>Number(b.codigoEstadoTituloCobranca)===6&&String(b.dataMovimento||'')===hoje);
-  const itens=lista.map(b=>({nosso:String(b.numeroBoletoBB||'').slice(-10).replace(/^0+/,''),valorPago:Number(b.valorPago||b.valorAtual||0),valor:Number(b.valorOriginal||0),vencimento:String(b.dataVencimento||'').replace(/\./g,'/'),credito:b.dataCredito||''}));
+  const itens=lista.map(b=>({nosso:String(b.numeroBoletoBB||'').slice(-10).replace(/^0+/,''),valorPago:Number(b.valorPago||b.valorAtual||0),valor:Number(b.valorOriginal||0),vencimento:String(b.dataVencimento||'').replace(/\./g,'/'),credito:b.dataCredito||'',juros:Number(b.valorJuroMoraRecebido||0),multa:Number(b.valorMultaRecebido||0),desc:Number(b.valorDescontoUtilizado||0)}));
   // nome do cliente pelos boletos registrados no sistema
   if(itens.length){try{
     const reg=await sbGet('cobranca_envios','?boleto_nosso_numero=in.('+itens.map(i=>i.nosso).join(',')+')&select=boleto_nosso_numero,cliente_nome')||[];
@@ -3424,6 +3424,20 @@ async function dashPagosHojeBuscar(){
   }catch(e){}}}
   return {dia:hoje,credito:(itens[0]&&itens[0].credito)||'',itens};
 }
+function phDetalhe(i){
+  const ex=Number(i.valorPago||0)-Number(i.valor||0);
+  if(!(i.valor>0)||ex<=0.009)return '';
+  let multa=Number(i.multa||0),juros=Number(i.juros||0);
+  if(multa+juros<0.009){multa=Math.round(i.valor*0.02*100)/100;juros=Math.max(0,Math.round((ex-multa)*100)/100);}
+  const p=String(i.vencimento||'').split('/');let dias='';
+  if(p.length===3){const v=new Date(+p[2],+p[1]-1,+p[0]);const t=new Date();t.setHours(0,0,0,0);const n=Math.round((t-v)/86400000);if(n>0)dias=' · '+n+' dia(s) de atraso';}
+  const l=(t,v,c)=>'<div style="display:flex;justify-content:space-between;gap:12px"><span>'+t+'</span><span style="color:'+(c||'inherit')+'">'+v+'</span></div>';
+  return '<div style="margin-top:6px;padding:6px 8px;background:#FEF3C7;border-radius:8px;color:#92400E;min-width:210px">'+
+    '<div style="font-weight:700;margin-bottom:2px">Pago com atraso'+dias+'</div>'+
+    l('Valor do boleto',moeda(i.valor))+l('Multa (2%)','+ '+moeda(multa))+l('Juros de mora','+ '+moeda(juros))+
+    '<div style="border-top:1px solid #FCD34D;margin-top:3px;padding-top:3px"></div>'+
+    l('<strong>Total pago</strong>','<strong>'+moeda(i.valorPago)+'</strong>')+'</div>';
+}
 function dashPagosHojeLista(){
   let d=null;try{d=JSON.parse(localStorage.getItem('slj_bb_resumo')||'null');}catch(e){}
   const ph=d&&d.dados&&d.dados.pagosHoje;
@@ -3436,7 +3450,7 @@ function dashPagosHojeLista(){
   m.innerHTML='<div style="background:var(--white,#fff);border-radius:14px;padding:16px;max-width:560px;width:100%;max-height:90vh;overflow:auto">'+
     '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:15px;font-weight:700">✅ Boletos pagos hoje</div><button onclick="document.getElementById(\'modal-pg-hoje\').style.display=\'none\'" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button></div>'+
     '<div style="font-size:13px;color:#1D4ED8;font-weight:700;margin:6px 0 10px">'+it.length+' boleto(s) · '+moeda(tot)+(ph.credito?' · crédito na conta em '+ph.credito.replace(/\./g,'/'):'')+'</div>'+
-    (it.length?it.map(i=>'<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding:9px 4px;font-size:12px"><div><strong>'+escLoc(i.cliente||'Boleto nº '+i.nosso)+'</strong><div style="color:var(--text3)">Boleto '+escLoc(i.nosso)+' · venc. '+escLoc(i.vencimento)+(i.valorPago>i.valor+0.009?' · com juros/multa':'')+'</div></div><strong style="color:#1D4ED8;white-space:nowrap">'+moeda(i.valorPago)+'</strong></div>').join(''):'<div style="font-size:12px;color:var(--text3)">Nenhum boleto pago hoje.</div>')+
+    (it.length?it.map(i=>'<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding:9px 4px;font-size:12px"><div><strong>'+escLoc(i.cliente||'Boleto nº '+i.nosso)+'</strong><div style="color:var(--text3)">Boleto '+escLoc(i.nosso)+' · venc. '+escLoc(i.vencimento)+(i.valorPago>i.valor+0.009?' · com juros/multa':'')+'</div>'+phDetalhe(i)+'</div><strong style="color:#1D4ED8;white-space:nowrap">'+moeda(i.valorPago)+'</strong></div>').join(''):'<div style="font-size:12px;color:var(--text3)">Nenhum boleto pago hoje.</div>')+
     '<div style="font-size:10px;color:var(--text3);margin-top:10px">Fonte: Banco do Brasil (boletos liquidados com data de pagamento de hoje).</div></div>';
 }
 async function dashReceberAtualizar(silencioso){
