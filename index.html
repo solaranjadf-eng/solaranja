@@ -668,7 +668,7 @@ a{color:var(--orange);text-decoration:none}
         <button class="btn btn-outline" style="height:28px;font-size:11px;padding:0 10px" onclick="dashReceberAtualizar(false)">🔄 Atualizar</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
       <div class="rec-box" style="background:var(--red-bg);border:1px solid var(--red-b)">
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">🔴 Vencidos</div>
         <div style="font-size:20px;font-weight:700;color:var(--red);margin-top:2px" id="rec-venc-total">—</div>
@@ -678,6 +678,11 @@ a{color:var(--orange);text-decoration:none}
         <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">🟢 A vencer</div>
         <div style="font-size:20px;font-weight:700;color:var(--green);margin-top:2px" id="rec-av-total">—</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px" id="rec-av-sub"></div>
+      </div>
+      <div class="rec-box" onclick="dashPagosHojeLista()" title="Ver os boletos pagos hoje" style="background:#EFF6FF;border:1px solid #BFDBFE;cursor:pointer">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">✅ Pagos hoje</div>
+        <div style="font-size:20px;font-weight:700;color:#1D4ED8;margin-top:2px" id="rec-pg-total">—</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px" id="rec-pg-sub"></div>
       </div>
     </div>
     <div style="font-size:10px;color:var(--text3);margin-top:8px" id="rec-atualizado">Ainda não consultado.</div>
@@ -3382,7 +3387,53 @@ function dashReceberRender(){
   set('rec-av-total',moeda(soma(a)));
   const prox=a.length?a.reduce((m,i)=>(i.dias>m.dias?i:m),a[0]):null;
   set('rec-av-sub',a.length?a.length+' boleto(s) · próximo: '+prox.vencimento.slice(0,5):'Nenhum a vencer');
+  // Pagos hoje (boletos liquidados no BB com data de pagamento = hoje)
+  const ph=d.dados.pagosHoje;
+  if(ph&&ph.dia===dashHojeBB()){
+    const it=ph.itens||[];
+    set('rec-pg-total',moeda(it.reduce((t,i)=>t+Number(i.valorPago||0),0)));
+    set('rec-pg-sub',it.length?it.length+' boleto(s) liquidado(s)'+(ph.credito?' · crédito '+ph.credito.slice(0,5).replace('.','/'):''):'Nenhum boleto pago hoje');
+  }else{set('rec-pg-total',ph?'R$ 0,00':'—');set('rec-pg-sub',ph?'Nenhum boleto pago hoje':'Clique em Atualizar');}
   set('rec-atualizado','Atualizado às '+new Date(d.ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' (consulta ao BB)');
+}
+function dashHojeBB(){const p=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date());return p.replace(/\//g,'.');}
+// Boletos liquidados hoje no BB. A lista do BB filtra pelo vencimento, então busca um período amplo
+// e fica só com os de situação "Liquidado" cuja data de movimento (pagamento) é hoje.
+async function dashPagosHojeBuscar(){
+  const fmt=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+  const ini=new Date(Date.now()-180*86400000),fim=new Date(Date.now()+150*86400000);
+  const r=await cobChamarFn('listar-boletos-bb',{situacao:'B',inicio:fmt(ini),fim:fmt(fim)});
+  const hoje=dashHojeBB();
+  if(!r||(!r.ok&&!/n[aã]o existem boletos/i.test(String(r.detalhe||''))))throw new Error(String((r&&(r.error||r.erro))||'falha na consulta'));
+  const lista=(r.boletos||[]).filter(b=>Number(b.codigoEstadoTituloCobranca)===6&&String(b.dataMovimento||'')===hoje);
+  const itens=lista.map(b=>({nosso:String(b.numeroBoletoBB||'').slice(-10).replace(/^0+/,''),valorPago:Number(b.valorPago||b.valorAtual||0),valor:Number(b.valorOriginal||0),vencimento:String(b.dataVencimento||'').replace(/\./g,'/'),credito:b.dataCredito||''}));
+  // nome do cliente pelos boletos registrados no sistema
+  if(itens.length){try{
+    const reg=await sbGet('cobranca_envios','?boleto_nosso_numero=in.('+itens.map(i=>i.nosso).join(',')+')&select=boleto_nosso_numero,cliente_nome')||[];
+    itens.forEach(i=>{const e=reg.find(x=>String(x.boleto_nosso_numero)===i.nosso);i.cliente=e?e.cliente_nome:'';});
+  }catch(e){}
+  // os que não estão registrados no sistema: nome do pagador direto no BB
+  const sem=itens.filter(i=>!i.cliente).map(i=>i.nosso);
+  if(sem.length){try{
+    const dd=await cobChamarFn('listar-boletos-bb',{detalhe:sem});const res=(dd&&dd.resultados)||{};
+    itens.forEach(i=>{if(!i.cliente&&res[i.nosso]&&res[i.nosso].pagador)i.cliente=res[i.nosso].pagador.nomeSacadoCobranca||'';});
+  }catch(e){}}}
+  return {dia:hoje,credito:(itens[0]&&itens[0].credito)||'',itens};
+}
+function dashPagosHojeLista(){
+  let d=null;try{d=JSON.parse(localStorage.getItem('slj_bb_resumo')||'null');}catch(e){}
+  const ph=d&&d.dados&&d.dados.pagosHoje;
+  if(!ph||ph.dia!==dashHojeBB()){toast('Clique em Atualizar para consultar o BB.');return;}
+  let m=document.getElementById('modal-pg-hoje');
+  if(!m){m=document.createElement('div');m.id='modal-pg-hoje';document.body.appendChild(m);}
+  m.style.cssText='display:flex;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:12px';
+  m.onclick=e=>{if(e.target===m)m.style.display='none';};
+  const it=ph.itens||[];const tot=it.reduce((t,i)=>t+Number(i.valorPago||0),0);
+  m.innerHTML='<div style="background:var(--white,#fff);border-radius:14px;padding:16px;max-width:560px;width:100%;max-height:90vh;overflow:auto">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:15px;font-weight:700">✅ Boletos pagos hoje</div><button onclick="document.getElementById(\'modal-pg-hoje\').style.display=\'none\'" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button></div>'+
+    '<div style="font-size:13px;color:#1D4ED8;font-weight:700;margin:6px 0 10px">'+it.length+' boleto(s) · '+moeda(tot)+(ph.credito?' · crédito na conta em '+ph.credito.replace(/\./g,'/'):'')+'</div>'+
+    (it.length?it.map(i=>'<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);padding:9px 4px;font-size:12px"><div><strong>'+escLoc(i.cliente||'Boleto nº '+i.nosso)+'</strong><div style="color:var(--text3)">Boleto '+escLoc(i.nosso)+' · venc. '+escLoc(i.vencimento)+(i.valorPago>i.valor+0.009?' · com juros/multa':'')+'</div></div><strong style="color:#1D4ED8;white-space:nowrap">'+moeda(i.valorPago)+'</strong></div>').join(''):'<div style="font-size:12px;color:var(--text3)">Nenhum boleto pago hoje.</div>')+
+    '<div style="font-size:10px;color:var(--text3);margin-top:10px">Fonte: Banco do Brasil (boletos liquidados com data de pagamento de hoje).</div></div>';
 }
 async function dashReceberAtualizar(silencioso){
   if(dashRecBusy||!dashRecVisivel())return;
@@ -3390,7 +3441,10 @@ async function dashReceberAtualizar(silencioso){
   const st=document.getElementById('rec-atualizado');if(st&&!silencioso)st.textContent='Consultando o BB...';
   try{
     const d=await cobChamarFn('boletos-abertos',{});
-    if(d.success){localStorage.setItem('slj_bb_resumo',JSON.stringify({ts:Date.now(),dados:{vencidos:d.vencidos,avencer:d.avencer}}));dashReceberRender();}
+    if(d.success){
+      let pagosHoje=null;try{pagosHoje=await dashPagosHojeBuscar();}catch(e){console.warn('[pagos hoje]',e);}
+      localStorage.setItem('slj_bb_resumo',JSON.stringify({ts:Date.now(),dados:{vencidos:d.vencidos,avencer:d.avencer,pagosHoje}}));dashReceberRender();
+    }
     else if(st&&!silencioso)st.textContent='⚠ '+String(d.erro||'falha na consulta').slice(0,100);
   }catch(e){if(st&&!silencioso)st.textContent='⚠ Sem conexão com o BB.';}
   dashRecBusy=false;
