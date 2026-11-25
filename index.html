@@ -1400,7 +1400,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/25-b)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/25-c)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -1690,6 +1690,16 @@ a{color:var(--orange);text-decoration:none}
       <div class="stat-label" style="color:#065F46">💰 Economizado c/ bonif.</div>
       <div class="stat-val" id="lar-economizado" style="color:#065F46">R$ 0</div>
       <div class="stat-sub" id="lar-economizado-sub" style="color:#065F46"></div>
+    </div>
+    <div class="stat-card" style="background:#FFF7ED;border:1px solid #FDBA74">
+      <div class="stat-label" style="color:#9A3412">🧃 Litros de suco</div>
+      <div class="stat-val" id="lar-litros-prod" style="color:#9A3412">0 L</div>
+      <div class="stat-sub" id="lar-litros-prod-sub" style="color:#9A3412"></div>
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid #FDBA74;font-size:12px;color:#9A3412">
+        <div style="display:flex;justify-content:space-between"><span>Vendido</span><strong id="lar-litros-vend">0 L</strong></div>
+        <div style="display:flex;justify-content:space-between"><span id="lar-litros-saldo-l">Diferença</span><strong id="lar-litros-saldo">0 L</strong></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:6px"><span>Rendimento:</span><input type="number" id="lar-rend" min="1" step="0.5" style="width:62px;padding:3px 6px;border:1px solid #FDBA74;border-radius:6px;font-size:12px;background:#fff" onchange="larSetRend(this.value)"><span>L por saco</span></div>
+      </div>
     </div>
   </div>
   <div class="stats-row" style="margin-bottom:14px">
@@ -4085,6 +4095,8 @@ async function corrigirBonifHistorico(){
   renderLaranjas();
 }
 
+function larRend(){let r=NaN;try{r=parseFloat(localStorage.getItem('slj_rend_saco'));}catch(e){}return r>0?r:9;}
+function larSetRend(v){const n=parseFloat(String(v).replace(',','.'));if(!(n>0))return;try{localStorage.setItem('slj_rend_saco',String(n));}catch(e){}renderLaranjas();}
 function renderLaranjas(){
   // Garantir data padrão = hoje
   const dataInp=document.getElementById('lar-data');
@@ -4108,9 +4120,10 @@ function renderLaranjas(){
                  larFiltro==='mesant'?comprasLaranja.filter(c=>c.data&&c.data.startsWith(mesAnt)):
                  larFiltro==='hoje'?comprasLaranja.filter(c=>c.data===hojeKey):
                  [...comprasLaranja];
-  const sacosPagos=doFiltro.reduce((s,c)=>s+(c.qtd||0),0);
-  const sacosBonif=doFiltro.reduce((s,c)=>s+(c.bonif||0),0);
-  const sacosTotal=doFiltro.reduce((s,c)=>s+(c.qtdTotal||c.qtd||0),0);
+  const _r1=n=>Math.round(n*100)/100;
+  const sacosPagos=_r1(doFiltro.reduce((s,c)=>s+(c.qtd||0),0));
+  const sacosBonif=_r1(doFiltro.reduce((s,c)=>s+(c.bonif||0),0));
+  const sacosTotal=_r1(doFiltro.reduce((s,c)=>s+(c.qtdTotal||c.qtd||0),0));
   const gastoMes=doFiltro.reduce((s,c)=>s+(c.total||0),0);
   const preçoMed=sacosTotal>0?gastoMes/sacosTotal:0; // inclui sacos de bonificação
   const sm=document.getElementById('lar-sacos-mes');
@@ -4125,6 +4138,24 @@ function renderLaranjas(){
   const economizado=doFiltro.reduce((s,c)=>s+((c.bonif||0)*(c.preco||0)),0);
   const eco=document.getElementById('lar-economizado');if(eco)eco.textContent=moeda(economizado);
   const ecoSub=document.getElementById('lar-economizado-sub');if(ecoSub)ecoSub.textContent=sacosBonif>0?sacosBonif+' saco(s) bonificado(s)':'Nenhuma bonificação no período';
+  // Litros de suco: produção estimada (compra + bonificação) x vendido
+  {
+    const rend=larRend();
+    const fmtL=n=>(Math.round(n*10)/10).toLocaleString('pt-BR',{maximumFractionDigits:1})+' L';
+    const prodPag=sacosPagos*rend,prodBon=sacosBonif*rend,prodTot=prodPag+prodBon;
+    const vistos=new Set(),todosP=[];
+    [...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].forEach(p=>{if(!p||vistos.has(String(p.id)))return;vistos.add(String(p.id));todosP.push(p);});
+    const noPeriodo=d=>!!d&&(larFiltro==='mes'?d.startsWith(mesAtual):larFiltro==='mesant'?d.startsWith(mesAnt):larFiltro==='hoje'?d===hojeKey:true);
+    const vendL=todosP.filter(p=>noPeriodo(p.data)&&!p.naoEntregue&&!p.brinde).reduce((t,p)=>t+calcLitros(p.itens||[]),0);
+    const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+    set('lar-litros-prod',fmtL(prodTot));
+    set('lar-litros-prod-sub',sacosTotal>0?fmtL(prodPag)+' comprados + '+fmtL(prodBon)+' bonificados':'Sem compras no período');
+    set('lar-litros-vend',fmtL(vendL));
+    const dif=prodTot-vendL;
+    set('lar-litros-saldo-l',dif>=0?'Ainda sem vender':'Vendido a mais');
+    set('lar-litros-saldo',fmtL(Math.abs(dif)));
+    const ri=document.getElementById('lar-rend');if(ri&&document.activeElement!==ri)ri.value=rend;
+  }
   let lista=doFiltro;
   lista=[...lista].sort((a,b)=>b.data.localeCompare(a.data));
   const el=document.getElementById('lar-lista');
