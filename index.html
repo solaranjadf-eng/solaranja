@@ -1025,6 +1025,7 @@ a{color:var(--orange);text-decoration:none}
     <button class="btn btn-green" onclick="abrirEntregues()" style="flex:1">✅ Entregues</button>
     <button class="btn btn-outline" onclick="imprimirRota()" style="flex:1">Imprimir</button>
   </div>
+  <button id="btn-entregar-todos" class="btn btn-green btn-full" onclick="entregarTodosRota()" style="margin-bottom:12px;display:none">✅ Marcar todos como entregues</button>
   <button id="btn-extrato-rota" class="btn btn-outline btn-full" onclick="abrirExtrato()" style="margin-bottom:12px;display:none">📋 Extrato para WhatsApp</button>
 
   <!-- Modal extrato whatsapp -->
@@ -1399,7 +1400,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-f)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/24-g)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -5756,6 +5757,8 @@ function renderRota(){
   // Mostrar botão extrato só para admin e gerente
   const btnExtrato=document.getElementById('btn-extrato-rota');
   if(btnExtrato) btnExtrato.style.display=['admin','gerente'].includes(perfilAtual)?'':'none';
+  const btnTodos=document.getElementById('btn-entregar-todos');
+  if(btnTodos) btnTodos.style.display=(perfilAtual!=='entregador'&&listaFiltrada.some(p=>!p.entregue&&!p.naoEntregue))?'':'none';
 
   const listaOrdenada=ordemDestaData.map(id=>listaFiltrada.find(p=>String(p.id)===String(id))).filter(Boolean);
   const pendentes=listaOrdenada.filter(p=>!p.entregue&&!p.naoEntregue);
@@ -6013,6 +6016,25 @@ function toggleRotaCheck(id){
     document.getElementById('btn-confirmar-entrega').disabled=false;
     document.getElementById('modal-foto').classList.add('open');
   }
+}
+async function entregarTodosRota(){
+  if(perfilAtual==='entregador')return;
+  const _dk=getRotaDataKey();
+  const listaRota=_dk===hojeKey?pedidos.filter(p=>p.data===hojeKey):_dk===ontemKey?pedidosOntem.filter(p=>p.data===ontemKey):_dk===amanhaKey?pedidosAmanha.filter(p=>p.data===amanhaKey):(historico[_dk]||[]);
+  const viagemFiltro=parseInt(document.getElementById('rota-num-sel')?.value||'0');
+  const alvo=(viagemFiltro>0?listaRota.filter(p=>viagens[p.id]===viagemFiltro):listaRota).filter(p=>!p.entregue&&!p.naoEntregue);
+  if(!alvo.length){toast('Nenhum pedido pendente.');return;}
+  const dtl=_dk.split('-').reverse().join('/');
+  if(!confirm('Marcar '+alvo.length+' pedido(s) pendente(s) de '+dtl+(viagemFiltro>0?' (viagem '+viagemFiltro+')':'')+' como ENTREGUES agora?'))return;
+  const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  alvo.forEach(p=>{p.entregue=true;p.horaEntrega=hora;});
+  lsave('slj_ped_bk',pedidos);lsave('slj_ped_ontem_bk',pedidosOntem);
+  registrarAtividadePedido();atualizarBadges();renderDia();renderRota();
+  toast('✅ '+alvo.length+' pedido(s) marcados como entregues às '+hora+'.');
+  const res=await Promise.allSettled(alvo.map(p=>sbPatch('pedidos',`?id=eq.${p.id}`,{entregue:true,hora_entrega:hora})));
+  const falhas=res.filter(r=>r.status==='rejected').length;
+  if(falhas){setSyncStatus('err','Erro ao sincronizar '+falhas+' pedido(s) — salvos localmente');toast('⚠ '+falhas+' pedido(s) não sincronizaram.');}
+  else{setSyncStatus('ok','✓ Conectado — dados sincronizados');try{sincronizarRapido();}catch(e){}}
 }
 function abrirExtrato(){
   const _dk=getRotaDataKey();
