@@ -1400,7 +1400,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/25-a)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/25-b)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -12986,7 +12986,7 @@ function copiarWppCliente(){
 const BLING_WORKER='https://solaranja-bling.solaranjadf.workers.dev';
 const BLING_PRODUTO={
   ncm:'20091900', // suco de laranja
-  ncmPorSabor:{abacaxi:'20094100'}, // suco de abacaxi (Brix ≤ 20)
+  ncmPorSabor:{}, // NCM específico por sabor (id do sabor → NCM); vazio = usa ncmOutrosSabores
   ncmOutrosSabores:'22021000', // todos os sabores que não são laranja (abacaxi, uva, goiaba...)
   csosn:'0102',
   cfop:'5102',
