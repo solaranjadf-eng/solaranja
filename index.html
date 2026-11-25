@@ -1400,7 +1400,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/25-c)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/25-d)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -1700,6 +1700,7 @@ a{color:var(--orange);text-decoration:none}
         <div style="display:flex;justify-content:space-between"><span id="lar-litros-saldo-l">Diferença</span><strong id="lar-litros-saldo">0 L</strong></div>
         <div style="display:flex;align-items:center;gap:6px;margin-top:6px"><span>Rendimento:</span><input type="number" id="lar-rend" min="1" step="0.5" style="width:62px;padding:3px 6px;border:1px solid #FDBA74;border-radius:6px;font-size:12px;background:#fff" onchange="larSetRend(this.value)"><span>L por saco</span></div>
       </div>
+      <div id="lar-conf" style="margin-top:8px;padding:8px;background:#fff;border:1px solid #FDBA74;border-radius:8px;font-size:12px;color:#7C2D12"></div>
     </div>
   </div>
   <div class="stats-row" style="margin-bottom:14px">
@@ -4154,6 +4155,26 @@ function renderLaranjas(){
     const dif=prodTot-vendL;
     set('lar-litros-saldo-l',dif>=0?'Ainda sem vender':'Vendido a mais');
     set('lar-litros-saldo',fmtL(Math.abs(dif)));
+    // Conferência: laranja entregue x litros vendidos nos últimos 90 dias (evita distorção por sobra de um mês para outro)
+    {
+      const d90=new Date(hoje);d90.setDate(d90.getDate()-90);
+      const k90=d90.getFullYear()+'-'+String(d90.getMonth()+1).padStart(2,'0')+'-'+String(d90.getDate()).padStart(2,'0');
+      const sacos90=comprasLaranja.filter(c=>c.data&&c.data>=k90).reduce((t,c)=>t+(c.qtdTotal||c.qtd||0),0);
+      const vend90=todosP.filter(p=>p.data&&p.data>=k90&&!p.naoEntregue&&!p.brinde).reduce((t,p)=>t+calcLitros(p.itens||[]),0);
+      const box=document.getElementById('lar-conf');
+      if(box){
+        if(sacos90<=0||vend90<=0){box.innerHTML='<strong>Conferência (90 dias):</strong> sem dados suficientes.';}
+        else{
+          const real=vend90/sacos90,dif=(real-rend)/rend*100;
+          const n1=x=>(Math.round(x*10)/10).toLocaleString('pt-BR',{maximumFractionDigits:1});
+          let st;
+          if(Math.abs(dif)<=8)st='<span style="color:#15803D;font-weight:700">✅ Está batendo</span> — a laranja que entrou explica os litros vendidos.';
+          else if(dif>0)st='<span style="color:#B91C1C;font-weight:700">⚠ Saiu mais suco do que a laranja explica</span> ('+n1(real)+' L/saco contra '+n1(rend)+' informado). Verifique se falta lançar compra ou bonificação.';
+          else st='<span style="color:#B45309;font-weight:700">⚠ Entrou mais laranja do que saiu em suco</span> ('+n1(real)+' L/saco contra '+n1(rend)+' informado). Pode ser sobra em estoque, perda ou suco sem lançar.';
+          box.innerHTML='<strong>Conferência — últimos 90 dias</strong><div style="margin-top:4px">'+n1(sacos90)+' sacos entregues → '+n1(sacos90*rend)+' L possíveis<br>'+n1(vend90)+' L vendidos<br>Rendimento real: <strong>'+n1(real)+' L/saco</strong></div><div style="margin-top:4px">'+st+'</div>';
+        }
+      }
+    }
     const ri=document.getElementById('lar-rend');if(ri&&document.activeElement!==ri)ri.value=rend;
   }
   let lista=doFiltro;
