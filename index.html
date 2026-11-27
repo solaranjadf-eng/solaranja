@@ -1401,7 +1401,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/27-d)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/27-e)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -13676,7 +13676,7 @@ function renderDiaristas(){
       calRows.push({i,dk,status,diaSem,eDom});
     }
     const totalBruto=diasTrab*(d.valorDia||0);
-    const saldoPagar=totalBruto-totalAdiant;
+    const saldoPagar=totalBruto; // cada dia marcado em verde = uma diária paga
 
     const calHtml=calRows.map(({i,dk,status,diaSem,eDom})=>{
       const corFundo=status==='ok'?'var(--green)':status==='faltou'?'var(--red)':eDom?'var(--bg2)':'var(--bg)';
@@ -13702,15 +13702,13 @@ function renderDiaristas(){
       +'<div style="font-size:12px;color:var(--text3)">'+moeda(d.valorDia)+'/dia · '+d.tipo+'</div>'
       +'</div>'
       +'<div style="display:flex;gap:6px">'
-      +'<button onclick="abrirAdiantamento(\''+d.id+'\')" style="background:#FFF3CD;border:1px solid #FBBF24;border-radius:var(--radius-sm);padding:5px 10px;font-size:12px;cursor:pointer;color:#92400E">💸 Adiantamento</button>'
       +'<button onclick="abrirCadastroDiarista(\''+d.id+'\')" style="background:var(--bg2);border:none;border-radius:var(--radius-sm);padding:5px 10px;font-size:12px;cursor:pointer;color:var(--text2)">✏️</button>'
       +'<button onclick="deletarDiarista(\''+d.id+'\')" style="background:var(--red-bg);border:none;border-radius:var(--radius-sm);padding:5px 10px;font-size:12px;cursor:pointer;color:var(--red)">✕</button>'
       +'</div></div>'
       // Resumo
-      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">'
-      +'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Dias trabalhados</div><div style="font-size:16px;font-weight:700;color:var(--green)">'+diasTrab+'</div></div>'
-      +'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Adiantamentos</div><div style="font-size:16px;font-weight:700;color:var(--red)">'+moeda(totalAdiant)+'</div></div>'
-      +'<div style="background:'+(saldoPagar>0?'var(--orange)':'var(--green)')+';border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:#fff;opacity:.8;margin-bottom:2px">Saldo a pagar</div><div style="font-size:16px;font-weight:700;color:#fff">'+moeda(saldoPagar)+'</div></div>'
+      +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px">'
+      +'<div style="background:var(--bg);border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Diárias pagas</div><div style="font-size:16px;font-weight:700;color:var(--green)">'+diasTrab+'</div></div>'
+      +'<div style="background:var(--green);border-radius:var(--radius-sm);padding:8px;text-align:center"><div style="font-size:10px;color:#fff;opacity:.8;margin-bottom:2px">Total das diárias</div><div style="font-size:16px;font-weight:700;color:#fff">'+moeda(saldoPagar)+'</div></div>'
       +'</div>'
       // Calendário
       +'<div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:6px;display:flex;gap:10px">'
@@ -13719,9 +13717,6 @@ function renderDiaristas(){
       +'<span style="font-size:10px;color:var(--text3)">(clique para alternar)</span>'
       +'</div>'
       +'<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:14px">'+calHtml+'</div>'
-      // Adiantamentos
-      +'<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px">💸 Adiantamentos do mês</div>'
-      +adiantHtml
       +'</div>';
   }).join('');
 }
