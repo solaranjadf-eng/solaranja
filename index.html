@@ -2792,6 +2792,8 @@ const TAMS=['copo200ml','200ml','300ml','500ml','1L','5L'];
 const TL={'copo200ml':'Copo 200ml','200ml':'200 ml','300ml':'300 ml','500ml':'500 ml','1L':'1 L','5L':'5 L'};
 const LITROS={'copo200ml':0.2,'200ml':0.2,'300ml':0.3,'500ml':0.5,'1L':1.0,'5L':5.0};
 // Sabores dinâmicos — editáveis pelo usuário via localStorage
+// Abreviações de sabor que o "colar pedidos" entende (sem acento, minúsculas)
+const SABOR_ABREV={ab:'abacaxi',uv:'uva'};
 const SABORES_PADRAO=[{id:'laranja',nome:'Laranja'},{id:'uva',nome:'Uva'},{id:'goiaba',nome:'Goiaba'},{id:'acerola',nome:'Acerola'},{id:'abacaxi',nome:'Abacaxi'},{id:'caju',nome:'Caju'},{id:'maracuja',nome:'Maracujá'}];
 let _saboresList=JSON.parse(localStorage.getItem('slj_sabores')||'null')||SABORES_PADRAO;
 const SABORES=_saboresList.map(s=>s.id);
@@ -12038,17 +12040,23 @@ function analisarColar(){
     l=normalizarFormato(l);
     // separa os itens pelo "+" com ou sem espaço: "300 + (5)300", "300 +(5)300", "300+(5)300"
     const segs=l.split(/\s+\+\s+|\s*\+\s*(?=\(\s*\d)/);
+    // Abreviações de sabor aceitas no pedido: "(2)AB" = 2 de abacaxi, "(2)UV" = 2 de uva (no tamanho anterior)
+    const ABREV=Object.fromEntries(Object.entries(SABOR_ABREV).filter(([,id])=>_saboresList.some(s=>s.id===id)));
+    const abvAlt=Object.keys(ABREV).join('|')||'ab';
+    const nomeSab=id=>(_saboresList.find(s=>s.id===id)||{}).nome||id;
     const itens=[];let erro='',pago=/\bpago\b/i.test(l),sobras=[],ultTam='',algumItem=false;
     segs.forEach(seg=>{
       const brindeSeg=/\bbrinde\b/i.test(seg);
       let resto=seg;const ini=itens.length;
-      const re=/\(?\s*(\d+)\s*\)\s*(\d+\s*(?:ml|l)?|ab)(?![a-z0-9])/gi;
-      const abSeg=/(^|\s)ab(?=\s|$)/i.test(seg.replace(/\(?\s*\d+\s*\)\s*(\d+\s*(?:ml|l)?|ab)(?![a-z0-9])/gi,' '));
+      const re=new RegExp('\\(?\\s*(\\d+)\\s*\\)\\s*(\\d+\\s*(?:ml|l)?|'+abvAlt+')(?![a-z0-9])','gi');
+      // abreviação solta no trecho (ex.: "(5)1L UV") vale como sabor dos itens do trecho
+      const soltaSeg=(seg.replace(new RegExp(re.source,'gi'),' ').match(new RegExp('(^|\\s)('+abvAlt+')(?=\\s|$)','i'))||[])[2];
+      const abSeg=soltaSeg?ABREV[soltaSeg.toLowerCase()]:null;
       // Pré-detecta sabor do segmento ANTES do merge, para usar na chave de merge
       const normStr=v=>v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
       const listaSabores=[..._saboresList].filter(s=>s.id!=='laranja').sort((a,b)=>b.nome.length-a.nome.length);
       const saborPre=(()=>{
-        if(abSeg)return 'abacaxi';
+        if(abSeg)return abSeg;
         const ns=normStr(seg);
         const s=listaSabores.find(s=>{const nid=normStr(s.id),nn=normStr(s.nome);return new RegExp('(^|\\s)('+nid+'|'+nn.replace(/\s+/g,'\\s+')+'|lar)(\\s|$)').test(ns);});
         return s?s.id:'laranja';
@@ -12057,16 +12065,19 @@ function analisarColar(){
       while((m=re.exec(seg))){
         algumItem=true;
         const q=parseInt(m[1],10);let sabor=saborPre,tam='';
-        if(/^ab$/i.test(m[2])){sabor='abacaxi';tam=ultTam;if(!tam)erro='Abacaxi (AB) sem tamanho anterior';}
+        const abv=ABREV[String(m[2]).toLowerCase()];
+        if(abv){sabor=abv;tam=ultTam;if(!tam)erro=nomeSab(abv)+' ('+String(m[2]).toUpperCase()+') sem tamanho anterior';}
         else{tam=colarTam(m[2]);if(!tam)erro='Tamanho "'+m[2]+'" não reconhecido';}
         if(tam)ultTam=tam;
         if(tam&&q>0){const ex=itens.find(i=>i.tam===tam&&i.sabor===sabor&&!!i.brinde===brindeSeg);if(ex)ex.qtd+=q;else itens.push({tam,sabor,qtd:q,brinde:brindeSeg});}
         resto=resto.replace(m[0],' ');
       }
-      if(/(^|\s)ab(\s|$)/i.test(resto)){ // "AB" solto = sabor abacaxi para os itens deste trecho
-        resto=resto.replace(/(^|\s)ab(?=\s|$)/gi,' ');
-        itens.slice(ini).forEach(x=>{if(x.sabor==='laranja')x.sabor='abacaxi';});
-      }
+      {const reSolta=new RegExp('(^|\\s)('+abvAlt+')(?=\\s|$)','i');const ms=resto.match(reSolta);
+       if(ms){ // abreviação solta ("AB", "UV") = sabor dos itens deste trecho
+        const sid=ABREV[ms[2].toLowerCase()];
+        resto=resto.replace(new RegExp('(^|\\s)('+abvAlt+')(?=\\s|$)','gi'),' ');
+        itens.slice(ini).forEach(x=>{if(x.sabor==='laranja')x.sabor=sid;});
+      }}
       resto=resto.replace(/(^|\s)lar(?=\s|$)/gi,' '); // LAR = laranja (sabor padrão)
       // Remove nome do sabor detectado do texto restante
       {
