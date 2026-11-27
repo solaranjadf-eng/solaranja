@@ -1400,7 +1400,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/27-a)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/27-b)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -10984,7 +10984,7 @@ function renderBoletos(){
 }
 
 // ── COBRANÇA COMPLETA: NF-e única + boleto + extrato + e-mail ─────────────────
-const COB_TEXTO_PADRAO='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\nAgradecemos pela parceria e pela confiança no melhor suco natural de laranja de Brasília.\n\nEm caso de dúvida, ou para enviar o comprovante de pagamento, é só responder a este e-mail. Ele chega direto em contato@solaranja.com.\n--\nAtenciosamente,\n Xavier Filho\n Financeiro\n Tel: (61) 99607-0076 | (61) 99828-2205\n PA 04 Lote 4 S/N Sala 211 e 212 – Jardins Mangueiral - DF\n CEP: 71699-603';
+const COB_TEXTO_PADRAO='Prezados,\n\nEncaminhamos, em anexo, o boleto, a nota fiscal e o extrato dos pedidos referentes ao fornecimento de suco natural de laranja da Só Laranja.\n\nAgradecemos pela parceria e pela confiança no melhor suco natural de laranja de Brasília.\n\nEm caso de dúvida, ou para enviar o comprovante de pagamento, é só responder a este e-mail.\n--\nAtenciosamente,\n Xavier Filho\n Financeiro\n Tel: (61) 99607-0076 | (61) 99828-2205\n PA 04 Lote 4 S/N Sala 211 e 212 – Jardins Mangueiral - DF\n CEP: 71699-603';
 function cobInserirPagamento(texto,bloco){const i=texto.indexOf('\n\nAgradecemos');return i>=0?texto.slice(0,i)+bloco+texto.slice(i):texto+bloco;}
 let cobFx=null, cobRodando=false, cobEnviosCache=[];
 const COB_LS='slj_cob_fluxo';
