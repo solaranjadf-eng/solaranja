@@ -840,6 +840,7 @@ a{color:var(--orange);text-decoration:none}
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
           <div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">👤 Colaboradores</div>
           <div style="font-size:14px;font-weight:700;color:var(--text)" id="dash-custo-colab">R$ 0</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px;line-height:1.5" id="dash-custo-colab-sub"></div>
         </div>
         <!-- COLUNA 1 -->
         <div style="background:var(--bg);border-radius:var(--radius-sm);padding:9px 12px">
@@ -1400,7 +1401,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/27-c)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/27-d)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -3662,8 +3663,9 @@ function renderDash(){
   const _prefixosDashCalc=dashPeriodo==='ano'
     ?Array.from({length:12},(_,i)=>`${dashMesNav.getFullYear()}-${String(i+1).padStart(2,'0')}`)
     :[mesAtual];
-  let gastoDiaristasCalc=0;
+  let gastoDiaristasCalc=0;const _detColab=[];
   _diaristasCalc.filter(d=>d.ativo).forEach(d=>{
+    let _dd=0,_vv=0;
     _prefixosDashCalc.forEach(pref=>{
       const diasNoMesPref=new Date(parseInt(pref.slice(0,4)),parseInt(pref.slice(5,7)),0).getDate();
       let diasTrabPref=0;
@@ -3671,8 +3673,9 @@ function renderDash(){
         const dk=`${pref}-${String(i).padStart(2,'0')}`;
         if(_diasDiaristasCalc[d.id+'_'+dk]==='ok') diasTrabPref++;
       }
-      gastoDiaristasCalc+=diasTrabPref*(d.valorDia||0);
+      gastoDiaristasCalc+=diasTrabPref*(d.valorDia||0);_dd+=diasTrabPref;_vv+=diasTrabPref*(d.valorDia||0);
     });
+    _detColab.push({nome:d.nome,dias:_dd,valor:_vv,semDiaria:!(d.valorDia>0)});
   });
 
   // Mensalistas — salário fixo por mês × nº de meses no período
@@ -3744,6 +3747,10 @@ function renderDash(){
   if(el('dash-custo-gas'))         el('dash-custo-gas').textContent=moeda(gastoGas);
   // Colaboradores = diaristas (Valdeci, Késia): dias trabalhados × diária (já calculado acima)
   if(el('dash-custo-colab'))       el('dash-custo-colab').textContent=moeda(gastoDiaristasCalc+gastoMensalistasCalc);
+  if(el('dash-custo-colab-sub')){
+    const _linhas=_detColab.map(c=>c.nome+': '+c.dias+' dia(s)'+(c.semDiaria?' · defina a diária':' · '+moeda(c.valor)));
+    el('dash-custo-colab-sub').innerHTML=_linhas.map(l=>escLoc(l)).join('<br>');
+  }
   if(el('dash-custo-fabio-sub'))   el('dash-custo-fabio-sub').textContent='';
   if(el('dash-custo-entregador'))  el('dash-custo-entregador').textContent=moeda(totalEntregador);
   if(el('dash-custo-entregador-sub')) el('dash-custo-entregador-sub').textContent='';
