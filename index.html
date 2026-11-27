@@ -1400,7 +1400,7 @@ a{color:var(--orange);text-decoration:none}
 
   <!-- SEGUNDA SEÇÃO: Acompanhamento semanal -->
   <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/27-b)</span></div>
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">📞 Acompanhamento Semanal de Cobrança <span style="font-size:10px;font-weight:400;color:var(--muted,#888)">(v11/27-c)</span></div>
 
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">+ Adicionar cliente</div>
@@ -2753,6 +2753,39 @@ const sbPatch=(t,q,b)=>sb('PATCH',t,b,q);
 const sbDel=(t,q)=>sb('DELETE',t,null,q);
 const sbUps=async(t,b)=>{const r=await fetch(`${SB_URL}/${t}`,{method:'POST',headers:{...HDR,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(b)});if(!r.ok){const e=await r.text();throw new Error(e);}const tx=await r.text();return tx?JSON.parse(tx):null;};
 
+// ── Sincronização dos dados de diaristas/mensalistas (antes ficavam só no navegador) ──
+const KV_KEYS=['slj_diaristas','slj_diaristas_dias','slj_diaristas_adiant','slj_mensalistas'];
+let kvPronto=false,kvPend=0;const kvT={};
+const _lsSet=Storage.prototype.setItem;
+Storage.prototype.setItem=function(k,v){_lsSet.call(this,k,v);if(this===localStorage&&kvPronto&&KV_KEYS.includes(k))kvPush(k);};
+function kvPush(k){
+  clearTimeout(kvT[k]);kvPend++;
+  kvT[k]=setTimeout(async()=>{
+    try{await sbUps('app_kv',[{chave:k,valor:localStorage.getItem(k)||'[]',atualizado_em:new Date().toISOString()}]);}
+    catch(e){try{setSyncStatus('err','Erro ao salvar colaboradores — dado só neste aparelho');}catch(_){}}
+    kvPend--;
+  },500);
+}
+async function kvPull(){
+  if(kvPend>0)return;
+  const rows=await sbGet('app_kv','?select=chave,valor');
+  if(!rows)return;
+  const m={};rows.forEach(r=>{m[r.chave]=r.valor;});
+  let mudou=false;
+  for(const k of KV_KEYS){
+    if(typeof m[k]==='string'){
+      if(localStorage.getItem(k)!==m[k]){_lsSet.call(localStorage,k,m[k]);mudou=true;}
+    }else if(localStorage.getItem(k)){
+      await sbUps('app_kv',[{chave:k,valor:localStorage.getItem(k),atualizado_em:new Date().toISOString()}]);
+    }
+  }
+  kvPronto=true;
+  if(mudou){
+    try{diaristas=JSON.parse(localStorage.getItem('slj_diaristas')||'[]');mensalistas=JSON.parse(localStorage.getItem('slj_mensalistas')||'[]');}catch(e){}
+    try{if(document.getElementById('page-colaboradores')?.classList.contains('active')){renderDiaristas();renderMensalistas();}renderDash();}catch(e){}
+  }
+}
+
 // ── CONSTANTES ─────────────────────────────────────────────────────────────
 const TAMS=['copo200ml','200ml','300ml','500ml','1L','5L'];
 const TL={'copo200ml':'Copo 200ml','200ml':'200 ml','300ml':'300 ml','500ml':'500 ml','1L':'1 L','5L':'5 L'};
@@ -3138,6 +3171,7 @@ async function sincronizar(){
         await sbUps('pagamentos_colaborador',pagamentosColab.map(p=>({id:p.id,colab_id:p.colabId,data_semana:p.dataSemana,valor_base:p.valorBase,valor_domingo:p.valorDomingo,residuo:p.residuo,total:p.total,pago:p.pago})));
       }
 
+      try{await kvPull();}catch(e){}
       const dbForn=await sbGet('fornecedores_laranja','?order=nome');      if(dbForn&&dbForn.length>0){
         fornecedores=dbForn.map(f=>({id:f.id,nome:f.nome,tel:f.tel||'',local:f.local||'',precoRef:f.preco_ref||0,obs:f.obs||''}));
         lsave('slj_fornecedores',fornecedores);
