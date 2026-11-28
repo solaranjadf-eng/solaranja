@@ -4186,28 +4186,17 @@ function renderLaranjas(){
   {
     const rend=larRend();
     const fmtL=n=>(Math.round(n*10)/10).toLocaleString('pt-BR',{maximumFractionDigits:1})+' L';
-    // O último carregamento de cada mês fechado é consumido no mês seguinte: conta no mês seguinte
-    const mesDe=d=>String(d||'').slice(0,7);
-    const prox=m=>{let[y,mm]=m.split('-').map(Number);mm++;if(mm>12){mm=1;y++;}return y+'-'+String(mm).padStart(2,'0');};
-    const ultPorMes={};
-    comprasLaranja.forEach(c=>{if(!c.data)return;const m=mesDe(c.data);const u=ultPorMes[m];if(!u||c.data>u.data||(c.data===u.data&&String(c.id)>String(u.id)))ultPorMes[m]=c;});
-    const mesEf=c=>{const m=mesDe(c.data);return(m<mesAtual&&ultPorMes[m]===c)?prox(m):m;};
-    const usaMes=larFiltro==='mes'||larFiltro==='mesant';
-    const alvoMes=larFiltro==='mes'?mesAtual:mesAnt;
-    const efList=usaMes?comprasLaranja.filter(c=>c.data&&mesEf(c)===alvoMes):doFiltro;
+    // Cada compra conta no mês da própria data (sem levar carregamento de um mês para o outro)
+    const efList=doFiltro;
     const spL=efList.reduce((t,c)=>t+(c.qtd||0),0),sbL=efList.reduce((t,c)=>t+(c.bonif||0),0);
     const prodPag=spL*rend,prodBon=sbL*rend,prodTot=prodPag+prodBon;
-    const ant=usaMes?comprasLaranja.find(c=>c.data&&mesDe(c.data)<alvoMes&&ultPorMes[mesDe(c.data)]===c&&mesEf(c)===alvoMes):null;
-    const saiu=usaMes?comprasLaranja.find(c=>c.data&&mesDe(c.data)===alvoMes&&mesEf(c)!==alvoMes):null;
     const vistos=new Set(),todosP=[];
     [...pedidos,...pedidosOntem,...pedidosAmanha,...Object.values(historico).flat()].forEach(p=>{if(!p||vistos.has(String(p.id)))return;vistos.add(String(p.id));todosP.push(p);});
     const noPeriodo=d=>!!d&&(larFiltro==='mes'?d.startsWith(mesAtual):larFiltro==='mesant'?d.startsWith(mesAnt):larFiltro==='hoje'?d===hojeKey:true);
     const vendL=todosP.filter(p=>noPeriodo(p.data)&&!p.naoEntregue&&!p.brinde).reduce((t,p)=>t+calcLitros(p.itens||[]),0);
     const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
     set('lar-litros-prod',fmtL(prodTot));
-    const dBR=d=>String(d).split('-').reverse().slice(0,2).join('/');
-    const nota=[ant?'inclui o último carregamento do mês anterior ('+dBR(ant.data)+', '+(ant.qtdTotal||ant.qtd||0)+' sacos)':'',saiu?'o último carregamento deste mês ('+dBR(saiu.data)+', '+(saiu.qtdTotal||saiu.qtd||0)+' sacos) conta no mês seguinte':''].filter(Boolean).join(' · ');
-    set('lar-litros-prod-sub',(efList.length?fmtL(prodPag)+' comprados + '+fmtL(prodBon)+' bonificados':'Sem compras no período')+(nota?' — '+nota:''));
+    set('lar-litros-prod-sub',efList.length?fmtL(prodPag)+' comprados + '+fmtL(prodBon)+' bonificados':'Sem compras no período');
     set('lar-litros-vend',fmtL(vendL));
     const dif=prodTot-vendL;
     set('lar-litros-saldo-l',dif>=0?'Ainda sem vender':'Vendido a mais');
